@@ -1,0 +1,59 @@
+{
+  "verdict": "REQUEST_CHANGES",
+  "approval": "UNAPPROVED",
+  "scope": "read-only policy/source review of unapplied proposal",
+  "source_behavior_assessment": "Exact old-base diff preserves receive/classification/side-effect ordering by source inspection; no compiler or runtime qualification",
+  "patch_sha256": "3be7359980ac07e479cde48fe2d6bdc0948d01db19c7213e4f6e1fcbe2996f97",
+  "claimed_owner_checkpoint": "dd1b11a852b97581abb9b83ec55f8f24868312e9",
+  "claimed_proposal_base": "56148470ca80bc3a87fa31c158a1d7156c7223d8",
+  "git_state_verified": false,
+  "files_pinned": 1456,
+  "live_or_snapshot_drift": false,
+  "findings": [
+    {
+      "id": "R1",
+      "kind": "policy-contract correction",
+      "severity": "P2",
+      "finding": "Routing rejection/unknown kind can settle without receive; H deferral is direct-only and does not pause elapsed retry age",
+      "smallest_change": "Correct reason/proposal matrix and controls; preserve existing group/routing retry behavior"
+    },
+    {
+      "id": "R2",
+      "kind": "integration blocker",
+      "severity": "P1",
+      "finding": "Parent has additional view_once_reference_refused permanent classification and changed receive closure",
+      "smallest_change": "Compose only the settlement hunk into pinned parent source, preserve classifier addition, re-review current policy/precedence"
+    },
+    {
+      "id": "R3",
+      "kind": "qualification blocker, not reproduced exploit",
+      "severity": "P1",
+      "finding": "No current actual-public-API caller-PC/explicit-private-input negative controls or behavioral runtime evidence",
+      "smallest_change": "Run matched compiler refusal/admission and real receive/ACK/order controls after prerequisite fixes; do not add public helper releases"
+    }
+  ],
+  "separate_gates_closed": [],
+  "fresh_builds": 0,
+  "fresh_tests": 0,
+  "network_calls": 0,
+  "git_commands": 0,
+  "children": 0,
+  "source_edits": 0,
+  "report": "review.md",
+  "full_source_pins": "source-pins.tsv",
+  "manifests": [
+    "manifest.before.json",
+    "manifest.after.json"
+  ],
+  "retained_evidence": {
+    "historical_public_helper_original": {
+      "exit_code": 1,
+      "E0093": 19
+    },
+    "historical_public_helper_held_prototype": {
+      "exit_code": 0,
+      "E0093": 0
+    },
+    "rerun": false
+  }
+}

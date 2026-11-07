@@ -1,0 +1,101 @@
+{
+  "verdict": "HELD \u2014 source/policy design review only; not approved for application or inventory",
+  "baseline_claim": "56148470ca80bc3a87fa31c158a1d7156c7223d8",
+  "owner_final_claim": "dd1b11a",
+  "patch_sha256": "162b6c73cd9bc41f838f90a505aafef2b0f4fa53ab7d086d958ff7535727260e",
+  "git_used": false,
+  "builds_run": false,
+  "runtime_tests_run": false,
+  "network_used": false,
+  "children_started": false,
+  "production_edits": false,
+  "candidate_applied": false,
+  "writes_scope": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/invitation-private-review-r1",
+  "scope_limit": "Sibling local-account trust/session provenance and global authentication are not certified. No R3 VO result is used as global authority proof.",
+  "verified_static": [
+    "All supplied input/source/reference hashes match frozen bytes.",
+    "Strict in-memory diff reconstruction exactly matches both proposed and retained applied-check source hashes.",
+    "Exactly three new Bool source release sites, all in one private Messages helper; two production call sites.",
+    "No new release in the public GroupInvitesState API or public constructible continuation.",
+    "No source-level eager fallback seal or changed reachable pure control/encoding error order found.",
+    "Retained raw public-authority evidence/logs match supplied hashes: original 19 E0093, rejected held prototype accepted.",
+    "Retained raw ten-case seal evidence matches supplied hash; not rerun."
+  ],
+  "findings": [
+    {
+      "id": "B1",
+      "kind": "source-flow blocker",
+      "priority": "high",
+      "title": "Private error text still selects Inbox effects",
+      "evidence": [
+        "proposed Messages 361-374",
+        "base Inbox 99-113,136-143,172-207,264-280",
+        "frozen parent Inbox 100-114,137-144"
+      ],
+      "minimal_fix": "Carry a finite reviewed disposition from the actual receive boundary to Inbox while retaining the original private error separately, or an exhaustive typed failure model with exact error reconstruction and a separately scoped status policy. Cover pending/no-retry-charge as well as applied/rejected/retry. Do not declassify generic classifiers or an entire error/Result."
+    },
+    {
+      "id": "B2",
+      "kind": "policy decision blocker",
+      "priority": "high",
+      "title": "Renewal disclosure precedes invitation ownership checks",
+      "evidence": [
+        "proposed GroupInvitesState 180-192,259-268,272-307",
+        "proposed Messages 350-357"
+      ],
+      "minimal_fix": "Explicitly accept the precise selected-reference/state-3 access policy for an authenticated unblocked sender, including mismatched later ownership and existing view-error precedence. If owner-only policy is required, hold this candidate and authorize a separately reviewed semantic redesign; do not silently move checks or eager-load the view."
+    },
+    {
+      "id": "B3",
+      "kind": "composition/authentication blocker",
+      "priority": "high",
+      "title": "Private source placement is not a certificate of the final authentication chain",
+      "evidence": [
+        "proposed Messages 470-541,569-624,911-964",
+        "frozen parent Messages 871-882,1254-1265",
+        "source-comparison.json"
+      ],
+      "minimal_fix": "Transplant only intended imports/private helper/call replacements into an immutable composed VO plus future auth pin. Preserve require_control_without_view_once and contact ordering. Re-establish both entrypoint authority paths and independently qualify the parent sibling trust/session-provenance repair. R3 VO helper evidence is not global auth proof."
+    },
+    {
+      "id": "B4",
+      "kind": "compiler qualification blocker",
+      "priority": "high",
+      "title": "Authority, caller-PC and private Result payload assumptions remain unmeasured",
+      "evidence": [
+        "proposed GroupInvitesState 208-215,217-347,349-362",
+        "proposed Messages 338-380",
+        "retained-evidence-validation.json"
+      ],
+      "minimal_fix": "Pass C01-C08 on actual composed artifact. The old 19-E0093 vs accepted counterexample is retained evidence about the rejected patch, not proof that this candidate refuses it."
+    },
+    {
+      "id": "B5",
+      "kind": "runtime qualification blocker",
+      "priority": "high",
+      "title": "Correct source ordering is not measured counter/effect equivalence",
+      "evidence": [
+        "proposed GroupInvitesState 132-175,312-325",
+        "proposed Messages 343-380",
+        "retained invitation-seal-effects.json"
+      ],
+      "minimal_fix": "Pass R01-R10 against baseline and corrected actual artifacts. Preserve exact errors, loader pruning, view-before-ownership error precedence, and all counter/Host effects; no eager fallback seal."
+    }
+  ],
+  "site_policy": "exact-site-policy.json",
+  "required_controls": "required-controls.json",
+  "policy_recommendation": "I1 framing and I3 pure readiness have legitimate bounded operational purposes under the stated private receive authority. I2 is an explicit pre-ownership selected-reference disclosure, conditionally defensible for semantic compatibility, not an owner-authorization result. No automatic disclosure approval is granted.",
+  "semantic_review": "No additional concrete source-level semantic regression found in the exact two-file patch. Compiler/runtime closure and final composed authority remain open.",
+  "integrity": "See manifest.before.json, manifest.after.json and integrity.json; hashes identify bytes, not independently verified Git commit ancestry.",
+  "integrity_summary": {
+    "checked_at_utc": "2026-11-07T02:06:13.460063+00:00",
+    "frozen_files": 1444,
+    "original_hashes_unchanged": true,
+    "frozen_hashes_unchanged": true,
+    "source_tree_additions_absent": true,
+    "changed_originals": [],
+    "changed_frozen": [],
+    "new_current_source_paths": [],
+    "scope": "All frozen inputs and source files; .git and production state not accessed. Review wrote only inside its designated artifact directory."
+  }
+}

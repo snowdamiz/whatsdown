@@ -1,0 +1,86 @@
+[
+  {
+    "path": "mesh-private-messenger/packages/mobile-core/mobile/group_invites_state.mpl",
+    "base": "f33ab23ba61a52f18105d204893b4d67792a60f5669460706b41aef6626427be",
+    "owner_frozen": "f33ab23ba61a52f18105d204893b4d67792a60f5669460706b41aef6626427be",
+    "parent_frozen": "f33ab23ba61a52f18105d204893b4d67792a60f5669460706b41aef6626427be"
+  },
+  {
+    "path": "mesh-private-messenger/packages/mobile-core/mobile/messages.mpl",
+    "base": "592843a76f3253abde64f2224611f55c9bc885291014d5cc236517d6b5782c68",
+    "owner_frozen": "592843a76f3253abde64f2224611f55c9bc885291014d5cc236517d6b5782c68",
+    "parent_frozen": "4f0d42f6badd824cb543a23a2f26026e850d9bfa7c8817514619d74868b769a0"
+  },
+  {
+    "path": "mesh-private-messenger/packages/mobile-core/mobile/group_invites.mpl",
+    "base": "69174fc82d4be67b7fcc0481e3a4650e4e17bffc2dc5341d3919552d1945fa69",
+    "owner_frozen": "69174fc82d4be67b7fcc0481e3a4650e4e17bffc2dc5341d3919552d1945fa69",
+    "parent_frozen": "69174fc82d4be67b7fcc0481e3a4650e4e17bffc2dc5341d3919552d1945fa69"
+  },
+  {
+    "path": "mesh-private-messenger/packages/mobile-core/mobile/groups.mpl",
+    "base": "a3f0c858a0c5a9020f297882bdf9110aa1bd4104e24ae481826452f47631b02d",
+    "owner_frozen": "a3f0c858a0c5a9020f297882bdf9110aa1bd4104e24ae481826452f47631b02d",
+    "parent_frozen": "7959d4513bdacd38ab8975963922e824509fed4d40dd997de844a53d0420a793"
+  },
+  {
+    "path": "mesh-private-messenger/packages/mobile-core/mobile/codec.mpl",
+    "base": "5be021955a1c952daecbd77f4a384ba3632bd275af2daaf4b06c51cd3a79040b",
+    "owner_frozen": "5be021955a1c952daecbd77f4a384ba3632bd275af2daaf4b06c51cd3a79040b",
+    "parent_frozen": "5be021955a1c952daecbd77f4a384ba3632bd275af2daaf4b06c51cd3a79040b"
+  },
+  {
+    "path": "mesh-private-messenger/packages/mobile-core/mobile/group_state.mpl",
+    "base": "f983bc53237baf01df49918d422bad37a1d2f94d7b17f56f605ebca1a20b3eb6",
+    "owner_frozen": "f983bc53237baf01df49918d422bad37a1d2f94d7b17f56f605ebca1a20b3eb6",
+    "parent_frozen": "f983bc53237baf01df49918d422bad37a1d2f94d7b17f56f605ebca1a20b3eb6"
+  },
+  {
+    "path": "mesh-private-messenger/packages/mobile-core/mobile/transparency.mpl",
+    "base": "7b7f7e46c5e41c15997f6083c5bcab80f21f1edbc2319af3354780e8705677be",
+    "owner_frozen": "7b7f7e46c5e41c15997f6083c5bcab80f21f1edbc2319af3354780e8705677be",
+    "parent_frozen": "7b7f7e46c5e41c15997f6083c5bcab80f21f1edbc2319af3354780e8705677be"
+  },
+  {
+    "path": "mesh-private-messenger/packages/mobile-core/storage/keys.mpl",
+    "base": "9b7816e127eb3c09ec127431419a845d244826b1129a59aaecce25d62a3f004e",
+    "owner_frozen": "9b7816e127eb3c09ec127431419a845d244826b1129a59aaecce25d62a3f004e",
+    "parent_frozen": "9b7816e127eb3c09ec127431419a845d244826b1129a59aaecce25d62a3f004e"
+  },
+  {
+    "path": "mesh-private-messenger/packages/mobile-core/tests/group_invitations.test.mpl",
+    "base": "fb83bd74ce5cd277d97084719c7c1902fc102bd9501aa61817c2b31bb0f1a7da",
+    "owner_frozen": "fb83bd74ce5cd277d97084719c7c1902fc102bd9501aa61817c2b31bb0f1a7da",
+    "parent_frozen": "fb83bd74ce5cd277d97084719c7c1902fc102bd9501aa61817c2b31bb0f1a7da"
+  },
+  {
+    "path": "mesh-private-messenger/packages/messenger-protocol/transparency/wire.mpl",
+    "base": "8bf85479c3af923a8ed5455e30cac029c0a777387cde3954959d7443285b9b44",
+    "owner_frozen": "8bf85479c3af923a8ed5455e30cac029c0a777387cde3954959d7443285b9b44",
+    "parent_frozen": "8bf85479c3af923a8ed5455e30cac029c0a777387cde3954959d7443285b9b44"
+  },
+  {
+    "path": "mesh-private-messenger/packages/messenger-protocol/transparency/merkle.mpl",
+    "base": "0d3fef58a3283e422997e01b39e00f327c63d96f78f7d9b51eb26cc1af574a3a",
+    "owner_frozen": "0d3fef58a3283e422997e01b39e00f327c63d96f78f7d9b51eb26cc1af574a3a",
+    "parent_frozen": "0d3fef58a3283e422997e01b39e00f327c63d96f78f7d9b51eb26cc1af574a3a"
+  },
+  {
+    "path": "mesh-private-messenger/packages/messenger-protocol/protocol/v1.mpl",
+    "base": "cee984a2aad68100c548f54db1551419e8abab313e349711cd20011179cabe94",
+    "owner_frozen": "cee984a2aad68100c548f54db1551419e8abab313e349711cd20011179cabe94",
+    "parent_frozen": "9124c583575c1f19538999d172d3151134ce64dba1d35f669323d83bb36ec489"
+  },
+  {
+    "path": "mesh-private-messenger/packages/mobile-core/mobile/inbox.mpl",
+    "base": "aad83bedb0de121f10df6867e61a66242c50cb75ef51a127e54fe599ff3a3dd3",
+    "owner_frozen": "aad83bedb0de121f10df6867e61a66242c50cb75ef51a127e54fe599ff3a3dd3",
+    "parent_frozen": "7abbf6ecb5d031cf7cc56955df0cae93dc041148537a2be38de92529b4f22811"
+  },
+  {
+    "path": "mesh-private-messenger/packages/mobile-core/mobile_core.mpl",
+    "base": "58474b35f05384592010a9df522870eba71bed5490a4367501707245b559b9b3",
+    "owner_frozen": "58474b35f05384592010a9df522870eba71bed5490a4367501707245b559b9b3",
+    "parent_frozen": "098827b9e53913309502db859f3b9c4c3c68b44dc5c076b7cccff066017657d6"
+  }
+]

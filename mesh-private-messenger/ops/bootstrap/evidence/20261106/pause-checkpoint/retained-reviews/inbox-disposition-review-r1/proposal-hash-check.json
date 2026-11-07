@@ -1,0 +1,17 @@
+{
+  "base_sha256": {
+    "actual": "aad83bedb0de121f10df6867e61a66242c50cb75ef51a127e54fe599ff3a3dd3",
+    "declared": "aad83bedb0de121f10df6867e61a66242c50cb75ef51a127e54fe599ff3a3dd3",
+    "match": true
+  },
+  "proposed_sha256": {
+    "actual": "5f0a4949b0b3284458b3264ca07a816863071bd22943bdf9aa35207d226d1f2a",
+    "declared": "5f0a4949b0b3284458b3264ca07a816863071bd22943bdf9aa35207d226d1f2a",
+    "match": true
+  },
+  "patch_sha256": {
+    "actual": "3be7359980ac07e479cde48fe2d6bdc0948d01db19c7213e4f6e1fcbe2996f97",
+    "declared": "3be7359980ac07e479cde48fe2d6bdc0948d01db19c7213e4f6e1fcbe2996f97",
+    "match": true
+  }
+}

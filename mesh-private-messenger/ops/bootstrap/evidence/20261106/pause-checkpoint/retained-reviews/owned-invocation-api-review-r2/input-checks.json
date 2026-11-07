@@ -1,0 +1,107 @@
+{
+  "r1_inputs": [
+    {
+      "path": ".morse/continuation-20261106/owned-invocation-api-review-r1/pinned/compiler/meshc/src/library_authority.h",
+      "expected_sha256": "5bbaf429dbd3749924b041847aba40ce40ee33c5a13a5c97f454601d79f87843",
+      "actual_sha256": "5bbaf429dbd3749924b041847aba40ce40ee33c5a13a5c97f454601d79f87843",
+      "matches": true
+    },
+    {
+      "path": ".morse/continuation-20261106/owned-invocation-api-review-r1/pinned/compiler/meshc/src/library_bindings.rs",
+      "expected_sha256": "180e66fd9728b981d6317f80309ffa7496c5796c9693716e3d63ba3ed2e75c78",
+      "actual_sha256": "180e66fd9728b981d6317f80309ffa7496c5796c9693716e3d63ba3ed2e75c78",
+      "matches": true
+    },
+    {
+      "path": ".morse/continuation-20261106/owned-invocation-api-review-r1/pinned/compiler/mesh-rt/src/library.rs",
+      "expected_sha256": "45b78822ff5cc601f95b969b02b50059c745b5b2e0fdb596433e83fe7af21f8d",
+      "actual_sha256": "45b78822ff5cc601f95b969b02b50059c745b5b2e0fdb596433e83fe7af21f8d",
+      "matches": true
+    },
+    {
+      "path": ".morse/continuation-20261106/owned-invocation-api-review-r1/pinned/compiler/mesh-rt/src/authority.rs",
+      "expected_sha256": "3d8f612848f9ed0b5767351925748e78b9fbc2d4b600b9629bdb95182ad238d6",
+      "actual_sha256": "3d8f612848f9ed0b5767351925748e78b9fbc2d4b600b9629bdb95182ad238d6",
+      "matches": true
+    },
+    {
+      "path": ".morse/continuation-20261106/owned-invocation-api-review-r1/pinned/compiler/mesh-rt/src/actor/process.rs",
+      "expected_sha256": "edf6185428b7a3907057cc51b2218603828e47ad6c1a64998c67db41eb230668",
+      "actual_sha256": "edf6185428b7a3907057cc51b2218603828e47ad6c1a64998c67db41eb230668",
+      "matches": true
+    },
+    {
+      "path": ".morse/continuation-20261106/owned-invocation-api-review-r1/pinned/compiler/mesh-rt/src/actor/scheduler.rs",
+      "expected_sha256": "a95b78c25c6efa61575daeabe624d7699a42c14bfdb3f2e7819b322358224f81",
+      "actual_sha256": "a95b78c25c6efa61575daeabe624d7699a42c14bfdb3f2e7819b322358224f81",
+      "matches": true
+    },
+    {
+      "path": ".morse/continuation-20261106/owned-invocation-api-review-r1/pinned/compiler/mesh-rt/src/actor/stack.rs",
+      "expected_sha256": "0affdca82f13551db082ba8af92c2ff119763731666411bd7a388c294e54cf07",
+      "actual_sha256": "0affdca82f13551db082ba8af92c2ff119763731666411bd7a388c294e54cf07",
+      "matches": true
+    },
+    {
+      "path": ".morse/continuation-20261106/owned-invocation-api-review-r1/parent/CONTRACT.md",
+      "expected_sha256": "a848962558e0ee1c639747063eede5312afc863d11c80b6a2a5b3caa0d21a0cb",
+      "actual_sha256": "a848962558e0ee1c639747063eede5312afc863d11c80b6a2a5b3caa0d21a0cb",
+      "matches": true
+    },
+    {
+      "path": ".morse/continuation-20261106/owned-invocation-api-review-r1/parent/SKETCH.md",
+      "expected_sha256": "2189f1ef8e6a25e62bc5d4bf792744d8fbe0c54dd3b63e89dd8c2bcb227e9c70",
+      "actual_sha256": "2189f1ef8e6a25e62bc5d4bf792744d8fbe0c54dd3b63e89dd8c2bcb227e9c70",
+      "matches": true
+    },
+    {
+      "path": ".morse/continuation-20261106/owned-invocation-api-review-r1/parent/API_CONSTRAINTS.md",
+      "expected_sha256": "6b2d67277a4ef2220b3b6696e5fd3622e2475ca68141e59b73a22e39b6dd90c8",
+      "actual_sha256": "6b2d67277a4ef2220b3b6696e5fd3622e2475ca68141e59b73a22e39b6dd90c8",
+      "matches": true
+    },
+    {
+      "path": ".morse/continuation-20261106/owned-invocation-api-review-r1/parent/ALLOCATIONS.md",
+      "expected_sha256": "cd33e98e50fed45435074bb124381e2867b32b7769a09f0cd6e3f61c387f33e9",
+      "actual_sha256": "cd33e98e50fed45435074bb124381e2867b32b7769a09f0cd6e3f61c387f33e9",
+      "matches": true
+    },
+    {
+      "path": ".morse/continuation-20261106/owned-invocation-api-review-r1/parent/PROOF_MATRIX.md",
+      "expected_sha256": "40dda63cf76a7d0fe946daf06f39dde7e720ca51ab99c7f4ae1e7667ddacaa51",
+      "actual_sha256": "40dda63cf76a7d0fe946daf06f39dde7e720ca51ab99c7f4ae1e7667ddacaa51",
+      "matches": true
+    },
+    {
+      "path": ".morse/continuation-20261106/owned-invocation-api-review-r1/parent/review/final-contract-review-r2.md",
+      "expected_sha256": "6e10966876d85a6d0bf8ada3fd6945f4d9550ba5d756708b6425021bdf156f55",
+      "actual_sha256": "6e10966876d85a6d0bf8ada3fd6945f4d9550ba5d756708b6425021bdf156f55",
+      "matches": true
+    },
+    {
+      "path": ".morse/continuation-20261106/owned-invocation-api-review-r1/pinned/compiler/mesh-rt/src/http/client.rs",
+      "expected_sha256": "adf1b435cabee73afcb8de088ede01082933112c9fb8ea91496f8dbfd8ac035d",
+      "actual_sha256": "adf1b435cabee73afcb8de088ede01082933112c9fb8ea91496f8dbfd8ac035d",
+      "matches": true
+    },
+    {
+      "path": ".morse/continuation-20261106/owned-invocation-api-review-r1/pinned/compiler/mesh-rt/src/db/sqlite.rs",
+      "expected_sha256": "d443bf83725d3ea824dbfee7ae86b4ae69eac2012d82f30e14593690ec116dde",
+      "actual_sha256": "d443bf83725d3ea824dbfee7ae86b4ae69eac2012d82f30e14593690ec116dde",
+      "matches": true
+    },
+    {
+      "path": ".morse/continuation-20261106/owned-invocation-api-review-r1/pinned/compiler/mesh-codegen/src/codegen/mod.rs",
+      "expected_sha256": "3fe12a73338edc57992bb53e36c0d49fe92ec7e88dfe514ccb69a79336236246",
+      "actual_sha256": "3fe12a73338edc57992bb53e36c0d49fe92ec7e88dfe514ccb69a79336236246",
+      "matches": true
+    },
+    {
+      "path": ".morse/continuation-20261106/owned-invocation-api-review-r1/app-frozen/mesh-private-messenger/apps/mobile/scripts/generate-scoped-bindings.mjs",
+      "expected_sha256": "cab26e3b25cff5beeab2aa5e2e3829a307df9a2ba7e153dd0184beccdbdc2ea5",
+      "actual_sha256": "cab26e3b25cff5beeab2aa5e2e3829a307df9a2ba7e153dd0184beccdbdc2ea5",
+      "matches": true
+    }
+  ],
+  "parent_design_manifest_sha256": "415297fc660a53ccccc94b08551a60c70a52c5dcd07c77bc20e7ed9c108515f3"
+}

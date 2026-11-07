@@ -1,6 +1,6 @@
 # Witness Network and Crypto Expansion: Complete Plan
 
-Status: implementation in progress (2026-11-06); plan revised 2026-09-25; §22 (security and privacy gaps found by the
+Status: paused by explicit user request (2026-11-06); source and evidence checkpoints pushed, resume only when requested. Plan revised 2026-09-25; §22 (security and privacy gaps found by the
 2026-09-26 review) added 2026-09-26; the bond counter, the phone bounty,
 checkpoint gossip and plaintext types (§6.16–6.18, Phases 0.6 and 6) added
 2026-09-27. Nothing in it is built unless §2 says so. The
@@ -463,6 +463,15 @@ pins are recorded in
 `mesh-private-messenger/ops/bootstrap/evidence/20261106/sibling-session-provenance/`
 on that branch. No authentication/VO ownership handoff is inferred from this
 checkpoint.
+
+Work is now paused at the user's request. The interrupted sibling review
+reported a fanout gap between validating one loaded snapshot and re-reading it
+before encryption; this finding and unfinished freshness/capacity concerns are
+retained for resumption. No fix or final review verdict is claimed. Runtime
+work is saved as unqualified checkpoint `c8205680`; the SQLite amendment and
+Inbox baseline diagnosis also remain unfinished. See the
+[pause checkpoint](mesh-private-messenger/ops/bootstrap/evidence/20261106/pause-checkpoint/PAUSED.json)
+for branch pins and retained evidence. All active workers were stopped.
 
 ### Decoded content ingress continuation — 2026-11-06
 

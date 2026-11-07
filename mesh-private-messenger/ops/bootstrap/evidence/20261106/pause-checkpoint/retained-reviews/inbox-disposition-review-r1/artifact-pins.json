@@ -1,0 +1,9 @@
+{
+  "review.md": "ca7212a86bfa37f12e329cdf2bd266916136310326ec741d61c7f9aae441edf4",
+  "review.json": "09cd2fccf45634e53319ad79125daf89279ecc9c6109f248a7dda8a090b67bbb",
+  "source-pins.tsv": "efbc19e9b870087503757b1d6e3a323dedd145bbafd3ffa8f04bd58cd1f712e2",
+  "manifest.before.json": "df7232d933bc9942ae3a8706a6beef4db5bfad4bbc2fa3162bcb18a6a3319502",
+  "manifest.after.json": "1d9ed51717f4cc283c43c135908861e771366e1af716a345106b2edf16e4f421",
+  "proposal-hash-check.json": "b8782192cee8ed2cfa3b505643ef899f75fc016fd548b5c92ec8d35ef0028b5f",
+  "snapshot-comparison.json": "3c68c51fcf6bf0cd29cb8e4be58df1d4c46945c54e9a55997632ff6329cee94a"
+}

@@ -1,0 +1,11 @@
+{
+  "checked_at_utc": "2026-11-07T02:06:13.460063+00:00",
+  "frozen_files": 1444,
+  "original_hashes_unchanged": true,
+  "frozen_hashes_unchanged": true,
+  "source_tree_additions_absent": true,
+  "changed_originals": [],
+  "changed_frozen": [],
+  "new_current_source_paths": [],
+  "scope": "All frozen inputs and source files; .git and production state not accessed. Review wrote only inside its designated artifact directory."
+}

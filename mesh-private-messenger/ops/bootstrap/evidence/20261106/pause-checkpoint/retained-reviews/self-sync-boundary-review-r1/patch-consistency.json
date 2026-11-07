@@ -1,0 +1,5 @@
+{
+  "method": "difflib unified diff of frozen base and frozen proposed file; no patch applied",
+  "exact_match": true,
+  "generated_diff_sha256": "baffba521d58108095f94435fa9d45a979701590de9936b560c4628c76ed0f4c"
+}

@@ -1,0 +1,157 @@
+{
+  "AGENTS.md": {
+    "sha256": "cd8a2cf5ea59a1cb4190be97343124f4c984d136a297a73396780246009559b9",
+    "bytes": 829,
+    "first_read_utc": "2026-11-07T02:37:46.292736+00:00"
+  },
+  ".tmp/native-owned-invocations/core-sqlite-prerequisite/PROPOSAL.md": {
+    "sha256": "44ffe912c31e299392abad1aecf9431e619fafd15833b73508a2c1dcb94eae12",
+    "bytes": 9398,
+    "first_read_utc": "2026-11-07T02:37:46.293735+00:00"
+  },
+  ".tmp/native-owned-invocations/core-sqlite-prerequisite/pins.json": {
+    "sha256": "8bbaa6b124b9028a5cd0848bab692bf551464278a146ceff20a48fb372a4eb7c",
+    "bytes": 1247,
+    "first_read_utc": "2026-11-07T02:37:46.295406+00:00"
+  },
+  ".tmp/native-owned-invocations/core-sqlite-prerequisite/prepare_probe.py": {
+    "sha256": "e886d2de9bde0ba972e56664f69462d2c0e1812164de96c2387d11a511e85d1f",
+    "bytes": 3245,
+    "first_read_utc": "2026-11-07T02:37:46.295868+00:00"
+  },
+  ".tmp/native-owned-invocations/core-sqlite-prerequisite/prepare-probe.json": {
+    "sha256": "6567d284844d10b5af93776939e37f9730f944a9814b996bd2aaa8e0de7bad91",
+    "bytes": 1000,
+    "first_read_utc": "2026-11-07T02:37:46.297242+00:00"
+  },
+  "compiler/mesh-rt/src/db/sqlite.rs": {
+    "sha256": "d443bf83725d3ea824dbfee7ae86b4ae69eac2012d82f30e14593690ec116dde",
+    "bytes": 42628,
+    "first_read_utc": "2026-11-07T02:37:56.477742+00:00"
+  },
+  "compiler/mesh-rt/src/authority.rs": {
+    "sha256": "d80426feeec87bf5337624608dc822036132ebfff7554fb7a4e9e07f7ec8344d",
+    "bytes": 14239,
+    "first_read_utc": "2026-11-07T02:37:56.478999+00:00"
+  },
+  "compiler/mesh-rt/src/actor/scheduler.rs": {
+    "sha256": "4ed8703c70b77fa60b9b08f9e650fc240a72b068585ba7147379e8b4723eea89",
+    "bytes": 75667,
+    "first_read_utc": "2026-11-07T02:37:56.480441+00:00"
+  },
+  ".tmp/native-owned-invocations/core-bootstrap/mobile-core/storage/blobs.mpl": {
+    "sha256": "1f0ee7e205bb5dc6b686c6a448989d7db19224b1728002c6aeac8351ed12a054",
+    "bytes": 21493,
+    "first_read_utc": "2026-11-07T02:37:56.482962+00:00"
+  },
+  ".tmp/native-owned-invocations/review-input-r2/source/compiler/mesh-rt/src/authority.rs": {
+    "sha256": "d80426feeec87bf5337624608dc822036132ebfff7554fb7a4e9e07f7ec8344d",
+    "bytes": 14239,
+    "first_read_utc": "2026-11-07T02:37:56.484225+00:00"
+  },
+  ".tmp/native-owned-invocations/review-input-r2/source-pin.json": {
+    "sha256": "48fd7392c87319a97aed03489f1016525476209398ff27468ea4b0afde1cbee6",
+    "bytes": 3878,
+    "first_read_utc": "2026-11-07T02:38:02.068286+00:00"
+  },
+  ".tmp/native-owned-invocations/review-input-r2/STATUS.md": {
+    "sha256": "8f50bac6160c30ed4fdd746e6b06d0fdb4b1e84f63963be43e75e2293dccee2d",
+    "bytes": 3028,
+    "first_read_utc": "2026-11-07T02:38:02.068956+00:00"
+  },
+  "/Users/andreyyurlov/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libsqlite3-sys-0.36.0/sqlite3/sqlite3.c": {
+    "sha256": "ff57e8d0a1572b35c17cab9a7dea34616bc12b6fb8b29acf5cb00b6ecf025149",
+    "bytes": 9386637,
+    "first_read_utc": "2026-11-07T02:38:02.073228+00:00"
+  },
+  ".tmp/native-owned-invocations/core-bootstrap/red2/local-result.json": {
+    "sha256": "0e7ffc51a5b52b568a71b5c6a9070641dff7447ba745993cb35fa8b1db904bb8",
+    "bytes": 3628,
+    "first_read_utc": "2026-11-07T02:38:02.073742+00:00"
+  },
+  ".tmp/native-owned-invocations/API_PROPOSAL.md": {
+    "sha256": "544325a5eb2c656741e40da7524edc1ed645a1b7aeaea7219814e2a7bfbe79dc",
+    "bytes": 16171,
+    "first_read_utc": "2026-11-07T02:38:27.231759+00:00"
+  },
+  "docs/native-library/effect-authority.md": {
+    "sha256": "9b93825a4c7bcc17309feafee15d979f3eea43e07f3a7bd35e3db1c8b6a624e1",
+    "bytes": 9907,
+    "first_read_utc": "2026-11-07T02:38:27.232673+00:00"
+  },
+  "docs/native-library/owned-invocations.md": {
+    "sha256": "c4a5d9cfe1151cdad92d7a2bb9913cae64c112fe8000b9a21d00f2327821de6e",
+    "bytes": 16007,
+    "first_read_utc": "2026-11-07T02:38:27.235698+00:00"
+  },
+  "compiler/mesh-rt/src/actor/stack.rs": {
+    "sha256": "5c82bd7e2a86b4a9aed9fdbe327fafb35174de4bd28f6a0b898514599bf91b78",
+    "bytes": 15984,
+    "first_read_utc": "2026-11-07T02:38:27.239688+00:00"
+  },
+  "compiler/mesh-rt/src/library/invocation.rs": {
+    "sha256": "7fefc1322889fc3129496b9fa73c8232021343815bdef32cb66ed67816326abd",
+    "bytes": 47886,
+    "first_read_utc": "2026-11-07T02:38:27.243571+00:00"
+  },
+  "compiler/mesh-rt/src/actor/process.rs": {
+    "sha256": "7067c9b152282b3c70f932b9511213c9991769284cfb22360fa29373433adc4d",
+    "bytes": 24401,
+    "first_read_utc": "2026-11-07T02:38:27.246554+00:00"
+  },
+  ".tmp/native-owned-invocations/core-bootstrap/mobile-core/mobile/profile.mpl": {
+    "sha256": "4831de86664f761f7a10c24baa6783a7bcfc1350a9892dcd5497cd33a6c58f44",
+    "bytes": 6417,
+    "first_read_utc": "2026-11-07T02:39:24.342438+00:00"
+  },
+  "compiler/mesh-rt/src/storage_wrapping.rs": {
+    "sha256": "3029fbd46c0dd43e47db66f353aa9d85549d5e04f0ad39f8806875445b21bcfa",
+    "bytes": 92933,
+    "first_read_utc": "2026-11-07T02:39:51.667860+00:00"
+  },
+  ".tmp/native-owned-invocations/audit-r1/snapshot/compiler/mesh-rt/src/db/sqlite.rs": {
+    "sha256": "d443bf83725d3ea824dbfee7ae86b4ae69eac2012d82f30e14593690ec116dde",
+    "bytes": 42628,
+    "first_read_utc": "2026-11-07T02:40:14.370334+00:00"
+  },
+  ".tmp/native-owned-invocations/audit-r1/snapshot/compiler/mesh-rt/src/authority.rs": {
+    "sha256": "89e3311c9066d805083c5043e57bc9ab5a8a90c537c7006e18e4df0eb7541640",
+    "bytes": 12924,
+    "first_read_utc": "2026-11-07T02:40:14.370943+00:00"
+  },
+  "compiler/mesh-rt/Cargo.toml": {
+    "sha256": "12463b90e373323e4ba9d0d65b0d1c352cfddfdf7f6b51839ffe9ce7b77cd67f",
+    "bytes": 3558,
+    "first_read_utc": "2026-11-07T02:40:14.371086+00:00"
+  },
+  "/Users/andreyyurlov/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libsqlite3-sys-0.36.0/build.rs": {
+    "sha256": "d1cc8d34dc74238ff2f179705933c4022ef05db60101d9dc65ff4409dab608c2",
+    "bytes": 33831,
+    "first_read_utc": "2026-11-07T02:40:14.371240+00:00"
+  },
+  ".tmp/native-owned-invocations/review-input-r2/source/compiler/mesh-rt/src/actor/scheduler.rs": {
+    "sha256": "4ed8703c70b77fa60b9b08f9e650fc240a72b068585ba7147379e8b4723eea89",
+    "bytes": 75667,
+    "first_read_utc": "2026-11-07T02:40:55.652485+00:00"
+  },
+  ".tmp/native-owned-invocations/review-input-r2/source/compiler/mesh-rt/src/actor/stack.rs": {
+    "sha256": "5c82bd7e2a86b4a9aed9fdbe327fafb35174de4bd28f6a0b898514599bf91b78",
+    "bytes": 15984,
+    "first_read_utc": "2026-11-07T02:40:55.652933+00:00"
+  },
+  ".tmp/native-owned-invocations/review-input-r2/source/compiler/mesh-rt/src/library/invocation.rs": {
+    "sha256": "7fefc1322889fc3129496b9fa73c8232021343815bdef32cb66ed67816326abd",
+    "bytes": 47886,
+    "first_read_utc": "2026-11-07T02:40:55.653316+00:00"
+  },
+  ".tmp/native-owned-invocations/review-input-r2/source/compiler/mesh-rt/src/storage_wrapping.rs": {
+    "sha256": "3029fbd46c0dd43e47db66f353aa9d85549d5e04f0ad39f8806875445b21bcfa",
+    "bytes": 92933,
+    "first_read_utc": "2026-11-07T02:40:55.653599+00:00"
+  },
+  ".tmp/native-owned-invocations/review-input-r2/source/docs/native-library/owned-invocations.md": {
+    "sha256": "c4a5d9cfe1151cdad92d7a2bb9913cae64c112fe8000b9a21d00f2327821de6e",
+    "bytes": 16007,
+    "first_read_utc": "2026-11-07T02:45:12.941212+00:00"
+  }
+}

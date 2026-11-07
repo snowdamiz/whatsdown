@@ -1,0 +1,63 @@
+{
+  "mobile/messages.mpl": {
+    "unchanged_functions": [
+      "view_once_body_safe",
+      "view_once_message_digest",
+      "sync_side_effects",
+      "sync_initial_index",
+      "required_receive_basis",
+      "received_history_writes",
+      "received_history_body",
+      "start_conversation",
+      "received_prekey_writes",
+      "require_control_without_view_once",
+      "keep_contact_address",
+      "keep_ordinary_contact",
+      "peer_sync_payload",
+      "receive_initial_message",
+      "send_message",
+      "reject_message",
+      "capture_received_history",
+      "capture_received_acceptance",
+      "selected_receive_basis",
+      "with_received_basis",
+      "commit_received",
+      "commit_received_with_sources",
+      "receive_message"
+    ],
+    "changed_functions": [
+      "prepare_received_history"
+    ],
+    "new_functions": [],
+    "removed_functions": []
+  },
+  "mobile/view_once_admission.mpl": {
+    "unchanged_functions": [
+      "view_once_epoch_label",
+      "seal_view_once_epoch",
+      "view_once_logical_label",
+      "view_once_row_label",
+      "view_once_identity_label",
+      "view_once_identity_digest",
+      "captured_row",
+      "captured_view_once_exists",
+      "identity_matches",
+      "same_message_expiry",
+      "same_pending",
+      "existing_action",
+      "prior_action",
+      "validated_pending"
+    ],
+    "changed_functions": [
+      "require_view_once_epoch",
+      "prepare_view_once_write",
+      "prepare_view_once_pending"
+    ],
+    "new_functions": [
+      "prepare_view_once_write_parts"
+    ],
+    "removed_functions": []
+  },
+  "preparation_body_byte_identical": true,
+  "preparation_body_sha256": "f0116cee504602a89bf3ef38e13ea4bad12641463f366b971f9efdcfe9c74f41"
+}

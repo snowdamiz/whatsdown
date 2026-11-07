@@ -1,0 +1,47 @@
+[
+  {
+    "name": "epoch_content_match",
+    "exit": 0,
+    "seconds": 37.13,
+    "log_sha256": "4cad1fced10f3263f1985c3319a6322f1f158021b886c426ec2b91d30a0d9ff2",
+    "source_sha256": "5dc06cf76cbf709e9f11b97118d7823b2421ace8fe69a6a77e15ad11e74abd62",
+    "artifacts": {
+      "compiled/epoch_content_match/libprobe.a": "aad7857273c2c169ecfe48c46ad32f897860d74f1abf3e46eff53bc1a0f9fa19",
+      "compiled/epoch_content_match/libprobe.abi.json": "788b5e7a5af5cbff83b63d7ab9a88df5aca9490f616bfc56b1e9ad8e254533df",
+      "compiled/epoch_content_match/libprobe.h": "baa1f7fcbdda1438b996ba275258fda04dbe8c948e7cbaf2a43e81dbb404f926",
+      "compiled/epoch_content_match/libprobe.jni.c": "83ed0a8e78f715e8e6d29636105a22392fee818dda658c07edce8b9e6875e2a7",
+      "compiled/epoch_content_match/libprobe.kt": "5df630f20dd17c75458a55be2bc14d144c4a1171e5090cae85409e89f48ed928",
+      "compiled/epoch_content_match/libprobe.ll": "23d2c191d356c0edcdccf6603f3a8a4ef5f3301229e4ed3ca7b75e4546b52604",
+      "compiled/epoch_content_match/libprobe.swift": "af6a24d5866c79382cebda72299e7019276e4824ce6461bf9f38d538e704aabd",
+      "compiled/epoch_content_match/libprobe.ts": "f6d21fbdb06f10c3cd8284b071de3b4340c627aa2434ae8170062b40aab5836a"
+    },
+    "log_tail": "  LLVM IR: /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-review-r2/compiled/epoch_content_match/libprobe.ll\n  Compiled: /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-review-r2/compiled/epoch_content_match/libprobe.a\n"
+  },
+  {
+    "name": "write_history_class",
+    "exit": 0,
+    "seconds": 37.29,
+    "log_sha256": "8289215e2356780968d290a44a16f25db32ee80d20c4575697a64c7f62ec4ca8",
+    "source_sha256": "add19b628e08c4719f17bdd81f3428e7320adbc09bc7e88760d62728c2c3362f",
+    "artifacts": {
+      "compiled/write_history_class/libprobe.a": "e3866b1c8d4b441da71529ab007a596f1098039be026c62f791920119f36d532",
+      "compiled/write_history_class/libprobe.abi.json": "ea18f445ea12f2b91a1d8655f60f41e411299ae206fa51ccd9b5204f684b7ce9",
+      "compiled/write_history_class/libprobe.h": "17a6a8c386f6230c61ebdb072816ff5f9155203b2c463858c371a3ca8c516938",
+      "compiled/write_history_class/libprobe.jni.c": "a2e0b20008e2fc4f11307d17dd5dcf1d11d808f1e0bf4499fadb0d7825b61684",
+      "compiled/write_history_class/libprobe.kt": "46129877ac9ab56d74bf5a50baba3c1f0dbad7bb491a135a0bf16797c25f199a",
+      "compiled/write_history_class/libprobe.ll": "b1c517e8f235597f1a3543a65db7df4531297ae9a11f3ef09f76b6aa557f43c8",
+      "compiled/write_history_class/libprobe.swift": "0676ca66f98a11d0b9d1f309a5d1fc64eb26e6d1aa1c11fbeb9484c7ad185f5e",
+      "compiled/write_history_class/libprobe.ts": "ec88ecae3a198f8a8dbd794c25121929b94b082d814110360cf2908cd2dcc7e1"
+    },
+    "log_tail": "  LLVM IR: /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-review-r2/compiled/write_history_class/libprobe.ll\n  Compiled: /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-review-r2/compiled/write_history_class/libprobe.a\n"
+  },
+  {
+    "name": "write_reference_bytes",
+    "exit": 1,
+    "seconds": 37.29,
+    "log_sha256": "aaf2dba63762ae0124ef0505d97b73d6b38497a9443f425df5a47ecbe94af6fa",
+    "source_sha256": "5e4aba21edc3dd7d36619c0eb910aed50921d13b646901a5da6c489b00163cb5",
+    "artifacts": {},
+    "log_tail": "{\"code\":\"E0093\",\"severity\":\"error\",\"message\":\"plaintext flow to `native export` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification\",\"file\":\"/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-review-r2/probes/write_reference_bytes/main.mpl\",\"spans\":[{\"start\":358,\"end\":1500,\"label\":\"plaintext reaches `native export` here\"}],\"fix\":\"plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification\"}\n{\"code\":\"C0001\",\"file\":\"\",\"fix\":null,\"message\":\"Compilation failed due to errors above.\",\"severity\":\"error\",\"spans\":[]}\n"
+  }
+]

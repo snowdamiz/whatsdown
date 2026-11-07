@@ -1,0 +1,20 @@
+[
+  {
+    "path": "mesh-private-messenger/packages/messenger-protocol/protocol/v1.mpl",
+    "snapshot_sha256": "cee984a2aad68100c548f54db1551419e8abab313e349711cd20011179cabe94",
+    "protocol2246b94_sha256": "cee984a2aad68100c548f54db1551419e8abab313e349711cd20011179cabe94",
+    "equal": true
+  },
+  {
+    "path": "mesh-private-messenger/packages/messenger-protocol/protocol/envelope_wire.mpl",
+    "snapshot_sha256": "bf14d113ec359ae12d2ff0f0092af1fd347c4e09597509d8da7b0c688d7f1b88",
+    "protocol2246b94_sha256": "bf14d113ec359ae12d2ff0f0092af1fd347c4e09597509d8da7b0c688d7f1b88",
+    "equal": true
+  },
+  {
+    "path": "mesh-private-messenger/packages/messenger-protocol/groups/group_payload.mpl",
+    "snapshot_sha256": "bcad3c6f5af9d0aed1f5adbc32ccf8e011463d91f51d52510f7a8ecdbfa2f207",
+    "protocol2246b94_sha256": "bcad3c6f5af9d0aed1f5adbc32ccf8e011463d91f51d52510f7a8ecdbfa2f207",
+    "equal": true
+  }
+]

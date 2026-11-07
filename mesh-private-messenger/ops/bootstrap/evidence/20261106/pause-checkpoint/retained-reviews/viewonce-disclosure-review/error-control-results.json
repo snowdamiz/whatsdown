@@ -1,0 +1,53 @@
+[
+  {
+    "name": "write_error_payload_mapped",
+    "exit": 0,
+    "seconds": 47.96,
+    "command": [
+      "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+      "build",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-review/probes/write_error_payload_mapped",
+      "--artifact",
+      "staticlib",
+      "--emit-llvm",
+      "--json",
+      "--plaintext-report",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-review/write_error_payload_mapped.plaintext.json",
+      "--output",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-review/compiled/write_error_payload_mapped/libprobe.a"
+    ],
+    "log_sha256": "fb36da8e78364e66b69b2d7620d34f7d4abc9c9bec8731c5e1c55c4770aa0da1",
+    "source_sha256": "9356ba484eb639b860d1293b6a60301cd587d10df6bfa9102fde9218ef4a7820",
+    "artifacts": {
+      "compiled/write_error_payload_mapped/libprobe.a": "20b353b6fcffcc3b1f0fc9d0659f17e4d98c170e5782dd2489f3d2636238c148",
+      "compiled/write_error_payload_mapped/libprobe.abi.json": "942dcf438891e3435bf41781761f45e4dd5229c8cdf78240956f805efa8d208e",
+      "compiled/write_error_payload_mapped/libprobe.h": "0d1887c6893127731bc1fce53d4dccf365ed1d8b21ff44cc5a83b5857ec71294",
+      "compiled/write_error_payload_mapped/libprobe.jni.c": "5046facb85bdcaa6403396ce15fb46a7698d68c76e3676f0027aa9b293b04e0b",
+      "compiled/write_error_payload_mapped/libprobe.kt": "0948632e931179d1ed8e7945b207a7808aec2d2e7055a5e2c3bd055f25b3f98a",
+      "compiled/write_error_payload_mapped/libprobe.ll": "b18bbb0a2c0d0df6f944ecc8206734ca51bbdeddd3ab8de35b7596a01d638acc",
+      "compiled/write_error_payload_mapped/libprobe.swift": "03ba3a09ee1704c7bab33d948bfdc7397a09a3d97e917aa2bc935404ef50f88d",
+      "compiled/write_error_payload_mapped/libprobe.ts": "65fa91e63c83b2c9db286e92c1c169f3a82dba9799b2de800c8e15b385a61077"
+    }
+  },
+  {
+    "name": "write_error_payload_raw",
+    "exit": 1,
+    "seconds": 40.43,
+    "command": [
+      "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+      "build",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-review/probes/write_error_payload_raw",
+      "--artifact",
+      "staticlib",
+      "--emit-llvm",
+      "--json",
+      "--plaintext-report",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-review/write_error_payload_raw.plaintext.json",
+      "--output",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-review/compiled/write_error_payload_raw/libprobe.a"
+    ],
+    "log_sha256": "47e4d28d93c987386dffaea0f4268b58689307a4d3b954f1cb55c3bf4d725e0c",
+    "source_sha256": "7a984a2d1f43a8c295e0a9b0f28ad859e050268cebf82951bfb5e6b39ba5d2b9",
+    "artifacts": {}
+  }
+]

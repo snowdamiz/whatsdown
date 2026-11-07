@@ -1,0 +1,25 @@
+{
+  "method": "strict unified-diff reconstruction in memory; no patch applied to any source; no Git/compiler/runtime",
+  "files": [
+    {
+      "path": "mesh-private-messenger/packages/mobile-core/mobile/group_invites_state.mpl",
+      "base_sha256": "f33ab23ba61a52f18105d204893b4d67792a60f5669460706b41aef6626427be",
+      "reconstructed_sha256": "286fe136e9a6ec37a20ba1d21121aa665196306345d8b3ccd86a750c94dc28b1",
+      "matches_proposed": true,
+      "matches_retained_applied_check": true,
+      "new_declassify_lines": []
+    },
+    {
+      "path": "mesh-private-messenger/packages/mobile-core/mobile/messages.mpl",
+      "base_sha256": "592843a76f3253abde64f2224611f55c9bc885291014d5cc236517d6b5782c68",
+      "reconstructed_sha256": "6e950836a6625dd33686b580d97155594d60dbf80bdad2875636855659aad2d2",
+      "matches_proposed": true,
+      "matches_retained_applied_check": true,
+      "new_declassify_lines": [
+        "+  if !declassify(valid,",
+        "+  let view = if declassify(renewal,",
+        "+  if !declassify(Result.is_ok(encoded),"
+      ]
+    }
+  ]
+}

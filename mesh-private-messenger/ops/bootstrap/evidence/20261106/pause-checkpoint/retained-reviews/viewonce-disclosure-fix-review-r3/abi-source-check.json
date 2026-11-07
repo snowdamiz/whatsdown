@@ -1,0 +1,1065 @@
+{
+  "base": "bd24a8a31d81a00b31d4e4af5959ce56ba9fb1e5",
+  "baseline_count": 176,
+  "candidate_count": 176,
+  "declarations_identical": true,
+  "artifact_abi_validation_executed": false,
+  "exports": [
+    {
+      "name": "mesh_messenger_initialize",
+      "declaration": "@export(\"mesh_messenger_initialize\")",
+      "path": "mobile_core.mpl",
+      "line": 248
+    },
+    {
+      "name": "mesh_messenger_validate_outer",
+      "declaration": "@export(\"mesh_messenger_validate_outer\")",
+      "path": "mobile_core.mpl",
+      "line": 261
+    },
+    {
+      "name": "mesh_messenger_store_envelope",
+      "declaration": "@export(\"mesh_messenger_store_envelope\")",
+      "path": "mobile_core.mpl",
+      "line": 269
+    },
+    {
+      "name": "mesh_messenger_create_account",
+      "declaration": "@export(\"mesh_messenger_create_account\")",
+      "path": "mobile_core.mpl",
+      "line": 273
+    },
+    {
+      "name": "mesh_messenger_load_profile",
+      "declaration": "@export(\"mesh_messenger_load_profile\")",
+      "path": "mobile_core.mpl",
+      "line": 283
+    },
+    {
+      "name": "mesh_messenger_create_signup_draft",
+      "declaration": "@export(\"mesh_messenger_create_signup_draft\")",
+      "path": "mobile_core.mpl",
+      "line": 287
+    },
+    {
+      "name": "mesh_messenger_signup_draft_state",
+      "declaration": "@export(\"mesh_messenger_signup_draft_state\")",
+      "path": "mobile_core.mpl",
+      "line": 292
+    },
+    {
+      "name": "mesh_messenger_credit_action_recovery",
+      "declaration": "@export(\"mesh_messenger_credit_action_recovery\")",
+      "path": "mobile_core.mpl",
+      "line": 296
+    },
+    {
+      "name": "mesh_messenger_credit_signup_policy",
+      "declaration": "@export(\"mesh_messenger_credit_signup_policy\")",
+      "path": "mobile_core.mpl",
+      "line": 300
+    },
+    {
+      "name": "mesh_messenger_credit_signup_policy_view",
+      "declaration": "@export(\"mesh_messenger_credit_signup_policy_view\")",
+      "path": "mobile_core.mpl",
+      "line": 304
+    },
+    {
+      "name": "mesh_messenger_signup_draft_rename",
+      "declaration": "@export(\"mesh_messenger_signup_draft_rename\")",
+      "path": "mobile_core.mpl",
+      "line": 308
+    },
+    {
+      "name": "mesh_messenger_signup_draft_free",
+      "declaration": "@export(\"mesh_messenger_signup_draft_free\")",
+      "path": "mobile_core.mpl",
+      "line": 312
+    },
+    {
+      "name": "mesh_messenger_signup_draft_free_complete",
+      "declaration": "@export(\"mesh_messenger_signup_draft_free_complete\")",
+      "path": "mobile_core.mpl",
+      "line": 316
+    },
+    {
+      "name": "mesh_messenger_credit_signup",
+      "declaration": "@export(\"mesh_messenger_credit_signup\")",
+      "path": "mobile_core.mpl",
+      "line": 320
+    },
+    {
+      "name": "mesh_messenger_credit_signup_recover",
+      "declaration": "@export(\"mesh_messenger_credit_signup_recover\")",
+      "path": "mobile_core.mpl",
+      "line": 324
+    },
+    {
+      "name": "mesh_messenger_register_signup_policy",
+      "declaration": "@export(\"mesh_messenger_register_signup_policy\")",
+      "path": "mobile_core.mpl",
+      "line": 328
+    },
+    {
+      "name": "mesh_messenger_credit_attachment_prepare",
+      "declaration": "@export(\"mesh_messenger_credit_attachment_prepare\")",
+      "path": "mobile_core.mpl",
+      "line": 332
+    },
+    {
+      "name": "mesh_messenger_credit_attachment_recover",
+      "declaration": "@export(\"mesh_messenger_credit_attachment_recover\")",
+      "path": "mobile_core.mpl",
+      "line": 336
+    },
+    {
+      "name": "mesh_messenger_credit_attachment_receipt",
+      "declaration": "@export(\"mesh_messenger_credit_attachment_receipt\")",
+      "path": "mobile_core.mpl",
+      "line": 340
+    },
+    {
+      "name": "mesh_messenger_credit_attachment_part",
+      "declaration": "@export(\"mesh_messenger_credit_attachment_part\")",
+      "path": "mobile_core.mpl",
+      "line": 344
+    },
+    {
+      "name": "mesh_messenger_credit_attachment_part_recover",
+      "declaration": "@export(\"mesh_messenger_credit_attachment_part_recover\")",
+      "path": "mobile_core.mpl",
+      "line": 348
+    },
+    {
+      "name": "mesh_messenger_credit_attachment_prune",
+      "declaration": "@export(\"mesh_messenger_credit_attachment_prune\")",
+      "path": "mobile_core.mpl",
+      "line": 352
+    },
+    {
+      "name": "mesh_messenger_credit_attachment_preview",
+      "declaration": "@export(\"mesh_messenger_credit_attachment_preview\")",
+      "path": "mobile_core.mpl",
+      "line": 356
+    },
+    {
+      "name": "mesh_messenger_credit_attachments",
+      "declaration": "@export(\"mesh_messenger_credit_attachments\")",
+      "path": "mobile_core.mpl",
+      "line": 361
+    },
+    {
+      "name": "mesh_messenger_attachment_download_plan",
+      "declaration": "@export(\"mesh_messenger_attachment_download_plan\")",
+      "path": "mobile_core.mpl",
+      "line": 366
+    },
+    {
+      "name": "mesh_messenger_replenish_prekeys",
+      "declaration": "@export(\"mesh_messenger_replenish_prekeys\")",
+      "path": "mobile_core.mpl",
+      "line": 370
+    },
+    {
+      "name": "mesh_messenger_reconcile_prekeys",
+      "declaration": "@export(\"mesh_messenger_reconcile_prekeys\")",
+      "path": "mobile_core.mpl",
+      "line": 374
+    },
+    {
+      "name": "mesh_messenger_create_link_request",
+      "declaration": "@export(\"mesh_messenger_create_link_request\")",
+      "path": "mobile_core.mpl",
+      "line": 378
+    },
+    {
+      "name": "mesh_messenger_device_link_sas",
+      "declaration": "@export(\"mesh_messenger_device_link_sas\")",
+      "path": "mobile_core.mpl",
+      "line": 382
+    },
+    {
+      "name": "mesh_messenger_authorize_device_link_for_set",
+      "declaration": "@export(\"mesh_messenger_authorize_device_link_for_set\")",
+      "path": "mobile_core.mpl",
+      "line": 390
+    },
+    {
+      "name": "mesh_messenger_complete_device_link",
+      "declaration": "@export(\"mesh_messenger_complete_device_link\")",
+      "path": "mobile_core.mpl",
+      "line": 394
+    },
+    {
+      "name": "mesh_messenger_inspect_device_set",
+      "declaration": "@export(\"mesh_messenger_inspect_device_set\")",
+      "path": "mobile_core.mpl",
+      "line": 398
+    },
+    {
+      "name": "mesh_messenger_create_device_revocation",
+      "declaration": "@export(\"mesh_messenger_create_device_revocation\")",
+      "path": "mobile_core.mpl",
+      "line": 402
+    },
+    {
+      "name": "mesh_messenger_account_deletion",
+      "declaration": "@export(\"mesh_messenger_account_deletion\")",
+      "path": "mobile_core.mpl",
+      "line": 406
+    },
+    {
+      "name": "mesh_messenger_erase_account",
+      "declaration": "@export(\"mesh_messenger_erase_account\")",
+      "path": "mobile_core.mpl",
+      "line": 410
+    },
+    {
+      "name": "mesh_messenger_device_departure",
+      "declaration": "@export(\"mesh_messenger_device_departure\")",
+      "path": "mobile_core.mpl",
+      "line": 414
+    },
+    {
+      "name": "mesh_messenger_forget_on_proof",
+      "declaration": "@export(\"mesh_messenger_forget_on_proof\")",
+      "path": "mobile_core.mpl",
+      "line": 418
+    },
+    {
+      "name": "mesh_messenger_receive_initial",
+      "declaration": "@export(\"mesh_messenger_receive_initial\")",
+      "path": "mobile_core.mpl",
+      "line": 427
+    },
+    {
+      "name": "mesh_messenger_prepare_fanout_prekeys",
+      "declaration": "@export(\"mesh_messenger_prepare_fanout_prekeys\")",
+      "path": "mobile_core.mpl",
+      "line": 439
+    },
+    {
+      "name": "mesh_messenger_send_fanout",
+      "declaration": "@export(\"mesh_messenger_send_fanout\")",
+      "path": "mobile_core.mpl",
+      "line": 443
+    },
+    {
+      "name": "mesh_messenger_group_key_package",
+      "declaration": "@export(\"mesh_messenger_group_key_package\")",
+      "path": "mobile_core.mpl",
+      "line": 451
+    },
+    {
+      "name": "mesh_messenger_group_invite",
+      "declaration": "@export(\"mesh_messenger_group_invite\")",
+      "path": "mobile_core.mpl",
+      "line": 460
+    },
+    {
+      "name": "mesh_messenger_group_invitation_accept",
+      "declaration": "@export(\"mesh_messenger_group_invitation_accept\")",
+      "path": "mobile_core.mpl",
+      "line": 464
+    },
+    {
+      "name": "mesh_messenger_group_invitation_complete",
+      "declaration": "@export(\"mesh_messenger_group_invitation_complete\")",
+      "path": "mobile_core.mpl",
+      "line": 468
+    },
+    {
+      "name": "mesh_messenger_group_invitation_decline",
+      "declaration": "@export(\"mesh_messenger_group_invitation_decline\")",
+      "path": "mobile_core.mpl",
+      "line": 472
+    },
+    {
+      "name": "mesh_messenger_group_invitations",
+      "declaration": "@export(\"mesh_messenger_group_invitations\")",
+      "path": "mobile_core.mpl",
+      "line": 476
+    },
+    {
+      "name": "mesh_messenger_group_create",
+      "declaration": "@export(\"mesh_messenger_group_create\")",
+      "path": "mobile_core.mpl",
+      "line": 480
+    },
+    {
+      "name": "mesh_messenger_group_add",
+      "declaration": "@export(\"mesh_messenger_group_add\")",
+      "path": "mobile_core.mpl",
+      "line": 489
+    },
+    {
+      "name": "mesh_messenger_group_remove",
+      "declaration": "@export(\"mesh_messenger_group_remove\")",
+      "path": "mobile_core.mpl",
+      "line": 493
+    },
+    {
+      "name": "mesh_messenger_group_send",
+      "declaration": "@export(\"mesh_messenger_group_send\")",
+      "path": "mobile_core.mpl",
+      "line": 497
+    },
+    {
+      "name": "mesh_messenger_group_receive",
+      "declaration": "@export(\"mesh_messenger_group_receive\")",
+      "path": "mobile_core.mpl",
+      "line": 502
+    },
+    {
+      "name": "mesh_messenger_group_list",
+      "declaration": "@export(\"mesh_messenger_group_list\")",
+      "path": "mobile_core.mpl",
+      "line": 506
+    },
+    {
+      "name": "mesh_messenger_group_inspect",
+      "declaration": "@export(\"mesh_messenger_group_inspect\")",
+      "path": "mobile_core.mpl",
+      "line": 510
+    },
+    {
+      "name": "mesh_messenger_group_history",
+      "declaration": "@export(\"mesh_messenger_group_history\")",
+      "path": "mobile_core.mpl",
+      "line": 515
+    },
+    {
+      "name": "mesh_messenger_group_forget",
+      "declaration": "@export(\"mesh_messenger_group_forget\")",
+      "path": "mobile_core.mpl",
+      "line": 521
+    },
+    {
+      "name": "mesh_messenger_receive_message",
+      "declaration": "@export(\"mesh_messenger_receive_message\")",
+      "path": "mobile_core.mpl",
+      "line": 526
+    },
+    {
+      "name": "mesh_messenger_update_conversation",
+      "declaration": "@export(\"mesh_messenger_update_conversation\")",
+      "path": "mobile_core.mpl",
+      "line": 530
+    },
+    {
+      "name": "mesh_messenger_push_intent",
+      "declaration": "@export(\"mesh_messenger_push_intent\")",
+      "path": "mobile_core.mpl",
+      "line": 534
+    },
+    {
+      "name": "mesh_messenger_push_action_complete",
+      "declaration": "@export(\"mesh_messenger_push_action_complete\")",
+      "path": "mobile_core.mpl",
+      "line": 542
+    },
+    {
+      "name": "mesh_messenger_push_status",
+      "declaration": "@export(\"mesh_messenger_push_status\")",
+      "path": "mobile_core.mpl",
+      "line": 546
+    },
+    {
+      "name": "mesh_messenger_list_conversations",
+      "declaration": "@export(\"mesh_messenger_list_conversations\")",
+      "path": "mobile_core.mpl",
+      "line": 550
+    },
+    {
+      "name": "mesh_messenger_load_history",
+      "declaration": "@export(\"mesh_messenger_load_history\", max_output: 16_794_632)",
+      "path": "mobile_core.mpl",
+      "line": 555
+    },
+    {
+      "name": "mesh_messenger_safety_number",
+      "declaration": "@export(\"mesh_messenger_safety_number\")",
+      "path": "mobile_core.mpl",
+      "line": 559
+    },
+    {
+      "name": "mesh_messenger_import_contact",
+      "declaration": "@export(\"mesh_messenger_import_contact\")",
+      "path": "mobile_core.mpl",
+      "line": 563
+    },
+    {
+      "name": "mesh_messenger_directory_entry",
+      "declaration": "@export(\"mesh_messenger_directory_entry\")",
+      "path": "mobile_core.mpl",
+      "line": 567
+    },
+    {
+      "name": "mesh_messenger_directory_lookup",
+      "declaration": "@export(\"mesh_messenger_directory_lookup\")",
+      "path": "mobile_core.mpl",
+      "line": 571
+    },
+    {
+      "name": "mesh_messenger_transparency_lookup",
+      "declaration": "@export(\"mesh_messenger_transparency_lookup\")",
+      "path": "mobile_core.mpl",
+      "line": 575
+    },
+    {
+      "name": "mesh_messenger_register_request",
+      "declaration": "@export(\"mesh_messenger_register_request\")",
+      "path": "mobile_core.mpl",
+      "line": 583
+    },
+    {
+      "name": "mesh_messenger_renew_devices",
+      "declaration": "@export(\"mesh_messenger_renew_devices\")",
+      "path": "mobile_core.mpl",
+      "line": 594
+    },
+    {
+      "name": "mesh_messenger_resolve_request",
+      "declaration": "@export(\"mesh_messenger_resolve_request\")",
+      "path": "mobile_core.mpl",
+      "line": 598
+    },
+    {
+      "name": "mesh_messenger_resolve_plan",
+      "declaration": "@export(\"mesh_messenger_resolve_plan\")",
+      "path": "mobile_core.mpl",
+      "line": 602
+    },
+    {
+      "name": "mesh_messenger_verify_transparency",
+      "declaration": "@export(\"mesh_messenger_verify_transparency\")",
+      "path": "mobile_core.mpl",
+      "line": 606
+    },
+    {
+      "name": "mesh_messenger_transparency_fork",
+      "declaration": "@export(\"mesh_messenger_transparency_fork\")",
+      "path": "mobile_core.mpl",
+      "line": 611
+    },
+    {
+      "name": "mesh_messenger_bounty_status",
+      "declaration": "@export(\"mesh_messenger_bounty_status\")",
+      "path": "mobile_core.mpl",
+      "line": 618
+    },
+    {
+      "name": "mesh_messenger_bounty_set_enabled",
+      "declaration": "@export(\"mesh_messenger_bounty_set_enabled\")",
+      "path": "mobile_core.mpl",
+      "line": 623
+    },
+    {
+      "name": "mesh_messenger_bounty_commit",
+      "declaration": "@export(\"mesh_messenger_bounty_commit\")",
+      "path": "mobile_core.mpl",
+      "line": 627
+    },
+    {
+      "name": "mesh_messenger_bounty_unavailable",
+      "declaration": "@export(\"mesh_messenger_bounty_unavailable\")",
+      "path": "mobile_core.mpl",
+      "line": 631
+    },
+    {
+      "name": "mesh_messenger_bounty_transfer_status",
+      "declaration": "@export(\"mesh_messenger_bounty_transfer_status\")",
+      "path": "mobile_core.mpl",
+      "line": 635
+    },
+    {
+      "name": "mesh_messenger_bounty_transfer_recover",
+      "declaration": "@export(\"mesh_messenger_bounty_transfer_recover\")",
+      "path": "mobile_core.mpl",
+      "line": 639
+    },
+    {
+      "name": "mesh_messenger_bounty_transfer_cancel",
+      "declaration": "@export(\"mesh_messenger_bounty_transfer_cancel\")",
+      "path": "mobile_core.mpl",
+      "line": 643
+    },
+    {
+      "name": "mesh_messenger_bounty_transfer_prepare",
+      "declaration": "@export(\"mesh_messenger_bounty_transfer_prepare\")",
+      "path": "mobile_core.mpl",
+      "line": 649
+    },
+    {
+      "name": "mesh_messenger_bounty_transfer_commit",
+      "declaration": "@export(\"mesh_messenger_bounty_transfer_commit\")",
+      "path": "mobile_core.mpl",
+      "line": 653
+    },
+    {
+      "name": "mesh_messenger_bounty_transfer_submit",
+      "declaration": "@export(\"mesh_messenger_bounty_transfer_submit\")",
+      "path": "mobile_core.mpl",
+      "line": 657
+    },
+    {
+      "name": "mesh_messenger_anchor_check",
+      "declaration": "@export(\"mesh_messenger_anchor_check\")",
+      "path": "mobile_core.mpl",
+      "line": 663
+    },
+    {
+      "name": "mesh_messenger_fork_filing",
+      "declaration": "@export(\"mesh_messenger_fork_filing\")",
+      "path": "mobile_core.mpl",
+      "line": 673
+    },
+    {
+      "name": "mesh_messenger_privacy_submission",
+      "declaration": "@export(\"mesh_messenger_privacy_submission\")",
+      "path": "mobile_core.mpl",
+      "line": 677
+    },
+    {
+      "name": "mesh_messenger_mailbox_fetch",
+      "declaration": "@export(\"mesh_messenger_mailbox_fetch\")",
+      "path": "mobile_core.mpl",
+      "line": 681
+    },
+    {
+      "name": "mesh_messenger_mailbox_synchronize",
+      "declaration": "@export(\"mesh_messenger_mailbox_synchronize\")",
+      "path": "mobile_core.mpl",
+      "line": 685
+    },
+    {
+      "name": "mesh_messenger_mailbox_stream_open",
+      "declaration": "@export(\"mesh_messenger_mailbox_stream_open\")",
+      "path": "mobile_core.mpl",
+      "line": 689
+    },
+    {
+      "name": "mesh_messenger_mailbox_stream_poll",
+      "declaration": "@export(\"mesh_messenger_mailbox_stream_poll\")",
+      "path": "mobile_core.mpl",
+      "line": 693
+    },
+    {
+      "name": "mesh_messenger_mailbox_stream_close",
+      "declaration": "@export(\"mesh_messenger_mailbox_stream_close\")",
+      "path": "mobile_core.mpl",
+      "line": 697
+    },
+    {
+      "name": "mesh_messenger_process_delivery_batch",
+      "declaration": "@export(\"mesh_messenger_process_delivery_batch\")",
+      "path": "mobile_core.mpl",
+      "line": 701
+    },
+    {
+      "name": "mesh_messenger_outbox_list",
+      "declaration": "@export(\"mesh_messenger_outbox_list\")",
+      "path": "mobile_core.mpl",
+      "line": 705
+    },
+    {
+      "name": "mesh_messenger_outbox_drain",
+      "declaration": "@export(\"mesh_messenger_outbox_drain\")",
+      "path": "mobile_core.mpl",
+      "line": 715
+    },
+    {
+      "name": "mesh_messenger_outbox_ack",
+      "declaration": "@export(\"mesh_messenger_outbox_ack\")",
+      "path": "mobile_core.mpl",
+      "line": 719
+    },
+    {
+      "name": "mesh_messenger_outbox_fail",
+      "declaration": "@export(\"mesh_messenger_outbox_fail\")",
+      "path": "mobile_core.mpl",
+      "line": 726
+    },
+    {
+      "name": "mesh_messenger_outbox_page",
+      "declaration": "@export(\"mesh_messenger_outbox_page\")",
+      "path": "mobile_core.mpl",
+      "line": 733
+    },
+    {
+      "name": "mesh_messenger_journal_load",
+      "declaration": "@export(\"mesh_messenger_journal_load\")",
+      "path": "mobile_core.mpl",
+      "line": 742
+    },
+    {
+      "name": "mesh_messenger_journal_save",
+      "declaration": "@export(\"mesh_messenger_journal_save\")",
+      "path": "mobile_core.mpl",
+      "line": 746
+    },
+    {
+      "name": "mesh_messenger_presentation_load",
+      "declaration": "@export(\"mesh_messenger_presentation_load\")",
+      "path": "mobile_core.mpl",
+      "line": 751
+    },
+    {
+      "name": "mesh_messenger_presentation_save",
+      "declaration": "@export(\"mesh_messenger_presentation_save\")",
+      "path": "mobile_core.mpl",
+      "line": 756
+    },
+    {
+      "name": "mesh_messenger_attachment_prepare",
+      "declaration": "@export(\"mesh_messenger_attachment_prepare\")",
+      "path": "mobile_core.mpl",
+      "line": 760
+    },
+    {
+      "name": "mesh_messenger_attachment_seal_chunk",
+      "declaration": "@export(\"mesh_messenger_attachment_seal_chunk\")",
+      "path": "mobile_core.mpl",
+      "line": 764
+    },
+    {
+      "name": "mesh_messenger_credit_discover_online",
+      "declaration": "@export(\"mesh_messenger_credit_discover_online\")",
+      "path": "mobile_core.mpl",
+      "line": 774
+    },
+    {
+      "name": "mesh_messenger_credit_purchase_continue",
+      "declaration": "@export(\"mesh_messenger_credit_purchase_continue\")",
+      "path": "mobile_core.mpl",
+      "line": 779
+    },
+    {
+      "name": "mesh_messenger_credit_payment_handoff",
+      "declaration": "@export(\"mesh_messenger_credit_payment_handoff\")",
+      "path": "mobile_core.mpl",
+      "line": 784
+    },
+    {
+      "name": "mesh_messenger_credit_action_continue",
+      "declaration": "@export(\"mesh_messenger_credit_action_continue\")",
+      "path": "mobile_core.mpl",
+      "line": 789
+    },
+    {
+      "name": "mesh_messenger_credit_signup_policy_online",
+      "declaration": "@export(\"mesh_messenger_credit_signup_policy_online\")",
+      "path": "mobile_core.mpl",
+      "line": 794
+    },
+    {
+      "name": "mesh_messenger_credit_discovery",
+      "declaration": "@export(\"mesh_messenger_credit_discovery\")",
+      "path": "mobile_core.mpl",
+      "line": 799
+    },
+    {
+      "name": "mesh_messenger_credit_admit",
+      "declaration": "@export(\"mesh_messenger_credit_admit\")",
+      "path": "mobile_core.mpl",
+      "line": 804
+    },
+    {
+      "name": "mesh_messenger_credit_prepare",
+      "declaration": "@export(\"mesh_messenger_credit_prepare\")",
+      "path": "mobile_core.mpl",
+      "line": 809
+    },
+    {
+      "name": "mesh_messenger_credit_prepare_again",
+      "declaration": "@export(\"mesh_messenger_credit_prepare_again\")",
+      "path": "mobile_core.mpl",
+      "line": 814
+    },
+    {
+      "name": "mesh_messenger_credit_quote",
+      "declaration": "@export(\"mesh_messenger_credit_quote\")",
+      "path": "mobile_core.mpl",
+      "line": 819
+    },
+    {
+      "name": "mesh_messenger_credit_payment",
+      "declaration": "@export(\"mesh_messenger_credit_payment\")",
+      "path": "mobile_core.mpl",
+      "line": 824
+    },
+    {
+      "name": "mesh_messenger_credit_finalize",
+      "declaration": "@export(\"mesh_messenger_credit_finalize\")",
+      "path": "mobile_core.mpl",
+      "line": 829
+    },
+    {
+      "name": "mesh_messenger_credit_recover",
+      "declaration": "@export(\"mesh_messenger_credit_recover\")",
+      "path": "mobile_core.mpl",
+      "line": 834
+    },
+    {
+      "name": "mesh_messenger_credit_purchases",
+      "declaration": "@export(\"mesh_messenger_credit_purchases\")",
+      "path": "mobile_core.mpl",
+      "line": 839
+    },
+    {
+      "name": "mesh_messenger_credit_balance",
+      "declaration": "@export(\"mesh_messenger_credit_balance\")",
+      "path": "mobile_core.mpl",
+      "line": 844
+    },
+    {
+      "name": "mesh_messenger_credit_reserve",
+      "declaration": "@export(\"mesh_messenger_credit_reserve\")",
+      "path": "mobile_core.mpl",
+      "line": 849
+    },
+    {
+      "name": "mesh_messenger_credit_reservation",
+      "declaration": "@export(\"mesh_messenger_credit_reservation\")",
+      "path": "mobile_core.mpl",
+      "line": 854
+    },
+    {
+      "name": "mesh_messenger_credit_retention",
+      "declaration": "@export(\"mesh_messenger_credit_retention\")",
+      "path": "mobile_core.mpl",
+      "line": 859
+    },
+    {
+      "name": "mesh_messenger_credit_retention_recover",
+      "declaration": "@export(\"mesh_messenger_credit_retention_recover\")",
+      "path": "mobile_core.mpl",
+      "line": 864
+    },
+    {
+      "name": "mesh_messenger_credit_receipt",
+      "declaration": "@export(\"mesh_messenger_credit_receipt\")",
+      "path": "mobile_core.mpl",
+      "line": 869
+    },
+    {
+      "name": "mesh_messenger_credit_payment_url",
+      "declaration": "@export(\"mesh_messenger_credit_payment_url\")",
+      "path": "mobile_core.mpl",
+      "line": 874
+    },
+    {
+      "name": "mesh_messenger_credit_payment_signature",
+      "declaration": "@export(\"mesh_messenger_credit_payment_signature\")",
+      "path": "mobile_core.mpl",
+      "line": 879
+    },
+    {
+      "name": "mesh_messenger_credit_wallet_quote",
+      "declaration": "@export(\"mesh_messenger_credit_wallet_quote\")",
+      "path": "mobile_core.mpl",
+      "line": 884
+    },
+    {
+      "name": "mesh_messenger_credit_wallet_prepare",
+      "declaration": "@export(\"mesh_messenger_credit_wallet_prepare\")",
+      "path": "mobile_core.mpl",
+      "line": 889
+    },
+    {
+      "name": "mesh_messenger_credit_wallet_commit",
+      "declaration": "@export(\"mesh_messenger_credit_wallet_commit\")",
+      "path": "mobile_core.mpl",
+      "line": 894
+    },
+    {
+      "name": "mesh_messenger_credit_wallet_submit",
+      "declaration": "@export(\"mesh_messenger_credit_wallet_submit\")",
+      "path": "mobile_core.mpl",
+      "line": 899
+    },
+    {
+      "name": "mesh_messenger_credit_postage_candidate",
+      "declaration": "@export(\"mesh_messenger_credit_postage_candidate\")",
+      "path": "mobile_core.mpl",
+      "line": 904
+    },
+    {
+      "name": "mesh_messenger_credit_postage_preview",
+      "declaration": "@export(\"mesh_messenger_credit_postage_preview\")",
+      "path": "mobile_core.mpl",
+      "line": 909
+    },
+    {
+      "name": "mesh_messenger_credit_postage_prepare",
+      "declaration": "@export(\"mesh_messenger_credit_postage_prepare\")",
+      "path": "mobile_core.mpl",
+      "line": 914
+    },
+    {
+      "name": "mesh_messenger_credit_postage_recover",
+      "declaration": "@export(\"mesh_messenger_credit_postage_recover\")",
+      "path": "mobile_core.mpl",
+      "line": 919
+    },
+    {
+      "name": "mesh_messenger_credit_postage_receipt",
+      "declaration": "@export(\"mesh_messenger_credit_postage_receipt\")",
+      "path": "mobile_core.mpl",
+      "line": 924
+    },
+    {
+      "name": "mesh_messenger_credit_postage_inventory",
+      "declaration": "@export(\"mesh_messenger_credit_postage_inventory\")",
+      "path": "mobile_core.mpl",
+      "line": 929
+    },
+    {
+      "name": "mesh_messenger_postage_policy_view",
+      "declaration": "@export(\"mesh_messenger_postage_policy_view\")",
+      "path": "mobile_core.mpl",
+      "line": 934
+    },
+    {
+      "name": "mesh_messenger_postage_policy_prepare",
+      "declaration": "@export(\"mesh_messenger_postage_policy_prepare\")",
+      "path": "mobile_core.mpl",
+      "line": 939
+    },
+    {
+      "name": "mesh_messenger_credit_postage_continue",
+      "declaration": "@export(\"mesh_messenger_credit_postage_continue\")",
+      "path": "mobile_core.mpl",
+      "line": 944
+    },
+    {
+      "name": "mesh_messenger_postage_policy_publish",
+      "declaration": "@export(\"mesh_messenger_postage_policy_publish\")",
+      "path": "mobile_core.mpl",
+      "line": 949
+    },
+    {
+      "name": "mesh_messenger_directory_register",
+      "declaration": "@export(\"mesh_messenger_directory_register\")",
+      "path": "mobile_core.mpl",
+      "line": 954
+    },
+    {
+      "name": "mesh_messenger_prekeys_synchronize",
+      "declaration": "@export(\"mesh_messenger_prekeys_synchronize\")",
+      "path": "mobile_core.mpl",
+      "line": 958
+    },
+    {
+      "name": "mesh_messenger_credit_attachment_grant",
+      "declaration": "@export(\"mesh_messenger_credit_attachment_grant\")",
+      "path": "mobile_core.mpl",
+      "line": 962
+    },
+    {
+      "name": "mesh_messenger_credit_attachment_upload",
+      "declaration": "@export(\"mesh_messenger_credit_attachment_upload\")",
+      "path": "mobile_core.mpl",
+      "line": 966
+    },
+    {
+      "name": "mesh_messenger_credit_attachment_complete",
+      "declaration": "@export(\"mesh_messenger_credit_attachment_complete\")",
+      "path": "mobile_core.mpl",
+      "line": 970
+    },
+    {
+      "name": "mesh_messenger_credit_attachment_delete",
+      "declaration": "@export(\"mesh_messenger_credit_attachment_delete\")",
+      "path": "mobile_core.mpl",
+      "line": 974
+    },
+    {
+      "name": "mesh_messenger_attachment_fetch_chunk",
+      "declaration": "@export(\"mesh_messenger_attachment_fetch_chunk\")",
+      "path": "mobile_core.mpl",
+      "line": 979
+    },
+    {
+      "name": "mesh_messenger_attachment_upload",
+      "declaration": "@export(\"mesh_messenger_attachment_upload\", max_input: 16_830_000)",
+      "path": "mobile_core.mpl",
+      "line": 983
+    },
+    {
+      "name": "mesh_messenger_attachment_discard",
+      "declaration": "@export(\"mesh_messenger_attachment_discard\")",
+      "path": "mobile_core.mpl",
+      "line": 987
+    },
+    {
+      "name": "mesh_messenger_directory_resolve",
+      "declaration": "@export(\"mesh_messenger_directory_resolve\")",
+      "path": "mobile_core.mpl",
+      "line": 991
+    },
+    {
+      "name": "mesh_messenger_push_flow_intent",
+      "declaration": "@export(\"mesh_messenger_push_flow_intent\")",
+      "path": "mobile_core.mpl",
+      "line": 995
+    },
+    {
+      "name": "mesh_messenger_push_flow_complete",
+      "declaration": "@export(\"mesh_messenger_push_flow_complete\")",
+      "path": "mobile_core.mpl",
+      "line": 999
+    },
+    {
+      "name": "mesh_messenger_push_flow_send",
+      "declaration": "@export(\"mesh_messenger_push_flow_send\")",
+      "path": "mobile_core.mpl",
+      "line": 1003
+    },
+    {
+      "name": "mesh_messenger_push_flow_begin",
+      "declaration": "@export(\"mesh_messenger_push_flow_begin\", max_input: 40_243, max_output: 4_096)",
+      "path": "mobile_core.mpl",
+      "line": 1007
+    },
+    {
+      "name": "mesh_messenger_push_flow_validate",
+      "declaration": "@export(\"mesh_messenger_push_flow_validate\", max_input: 4_154, max_output: 4_096)",
+      "path": "mobile_core.mpl",
+      "line": 1012
+    },
+    {
+      "name": "mesh_messenger_account_delete",
+      "declaration": "@export(\"mesh_messenger_account_delete\", max_input: 40_238, max_output: 4_096)",
+      "path": "mobile_core.mpl",
+      "line": 1017
+    },
+    {
+      "name": "mesh_messenger_account_discard",
+      "declaration": "@export(\"mesh_messenger_account_discard\", max_input: 40_238, max_output: 4_096)",
+      "path": "mobile_core.mpl",
+      "line": 1022
+    },
+    {
+      "name": "mesh_messenger_account_capabilities",
+      "declaration": "@export(\"mesh_messenger_account_capabilities\", max_input: 40_238, max_output: 4_096)",
+      "path": "mobile_core.mpl",
+      "line": 1027
+    },
+    {
+      "name": "mesh_messenger_devices_renew",
+      "declaration": "@export(\"mesh_messenger_devices_renew\", max_input: 309_364, max_output: 4_096)",
+      "path": "mobile_core.mpl",
+      "line": 1032
+    },
+    {
+      "name": "mesh_messenger_device_revoke",
+      "declaration": "@export(\"mesh_messenger_device_revoke\", max_input: 309_384, max_output: 4_096)",
+      "path": "mobile_core.mpl",
+      "line": 1037
+    },
+    {
+      "name": "mesh_messenger_journal_load_bound",
+      "declaration": "@export(\"mesh_messenger_journal_load_bound\", max_input: 40_498, max_output: 262_144)",
+      "path": "mobile_core.mpl",
+      "line": 1042
+    },
+    {
+      "name": "mesh_messenger_journal_save_bound",
+      "declaration": "@export(\"mesh_messenger_journal_save_bound\", max_input: 302_646, max_output: 4_096)",
+      "path": "mobile_core.mpl",
+      "line": 1047
+    },
+    {
+      "name": "mesh_messenger_fanout_send",
+      "declaration": "@export(\"mesh_messenger_fanout_send\", max_input: 88_740, max_output: 4_096)",
+      "path": "mobile_core.mpl",
+      "line": 1052
+    },
+    {
+      "name": "mesh_messenger_network_counter",
+      "declaration": "@export(\"mesh_messenger_network_counter\")",
+      "path": "mobile_core.mpl",
+      "line": 1058
+    },
+    {
+      "name": "mesh_messenger_group_policy",
+      "declaration": "@export(\"mesh_messenger_group_policy\")",
+      "path": "mobile_core.mpl",
+      "line": 1066
+    },
+    {
+      "name": "mesh_messenger_backup_create",
+      "declaration": "@export(\"mesh_messenger_backup_create\", max_input: 42004, max_output: 16801001)",
+      "path": "mobile_core.mpl",
+      "line": 1080
+    },
+    {
+      "name": "mesh_messenger_backup_preview",
+      "declaration": "@export(\"mesh_messenger_backup_preview\", max_input: 16841207, max_output: 8192)",
+      "path": "mobile_core.mpl",
+      "line": 1086
+    },
+    {
+      "name": "mesh_messenger_backup_import",
+      "declaration": "@export(\"mesh_messenger_backup_import\", max_input: 16841239, max_output: 4096)",
+      "path": "mobile_core.mpl",
+      "line": 1091
+    },
+    {
+      "name": "mesh_messenger_backup_list",
+      "declaration": "@export(\"mesh_messenger_backup_list\", max_input: 40239, max_output: 4096)",
+      "path": "mobile_core.mpl",
+      "line": 1097
+    },
+    {
+      "name": "mesh_messenger_backup_remove",
+      "declaration": "@export(\"mesh_messenger_backup_remove\", max_input: 40271, max_output: 4096)",
+      "path": "mobile_core.mpl",
+      "line": 1102
+    },
+    {
+      "name": "mesh_messenger_backup_overview",
+      "declaration": "@export(\"mesh_messenger_backup_overview\", max_input: 40271, max_output: 8192)",
+      "path": "mobile_core.mpl",
+      "line": 1108
+    },
+    {
+      "name": "mesh_messenger_backup_page",
+      "declaration": "@export(\"mesh_messenger_backup_page\", max_input: 40313, max_output: 135168)",
+      "path": "mobile_core.mpl",
+      "line": 1114
+    },
+    {
+      "name": "mesh_messenger_backup_pending_state",
+      "declaration": "@export(\"mesh_messenger_backup_pending_state\", max_input: 40239, max_output: 46)",
+      "path": "mobile_core.mpl",
+      "line": 1127
+    },
+    {
+      "name": "mesh_messenger_backup_pending_resume",
+      "declaration": "@export(\"mesh_messenger_backup_pending_resume\", max_input: 44371, max_output: 16796869)",
+      "path": "mobile_core.mpl",
+      "line": 1132
+    },
+    {
+      "name": "mesh_messenger_backup_pending_discard",
+      "declaration": "@export(\"mesh_messenger_backup_pending_discard\", max_input: 40271, max_output: 34)",
+      "path": "mobile_core.mpl",
+      "line": 1137
+    },
+    {
+      "name": "mesh_messenger_backup_pending_repair",
+      "declaration": "@export(\"mesh_messenger_backup_pending_repair\", max_input: 40239, max_output: 32)",
+      "path": "mobile_core.mpl",
+      "line": 1142
+    },
+    {
+      "name": "mesh_messenger_view_once_consume",
+      "declaration": "@export(\"mesh_messenger_view_once_consume\", max_input: 40271, max_output: 16777225, bindings: \"native\")",
+      "path": "mobile_core.mpl",
+      "line": 1150
+    }
+  ]
+}

@@ -1,0 +1,82 @@
+{
+  "baseline": "56148470ca80bc3a87fa31c158a1d7156c7223d8",
+  "patch_sha256": "162b6c73cd9bc41f838f90a505aafef2b0f4fa53ab7d086d958ff7535727260e",
+  "authority_scope": "Only these three private source sites; no public-helper or generic Result/error/body/signedvalid/GossipControl release",
+  "sites": [
+    {
+      "id": "I1",
+      "policy_verdict": "Defensible bounded receive/framing policy, conditional on origin and composition controls; not adopted.",
+      "predicate": "Result.unwrap_or(invitation_control_valid(inner), false)",
+      "true_means": "The type-3/type-4 control passes the existing bounded framing/canonical decoding checks. This is not expiration acceptance, invitation ownership, group-key-package signature validity, or an accepted message request.",
+      "false_means": "Any framing/decoding error or false validation is collapsed to ignored control, as before.",
+      "authority": "Private helper reached only from the two actual successful receive paths after kind, peer/conversation/recipient, and blocked checks; future composed VO/auth guards must also precede entry.",
+      "effects": "True permits load_invitations (including expiry filtering, removal labels, pruning serialization/seal/store), followed by the separate receive-control current_time. False returns empty writes with no invitation loader/prune/clock/context/final seal.",
+      "disclosure": "Bounded framing acceptance of the authenticated private control to observers of invitation storage/pruning/time work; not a global public parser predicate.",
+      "policy_caveat": "Type-4 canonical decoding includes checkpoint and package structure but does not verify the package signature. A well-framed expired, duplicate, full-list, or otherwise ignored invitation may still reach loading/pruning and the final no-op-list seal.",
+      "file": "mesh-private-messenger/packages/mobile-core/mobile/messages.mpl",
+      "module": "Mobile.Messages",
+      "kind": "declassify",
+      "function": "authenticated_invitation_writes",
+      "visibility": "private",
+      "expression": "declassify(valid,",
+      "line": 344,
+      "column": 7,
+      "reason": "private initial or ratchet receive after peer identity conversation recipient and block checks releases only bounded invitation framing acceptance before invitation storage access and pruning; body fields and parser errors remain private",
+      "domain": [
+        false,
+        true
+      ],
+      "status": "scratch policy review only; no approved inventory entry"
+    },
+    {
+      "id": "I2",
+      "policy_verdict": "HELD policy exception: defensible only if this exact pre-ownership membership/access disclosure is explicitly accepted. Reject any owner-only/authenticated-acceptance characterization.",
+      "predicate": "Preparation is Ok(InvitationAcceptance(...)) and the selected previous.state == 3; preparation error => false.",
+      "true_means": "The first loaded record matching id || inner.sender_device_id exists and is state 3. The subsequent ownership/group/package comparisons have NOT run.",
+      "false_means": "Invitation rather than acceptance, missing reference, other state, or preparation failure; false does not distinguish them.",
+      "authority": "Authenticated unblocked peer origin, not invitation-owner authority. Reference lookup binds recipient_device only; account ownership is tested later.",
+      "effects": "True calls load_transparency_view at the original point: manifest, three chunk reads on successful manifest path, checkpoint, native configuration, and conditional witnesses/time; failures short-circuit before later ownership comparisons and serialization.",
+      "disclosure": "An adaptive selected-reference membership/state predicate plus invocation of the existing transparency-view access trace and its failure behavior. The invitation ID and sender device select the predicate even though no raw identifier is declassified.",
+      "policy_caveat": "Device ID is not an account-global proof. Even a legitimate authenticated sender can supply wrong group/package ownership data and still trigger the view read. A different account with an equal device ID is not rejected by find_invitation before this site. Moving ownership checks earlier or loading unconditionally changes access/error/effect order and is not an authorized drop-in fix.",
+      "file": "mesh-private-messenger/packages/mobile-core/mobile/messages.mpl",
+      "module": "Mobile.Messages",
+      "kind": "declassify",
+      "function": "authenticated_invitation_writes",
+      "visibility": "private",
+      "expression": "declassify(renewal,",
+      "line": 355,
+      "column": 17,
+      "reason": "private authenticated invitation receive releases only whether successful control preparation found an existing state3 acceptance requiring the current transparency view; reference membership is exposed only through this decision and identifiers key packages and later authorization decisions remain private",
+      "domain": [
+        false,
+        true
+      ],
+      "status": "scratch policy review only; no approved inventory entry"
+    },
+    {
+      "id": "I3",
+      "policy_verdict": "Defensible bounded readiness-for-final-seal policy, conditional on actual compiler shape/payload separation and runtime order; not adopted.",
+      "predicate": "Result.is_ok(encoded), where encoded preserves prepare/finish/serialization Result without releasing its payload.",
+      "true_means": "Pure preparation, pure completion using any required view, and the original bounded serialization succeeded. Ignored/no-op controls also return true.",
+      "false_means": "A preparation/completion/encoding error occurred; exact error class and payload are not part of the Bool.",
+      "authority": "The same private receive path and the exact immutable prepared/encoded value; public caller-built continuations are not evidence.",
+      "effects": "False returns the original private error without final local_context or invitation seal. True constructs constant-label local_context and attempts exactly one final invitation seal; earlier caller and pruning seals are outside this count.",
+      "disclosure": "One composite serialization/preparation readiness fact, not whether ownership comparisons accepted or state changed. Existing codec framing disclosures and seal-discriminant behavior remain dependencies.",
+      "policy_caveat": "The Err payload remains private; returning Err(error) must not accidentally make it public or erase the caller PC. Unknown primitive errors must retain their exact value. The empty unwrap_or fallback is unreachable on errors at source level; verify on the actual compiler/runtime.",
+      "file": "mesh-private-messenger/packages/mobile-core/mobile/messages.mpl",
+      "module": "Mobile.Messages",
+      "kind": "declassify",
+      "function": "authenticated_invitation_writes",
+      "visibility": "private",
+      "expression": "declassify(Result.is_ok(encoded),",
+      "line": 368,
+      "column": 7,
+      "reason": "private authenticated invitation receive releases only successful pure control completion and invitation encoding before context construction and one local seal; exact failure payloads and encoded invitation records remain private and failed preparation performs no context construction or seal",
+      "domain": [
+        false,
+        true
+      ],
+      "status": "scratch policy review only; no approved inventory entry"
+    }
+  ]
+}

@@ -1,0 +1,235 @@
+{
+  "started_utc": "2026-11-07T01:43:17.089363+00:00",
+  "accepted_commit": "9b844dbab34e61f6de575af2b25b0ed0f321059e",
+  "expected_proposal_sha256": "544325a5eb2c656741e40da7524edc1ed645a1b7aeaea7219814e2a7bfbe79dc",
+  "inputs": [
+    {
+      "source": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-owned-invocations/API_PROPOSAL.md",
+      "frozen": "API_PROPOSAL.frozen.md",
+      "bytes": 16171,
+      "source_sha256_before": "544325a5eb2c656741e40da7524edc1ed645a1b7aeaea7219814e2a7bfbe79dc",
+      "source_sha256_after_freeze": "544325a5eb2c656741e40da7524edc1ed645a1b7aeaea7219814e2a7bfbe79dc",
+      "frozen_sha256": "544325a5eb2c656741e40da7524edc1ed645a1b7aeaea7219814e2a7bfbe79dc"
+    },
+    {
+      "source": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/owned-invocation-api-review-r1/REVIEW.md",
+      "frozen": "prior/r1/REVIEW.md",
+      "bytes": 17112,
+      "source_sha256_before": "fa4418a92da00c791232f66fd90b249a22a7f7375c63728ba6d9dab4d17c974f",
+      "source_sha256_after_freeze": "fa4418a92da00c791232f66fd90b249a22a7f7375c63728ba6d9dab4d17c974f",
+      "frozen_sha256": "fa4418a92da00c791232f66fd90b249a22a7f7375c63728ba6d9dab4d17c974f"
+    },
+    {
+      "source": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/owned-invocation-api-review-r1/API_PROPOSAL.frozen.md",
+      "frozen": "prior/r1/API_PROPOSAL.frozen.md",
+      "bytes": 7207,
+      "source_sha256_before": "63d2ee42500c6916966e240aee01ac25d24089e2fa4c1b3bf108878e4355c708",
+      "source_sha256_after_freeze": "63d2ee42500c6916966e240aee01ac25d24089e2fa4c1b3bf108878e4355c708",
+      "frozen_sha256": "63d2ee42500c6916966e240aee01ac25d24089e2fa4c1b3bf108878e4355c708"
+    },
+    {
+      "source": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/owned-invocation-api-review-r2/REVIEW.md",
+      "frozen": "prior/r2/REVIEW.md",
+      "bytes": 22126,
+      "source_sha256_before": "dcdac997e47e6eda7f8bc7ed347796e2a5d1f31db8225b3611d520a54a46e3c1",
+      "source_sha256_after_freeze": "dcdac997e47e6eda7f8bc7ed347796e2a5d1f31db8225b3611d520a54a46e3c1",
+      "frozen_sha256": "dcdac997e47e6eda7f8bc7ed347796e2a5d1f31db8225b3611d520a54a46e3c1"
+    },
+    {
+      "source": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/owned-invocation-api-review-r2/API_PROPOSAL.frozen.md",
+      "frozen": "prior/r2/API_PROPOSAL.frozen.md",
+      "bytes": 14214,
+      "source_sha256_before": "8d3dbea696189b83c9b8d5d55656a19e0d2d082245dda9a438dcd61419cb08c7",
+      "source_sha256_after_freeze": "8d3dbea696189b83c9b8d5d55656a19e0d2d082245dda9a438dcd61419cb08c7",
+      "frozen_sha256": "8d3dbea696189b83c9b8d5d55656a19e0d2d082245dda9a438dcd61419cb08c7"
+    },
+    {
+      "source": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/native-authority-closure-design/HANDOFF.md",
+      "frozen": "parent/HANDOFF.md",
+      "bytes": 2206,
+      "source_sha256_before": "32326ac50e4e80fcfe356ce7d8d715cf63c7d6a831322282fb199b1646265ec3",
+      "source_sha256_after_freeze": "32326ac50e4e80fcfe356ce7d8d715cf63c7d6a831322282fb199b1646265ec3",
+      "frozen_sha256": "32326ac50e4e80fcfe356ce7d8d715cf63c7d6a831322282fb199b1646265ec3"
+    },
+    {
+      "source": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/native-authority-closure-design/API_CONSTRAINTS.md",
+      "frozen": "parent/API_CONSTRAINTS.md",
+      "bytes": 5051,
+      "source_sha256_before": "6b2d67277a4ef2220b3b6696e5fd3622e2475ca68141e59b73a22e39b6dd90c8",
+      "source_sha256_after_freeze": "6b2d67277a4ef2220b3b6696e5fd3622e2475ca68141e59b73a22e39b6dd90c8",
+      "frozen_sha256": "6b2d67277a4ef2220b3b6696e5fd3622e2475ca68141e59b73a22e39b6dd90c8"
+    },
+    {
+      "source": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/native-authority-closure-design/CONTRACT.md",
+      "frozen": "parent/CONTRACT.md",
+      "bytes": 13311,
+      "source_sha256_before": "a848962558e0ee1c639747063eede5312afc863d11c80b6a2a5b3caa0d21a0cb",
+      "source_sha256_after_freeze": "a848962558e0ee1c639747063eede5312afc863d11c80b6a2a5b3caa0d21a0cb",
+      "frozen_sha256": "a848962558e0ee1c639747063eede5312afc863d11c80b6a2a5b3caa0d21a0cb"
+    },
+    {
+      "source": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/native-authority-closure-design/SKETCH.md",
+      "frozen": "parent/SKETCH.md",
+      "bytes": 7720,
+      "source_sha256_before": "2189f1ef8e6a25e62bc5d4bf792744d8fbe0c54dd3b63e89dd8c2bcb227e9c70",
+      "source_sha256_after_freeze": "2189f1ef8e6a25e62bc5d4bf792744d8fbe0c54dd3b63e89dd8c2bcb227e9c70",
+      "frozen_sha256": "2189f1ef8e6a25e62bc5d4bf792744d8fbe0c54dd3b63e89dd8c2bcb227e9c70"
+    },
+    {
+      "source": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/native-authority-closure-design/PROOF_MATRIX.md",
+      "frozen": "parent/PROOF_MATRIX.md",
+      "bytes": 6739,
+      "source_sha256_before": "40dda63cf76a7d0fe946daf06f39dde7e720ca51ab99c7f4ae1e7667ddacaa51",
+      "source_sha256_after_freeze": "40dda63cf76a7d0fe946daf06f39dde7e720ca51ab99c7f4ae1e7667ddacaa51",
+      "frozen_sha256": "40dda63cf76a7d0fe946daf06f39dde7e720ca51ab99c7f4ae1e7667ddacaa51"
+    },
+    {
+      "source": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/native-authority-closure-design/MANIFEST.json",
+      "frozen": "parent/MANIFEST.json",
+      "bytes": 11901,
+      "source_sha256_before": "415297fc660a53ccccc94b08551a60c70a52c5dcd07c77bc20e7ed9c108515f3",
+      "source_sha256_after_freeze": "415297fc660a53ccccc94b08551a60c70a52c5dcd07c77bc20e7ed9c108515f3",
+      "frozen_sha256": "415297fc660a53ccccc94b08551a60c70a52c5dcd07c77bc20e7ed9c108515f3"
+    },
+    {
+      "source": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/owned-invocation-api-review-r2/exact-source-pins.json",
+      "frozen": "provenance/r2-exact-source-pins.json",
+      "bytes": 3725,
+      "source_sha256_before": "716a6b9d60ba27aee498ee60d130e082794097cd84ab518bef0c4cabbf79e651",
+      "source_sha256_after_freeze": "716a6b9d60ba27aee498ee60d130e082794097cd84ab518bef0c4cabbf79e651",
+      "frozen_sha256": "716a6b9d60ba27aee498ee60d130e082794097cd84ab518bef0c4cabbf79e651",
+      "expected_from_prior_receipt": null,
+      "source_kind": null
+    },
+    {
+      "source": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/owned-invocation-api-review-r2/supplemental-inputs.json",
+      "frozen": "provenance/r2-supplemental-inputs.json",
+      "bytes": 6997,
+      "source_sha256_before": "89af7db69381ccc8220bec171d28b770d64ca932770e81634980d616e685a95a",
+      "source_sha256_after_freeze": "89af7db69381ccc8220bec171d28b770d64ca932770e81634980d616e685a95a",
+      "frozen_sha256": "89af7db69381ccc8220bec171d28b770d64ca932770e81634980d616e685a95a",
+      "expected_from_prior_receipt": null,
+      "source_kind": null
+    },
+    {
+      "source": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/owned-invocation-api-review-r1/pinned/compiler/meshc/src/library_authority.h",
+      "frozen": "pinned/compiler/meshc/src/library_authority.h",
+      "bytes": 3057,
+      "source_sha256_before": "5bbaf429dbd3749924b041847aba40ce40ee33c5a13a5c97f454601d79f87843",
+      "source_sha256_after_freeze": "5bbaf429dbd3749924b041847aba40ce40ee33c5a13a5c97f454601d79f87843",
+      "frozen_sha256": "5bbaf429dbd3749924b041847aba40ce40ee33c5a13a5c97f454601d79f87843",
+      "expected_from_prior_receipt": "5bbaf429dbd3749924b041847aba40ce40ee33c5a13a5c97f454601d79f87843",
+      "source_kind": "accepted-commit-pinned-copy-9b844dbab34e61f6de575af2b25b0ed0f321059e"
+    },
+    {
+      "source": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/owned-invocation-api-review-r1/pinned/compiler/meshc/src/library_bindings.rs",
+      "frozen": "pinned/compiler/meshc/src/library_bindings.rs",
+      "bytes": 20625,
+      "source_sha256_before": "180e66fd9728b981d6317f80309ffa7496c5796c9693716e3d63ba3ed2e75c78",
+      "source_sha256_after_freeze": "180e66fd9728b981d6317f80309ffa7496c5796c9693716e3d63ba3ed2e75c78",
+      "frozen_sha256": "180e66fd9728b981d6317f80309ffa7496c5796c9693716e3d63ba3ed2e75c78",
+      "expected_from_prior_receipt": "180e66fd9728b981d6317f80309ffa7496c5796c9693716e3d63ba3ed2e75c78",
+      "source_kind": "accepted-commit-pinned-copy-9b844dbab34e61f6de575af2b25b0ed0f321059e"
+    },
+    {
+      "source": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/owned-invocation-api-review-r1/pinned/compiler/mesh-rt/src/library.rs",
+      "frozen": "pinned/compiler/mesh-rt/src/library.rs",
+      "bytes": 29726,
+      "source_sha256_before": "45b78822ff5cc601f95b969b02b50059c745b5b2e0fdb596433e83fe7af21f8d",
+      "source_sha256_after_freeze": "45b78822ff5cc601f95b969b02b50059c745b5b2e0fdb596433e83fe7af21f8d",
+      "frozen_sha256": "45b78822ff5cc601f95b969b02b50059c745b5b2e0fdb596433e83fe7af21f8d",
+      "expected_from_prior_receipt": "45b78822ff5cc601f95b969b02b50059c745b5b2e0fdb596433e83fe7af21f8d",
+      "source_kind": "accepted-commit-pinned-copy-9b844dbab34e61f6de575af2b25b0ed0f321059e"
+    },
+    {
+      "source": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/owned-invocation-api-review-r1/pinned/compiler/mesh-rt/src/authority.rs",
+      "frozen": "pinned/compiler/mesh-rt/src/authority.rs",
+      "bytes": 10821,
+      "source_sha256_before": "3d8f612848f9ed0b5767351925748e78b9fbc2d4b600b9629bdb95182ad238d6",
+      "source_sha256_after_freeze": "3d8f612848f9ed0b5767351925748e78b9fbc2d4b600b9629bdb95182ad238d6",
+      "frozen_sha256": "3d8f612848f9ed0b5767351925748e78b9fbc2d4b600b9629bdb95182ad238d6",
+      "expected_from_prior_receipt": "3d8f612848f9ed0b5767351925748e78b9fbc2d4b600b9629bdb95182ad238d6",
+      "source_kind": "accepted-commit-pinned-copy-9b844dbab34e61f6de575af2b25b0ed0f321059e"
+    },
+    {
+      "source": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/owned-invocation-api-review-r1/pinned/compiler/mesh-rt/src/actor/stack.rs",
+      "frozen": "pinned/compiler/mesh-rt/src/actor/stack.rs",
+      "bytes": 14942,
+      "source_sha256_before": "0affdca82f13551db082ba8af92c2ff119763731666411bd7a388c294e54cf07",
+      "source_sha256_after_freeze": "0affdca82f13551db082ba8af92c2ff119763731666411bd7a388c294e54cf07",
+      "frozen_sha256": "0affdca82f13551db082ba8af92c2ff119763731666411bd7a388c294e54cf07",
+      "expected_from_prior_receipt": "0affdca82f13551db082ba8af92c2ff119763731666411bd7a388c294e54cf07",
+      "source_kind": "accepted-commit-pinned-copy-9b844dbab34e61f6de575af2b25b0ed0f321059e"
+    },
+    {
+      "source": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/owned-invocation-api-review-r1/pinned/compiler/mesh-rt/src/actor/scheduler.rs",
+      "frozen": "pinned/compiler/mesh-rt/src/actor/scheduler.rs",
+      "bytes": 72710,
+      "source_sha256_before": "a95b78c25c6efa61575daeabe624d7699a42c14bfdb3f2e7819b322358224f81",
+      "source_sha256_after_freeze": "a95b78c25c6efa61575daeabe624d7699a42c14bfdb3f2e7819b322358224f81",
+      "frozen_sha256": "a95b78c25c6efa61575daeabe624d7699a42c14bfdb3f2e7819b322358224f81",
+      "expected_from_prior_receipt": "a95b78c25c6efa61575daeabe624d7699a42c14bfdb3f2e7819b322358224f81",
+      "source_kind": "accepted-commit-pinned-copy-9b844dbab34e61f6de575af2b25b0ed0f321059e"
+    },
+    {
+      "source": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/owned-invocation-api-review-r1/pinned/compiler/mesh-rt/src/http/client.rs",
+      "frozen": "pinned/compiler/mesh-rt/src/http/client.rs",
+      "bytes": 74622,
+      "source_sha256_before": "adf1b435cabee73afcb8de088ede01082933112c9fb8ea91496f8dbfd8ac035d",
+      "source_sha256_after_freeze": "adf1b435cabee73afcb8de088ede01082933112c9fb8ea91496f8dbfd8ac035d",
+      "frozen_sha256": "adf1b435cabee73afcb8de088ede01082933112c9fb8ea91496f8dbfd8ac035d",
+      "expected_from_prior_receipt": "adf1b435cabee73afcb8de088ede01082933112c9fb8ea91496f8dbfd8ac035d",
+      "source_kind": "accepted-commit-pinned-copy-9b844dbab34e61f6de575af2b25b0ed0f321059e"
+    },
+    {
+      "source": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/owned-invocation-api-review-r2/app-frozen/mesh-private-messenger/apps/desktop/src-tauri/src/request.rs",
+      "frozen": "app-frozen/mesh-private-messenger/apps/desktop/src-tauri/src/request.rs",
+      "bytes": 45789,
+      "source_sha256_before": "63976d6a193deb5b9ca67ca7d26c8db0a47440b2eced4da57b83ec76487eb668",
+      "source_sha256_after_freeze": "63976d6a193deb5b9ca67ca7d26c8db0a47440b2eced4da57b83ec76487eb668",
+      "frozen_sha256": "63976d6a193deb5b9ca67ca7d26c8db0a47440b2eced4da57b83ec76487eb668",
+      "expected_from_prior_receipt": "63976d6a193deb5b9ca67ca7d26c8db0a47440b2eced4da57b83ec76487eb668",
+      "source_kind": "prior-app-consumer-snapshot-not-runtime-commit"
+    },
+    {
+      "source": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/owned-invocation-api-review-r2/app-frozen/mesh-private-messenger/apps/desktop/src-tauri/src/mesh.rs",
+      "frozen": "app-frozen/mesh-private-messenger/apps/desktop/src-tauri/src/mesh.rs",
+      "bytes": 30850,
+      "source_sha256_before": "e96bef8106213a1eed5103507fad7b728520ca84584f2d80967c3a486ed7f7c3",
+      "source_sha256_after_freeze": "e96bef8106213a1eed5103507fad7b728520ca84584f2d80967c3a486ed7f7c3",
+      "frozen_sha256": "e96bef8106213a1eed5103507fad7b728520ca84584f2d80967c3a486ed7f7c3",
+      "expected_from_prior_receipt": "e96bef8106213a1eed5103507fad7b728520ca84584f2d80967c3a486ed7f7c3",
+      "source_kind": "prior-app-consumer-snapshot-not-runtime-commit"
+    },
+    {
+      "source": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/owned-invocation-api-review-r2/app-frozen/mesh-private-messenger/apps/mobile/scripts/generate-scoped-bindings.mjs",
+      "frozen": "app-frozen/mesh-private-messenger/apps/mobile/scripts/generate-scoped-bindings.mjs",
+      "bytes": 4634,
+      "source_sha256_before": "cab26e3b25cff5beeab2aa5e2e3829a307df9a2ba7e153dd0184beccdbdc2ea5",
+      "source_sha256_after_freeze": "cab26e3b25cff5beeab2aa5e2e3829a307df9a2ba7e153dd0184beccdbdc2ea5",
+      "frozen_sha256": "cab26e3b25cff5beeab2aa5e2e3829a307df9a2ba7e153dd0184beccdbdc2ea5",
+      "expected_from_prior_receipt": "cab26e3b25cff5beeab2aa5e2e3829a307df9a2ba7e153dd0184beccdbdc2ea5",
+      "source_kind": "prior-app-consumer-snapshot-not-runtime-commit"
+    },
+    {
+      "source": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/owned-invocation-api-review-r2/app-frozen/mesh-private-messenger/scripts/build-mobile-native.sh",
+      "frozen": "app-frozen/mesh-private-messenger/scripts/build-mobile-native.sh",
+      "bytes": 9383,
+      "source_sha256_before": "bcbaa5b00e78a7b3873fe60b93fe970c99e4f1ef37064adc930834faecdf14d4",
+      "source_sha256_after_freeze": "bcbaa5b00e78a7b3873fe60b93fe970c99e4f1ef37064adc930834faecdf14d4",
+      "frozen_sha256": "bcbaa5b00e78a7b3873fe60b93fe970c99e4f1ef37064adc930834faecdf14d4",
+      "expected_from_prior_receipt": "bcbaa5b00e78a7b3873fe60b93fe970c99e4f1ef37064adc930834faecdf14d4",
+      "source_kind": "prior-app-consumer-snapshot-not-runtime-commit"
+    },
+    {
+      "source": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/owned-invocation-api-review-r2/app-frozen/mesh-private-messenger/ops/attachment-paid-native/build.py",
+      "frozen": "app-frozen/mesh-private-messenger/ops/attachment-paid-native/build.py",
+      "bytes": 15083,
+      "source_sha256_before": "e7edfc9a3006195198507550f787a0451038917072a147bef3cec02a4f2c9cf3",
+      "source_sha256_after_freeze": "e7edfc9a3006195198507550f787a0451038917072a147bef3cec02a4f2c9cf3",
+      "frozen_sha256": "e7edfc9a3006195198507550f787a0451038917072a147bef3cec02a4f2c9cf3",
+      "expected_from_prior_receipt": "e7edfc9a3006195198507550f787a0451038917072a147bef3cec02a4f2c9cf3",
+      "source_kind": "prior-app-consumer-snapshot-not-runtime-commit"
+    }
+  ]
+}

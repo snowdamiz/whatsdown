@@ -1,0 +1,12 @@
+{
+  "at_utc": "2026-11-07T01:44:18.786795+00:00",
+  "live_input_count": 325,
+  "git_snapshot_count": 3,
+  "initial_copy_hashes_match": true,
+  "frozen_inputs_unchanged": true,
+  "live_inputs_unchanged": true,
+  "git_inputs_unchanged": true,
+  "patch_exact_match": true,
+  "missing_report_references": [],
+  "verdict_sha256": "d1190e1d8e72e6979a29e3e72ea1d20cba9868d4db0f8cf0a58b9d14e4d7207b"
+}

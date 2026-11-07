@@ -1,0 +1,17 @@
+{
+  "commit": "d7cf50489dfbbce9be478dbf679d68249aebba2b",
+  "base": "c9ae5013c4d49da2476df0aa1c0d0e74ec63db9b",
+  "compiler": "4b1106e80be480905fe199e6f31c4bd297a3dbcacb48d7dd274deb4ca73d0ae0",
+  "probe": {
+    "edge.test.mpl": "54150890c8d0c159343bf8ef7428a577770119e1111c8704837805afacd98870",
+    "mesh.toml": "f7ed1e8d9bbe59ac85f285203913dd940273cf22743769a9d6f8938adb545956"
+  },
+  "verified": [
+    "validate_anchor_sources accepts https://localhost:444/a and https://localhost.:444/b with a third host; strict false rejects",
+    "getaddrinfo localhost and localhost. both return 127.0.0.1 and ::1; localhost.. is EAI_NONAME",
+    "strict and shared both accept https://192.0.2.1/rpc with https://[::ffff:c000:201]/rpc",
+    "connect [::ffff:127.0.0.1]:1 is connection refused on this OS",
+    "public one-dot, port, case, path, query, userinfo, fragment, lengths 2/9, and 8-list end/mid aliases reject; quorum and clock return invalid_anchor_sources before HTTP",
+    "allow_loopback false rejects https and http 127 port splits; true admits them"
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "head": "75fb7770107773ab7b5100827ae673cd0a782603",
+  "report_sha256": "cbb74cd9fcb82057e8a89985db301558bdd3b46cd7f627c3de7ab313c659e309",
+  "checked_files": 25,
+  "mismatches": [],
+  "command": [
+    "/Users/andreyyurlov/.local/share/fnm/node-versions/v24.21.0/installation/bin/node",
+    "--experimental-strip-types",
+    "--test",
+    "mesh-private-messenger/apps/mobile/src/codec.test.ts",
+    "mesh-private-messenger/apps/mobile/src/attachments.test.ts",
+    "mesh-private-messenger/apps/mobile/src/message-notifications.test.ts",
+    "mesh-private-messenger/apps/mobile/src/reactions.test.ts",
+    "mesh-private-messenger/apps/mobile/src/replies.test.ts",
+    "mesh-private-messenger/apps/mobile/src/receipts.test.ts",
+    "mesh-private-messenger/apps/mobile/src/community-requests.test.ts"
+  ],
+  "exit_code": 0,
+  "log_sha256": "9b5ae108ea41e9ce4174de8aabc18b374551c9fc25d4ab8137decbece6bfa692",
+  "verdict": "No verified defect in the bounded direct-history parser and placeholder change.",
+  "checks": [
+    "Exact 25-file receipt matched at 75fb777",
+    "63 focused tests passed",
+    "Reviewed 02HST bounds/status/ordinary compatibility, attachment refusal, caption handling and control-message separation"
+  ],
+  "limits": [
+    "No Core adoption; current Core remains unqualified beyond the direct draft",
+    "No new web rendering, native opening, group parser, device UI, native clock transition or release proof"
+  ]
+}

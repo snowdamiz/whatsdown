@@ -1,0 +1,101 @@
+{
+  "timestamp_utc": "2026-11-07T01:28:19.758545+00:00",
+  "source_commit": "9b844dbab34e61f6de575af2b25b0ed0f321059e",
+  "proposal_sha256_first": "63d2ee42500c6916966e240aee01ac25d24089e2fa4c1b3bf108878e4355c708",
+  "proposal_sha256_last": "63d2ee42500c6916966e240aee01ac25d24089e2fa4c1b3bf108878e4355c708",
+  "proposal_unchanged": true,
+  "inputs": [
+    {
+      "path": "pinned/compiler/meshc/src/library_authority.h",
+      "frozen_hash_matches": true
+    },
+    {
+      "path": "pinned/compiler/meshc/src/library_bindings.rs",
+      "frozen_hash_matches": true
+    },
+    {
+      "path": "pinned/compiler/mesh-rt/src/library.rs",
+      "frozen_hash_matches": true
+    },
+    {
+      "path": "pinned/compiler/mesh-rt/src/authority.rs",
+      "frozen_hash_matches": true
+    },
+    {
+      "path": "pinned/compiler/mesh-rt/src/actor/process.rs",
+      "frozen_hash_matches": true
+    },
+    {
+      "path": "pinned/compiler/mesh-rt/src/actor/scheduler.rs",
+      "frozen_hash_matches": true
+    },
+    {
+      "path": "pinned/compiler/mesh-rt/src/actor/stack.rs",
+      "frozen_hash_matches": true
+    },
+    {
+      "path": "parent/CONTRACT.md",
+      "frozen_hash_matches": true,
+      "live_hash_matches_frozen": true
+    },
+    {
+      "path": "parent/SKETCH.md",
+      "frozen_hash_matches": true,
+      "live_hash_matches_frozen": true
+    },
+    {
+      "path": "parent/API_CONSTRAINTS.md",
+      "frozen_hash_matches": true,
+      "live_hash_matches_frozen": true
+    },
+    {
+      "path": "parent/ALLOCATIONS.md",
+      "frozen_hash_matches": true,
+      "live_hash_matches_frozen": true
+    },
+    {
+      "path": "parent/PROOF_MATRIX.md",
+      "frozen_hash_matches": true,
+      "live_hash_matches_frozen": true
+    },
+    {
+      "path": "parent/review/final-contract-review-r2.md",
+      "frozen_hash_matches": true,
+      "live_hash_matches_frozen": true
+    },
+    {
+      "path": "pinned/compiler/mesh-rt/src/http/client.rs",
+      "frozen_hash_matches": true
+    },
+    {
+      "path": "pinned/compiler/mesh-rt/src/db/sqlite.rs",
+      "frozen_hash_matches": true
+    },
+    {
+      "path": "pinned/compiler/mesh-codegen/src/codegen/mod.rs",
+      "frozen_hash_matches": true
+    },
+    {
+      "path": "app-frozen/mesh-private-messenger/apps/mobile/scripts/generate-scoped-bindings.mjs",
+      "frozen_hash_matches": true,
+      "live_hash_matches_frozen": true
+    }
+  ],
+  "review_sha256": "fa4418a92da00c791232f66fd90b249a22a7f7375c63728ba6d9dab4d17c974f",
+  "executed": [
+    "read-only pinned-source and proposal inspection",
+    "static artifact/hash verification"
+  ],
+  "not_executed": [
+    "builds",
+    "tests",
+    "network",
+    "children"
+  ],
+  "write_boundary": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/owned-invocation-api-review-r1",
+  "decision": "REQUEST_CHANGES",
+  "contract_blockers": [
+    "B1 lifetime disposal and shutdown quiescence",
+    "B2 observable C state/status contract"
+  ]
+}

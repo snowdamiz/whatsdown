@@ -1,0 +1,26 @@
+[
+  {
+    "commit": "56148470ca80bc3a87fa31c158a1d7156c7223d8",
+    "path": "mesh-private-messenger/packages/mobile-core/mobile/sessions.mpl",
+    "blob": "c6f025dca5f3ab6e5dd29d116ac9b64f8a1a8304",
+    "snapshot": "inputs/git/5614847/mesh-private-messenger/packages/mobile-core/mobile/sessions.mpl",
+    "sha256_before": "54a87e61e572a1b61df8ee69c5f7f481407236092ad99101eb8fd329a1c9d0f4",
+    "sha256_after_copy": "54a87e61e572a1b61df8ee69c5f7f481407236092ad99101eb8fd329a1c9d0f4"
+  },
+  {
+    "commit": "e199c469e85258a26f73a1901402a1cfd9e60cd8",
+    "path": "mesh-private-messenger/packages/mobile-core/mobile/messages.mpl",
+    "blob": "1d978e7ddc0317c0bec4bc9f16e56ca4702aa738",
+    "snapshot": "inputs/git/e199c469/mesh-private-messenger/packages/mobile-core/mobile/messages.mpl",
+    "sha256_before": "4f0d42f6badd824cb543a23a2f26026e850d9bfa7c8817514619d74868b769a0",
+    "sha256_after_copy": "4f0d42f6badd824cb543a23a2f26026e850d9bfa7c8817514619d74868b769a0"
+  },
+  {
+    "commit": "e199c469e85258a26f73a1901402a1cfd9e60cd8",
+    "path": "mesh-private-messenger/packages/mobile-core/mobile/types.mpl",
+    "blob": "07c35cf38f524cfda1cb765a2b305dd14f455cb7",
+    "snapshot": "inputs/git/e199c469/mesh-private-messenger/packages/mobile-core/mobile/types.mpl",
+    "sha256_before": "d329b1accf2ee19ce1156ef5d6ef6fd551d0bca104ae12eabdd594d22edc0529",
+    "sha256_after_copy": "d329b1accf2ee19ce1156ef5d6ef6fd551d0bca104ae12eabdd594d22edc0529"
+  }
+]

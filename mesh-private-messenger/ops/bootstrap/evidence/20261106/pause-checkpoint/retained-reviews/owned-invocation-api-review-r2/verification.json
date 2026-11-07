@@ -1,0 +1,542 @@
+{
+  "schema": 1,
+  "timestamp_utc": "2026-11-07T01:42:52.692276+00:00",
+  "decision": "REQUEST_CHANGES",
+  "review_kind": "read-only API contract/source review; design only",
+  "source_commit": "9b844dbab34e61f6de575af2b25b0ed0f321059e",
+  "source_tree": "a3c10a88754d427653263dd9d1603559168549d1",
+  "authority_header_sha256": "5bbaf429dbd3749924b041847aba40ce40ee33c5a13a5c97f454601d79f87843",
+  "proposal": {
+    "source": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-owned-invocations/API_PROPOSAL.md",
+    "expected_sha256": "8d3dbea696189b83c9b8d5d55656a19e0d2d082245dda9a438dcd61419cb08c7",
+    "source_before_sha256": "8d3dbea696189b83c9b8d5d55656a19e0d2d082245dda9a438dcd61419cb08c7",
+    "source_after_copy_sha256": "8d3dbea696189b83c9b8d5d55656a19e0d2d082245dda9a438dcd61419cb08c7",
+    "frozen_sha256": "8d3dbea696189b83c9b8d5d55656a19e0d2d082245dda9a438dcd61419cb08c7",
+    "source_sha256_final": "544325a5eb2c656741e40da7524edc1ed645a1b7aeaea7219814e2a7bfbe79dc",
+    "frozen_sha256_final": "8d3dbea696189b83c9b8d5d55656a19e0d2d082245dda9a438dcd61419cb08c7",
+    "unchanged": false,
+    "initial_copy_checks_provenance": "retained proposal-pin.json from this review before the account handoff",
+    "source_sha256_on_recovery_initial_read": "8d3dbea696189b83c9b8d5d55656a19e0d2d082245dda9a438dcd61419cb08c7",
+    "source_sha256_at_receipt_start": "544325a5eb2c656741e40da7524edc1ed645a1b7aeaea7219814e2a7bfbe79dc",
+    "frozen_matches_requested_pin": true,
+    "source_unchanged_during_initial_copy": true,
+    "final_live_matches_reviewed_proposal": false,
+    "final_live_document_title": "# R2 direct scheduled invocation proposal, amendment 3",
+    "final_live_document_reviewed": false,
+    "scope": "Exact frozen amendment 2 only; final live amendment 3 is unreviewed and must not inherit this disposition."
+  },
+  "parent_design_manifest_sha256": "415297fc660a53ccccc94b08551a60c70a52c5dcd07c77bc20e7ed9c108515f3",
+  "round_one_review_sha256": "fa4418a92da00c791232f66fd90b249a22a7f7375c63728ba6d9dab4d17c974f",
+  "round_one_proposal_sha256": "63d2ee42500c6916966e240aee01ac25d24089e2fa4c1b3bf108878e4355c708",
+  "review_sha256": "038e507efee976f62ed81190f8e1d5bb03b0ba3b7acaeea781b8ccf9fd028cee",
+  "source_checks": [
+    {
+      "source_path": "compiler/meshc/src/library_authority.h",
+      "frozen_path": "owned-invocation-api-review-r1/pinned/compiler/meshc/src/library_authority.h",
+      "expected_sha256": "5bbaf429dbd3749924b041847aba40ce40ee33c5a13a5c97f454601d79f87843",
+      "frozen_sha256": "5bbaf429dbd3749924b041847aba40ce40ee33c5a13a5c97f454601d79f87843",
+      "git_object_sha256": "5bbaf429dbd3749924b041847aba40ce40ee33c5a13a5c97f454601d79f87843",
+      "matches": true
+    },
+    {
+      "source_path": "compiler/meshc/src/library_bindings.rs",
+      "frozen_path": "owned-invocation-api-review-r1/pinned/compiler/meshc/src/library_bindings.rs",
+      "expected_sha256": "180e66fd9728b981d6317f80309ffa7496c5796c9693716e3d63ba3ed2e75c78",
+      "frozen_sha256": "180e66fd9728b981d6317f80309ffa7496c5796c9693716e3d63ba3ed2e75c78",
+      "git_object_sha256": "180e66fd9728b981d6317f80309ffa7496c5796c9693716e3d63ba3ed2e75c78",
+      "matches": true
+    },
+    {
+      "source_path": "compiler/mesh-rt/src/library.rs",
+      "frozen_path": "owned-invocation-api-review-r1/pinned/compiler/mesh-rt/src/library.rs",
+      "expected_sha256": "45b78822ff5cc601f95b969b02b50059c745b5b2e0fdb596433e83fe7af21f8d",
+      "frozen_sha256": "45b78822ff5cc601f95b969b02b50059c745b5b2e0fdb596433e83fe7af21f8d",
+      "git_object_sha256": "45b78822ff5cc601f95b969b02b50059c745b5b2e0fdb596433e83fe7af21f8d",
+      "matches": true
+    },
+    {
+      "source_path": "compiler/mesh-rt/src/authority.rs",
+      "frozen_path": "owned-invocation-api-review-r1/pinned/compiler/mesh-rt/src/authority.rs",
+      "expected_sha256": "3d8f612848f9ed0b5767351925748e78b9fbc2d4b600b9629bdb95182ad238d6",
+      "frozen_sha256": "3d8f612848f9ed0b5767351925748e78b9fbc2d4b600b9629bdb95182ad238d6",
+      "git_object_sha256": "3d8f612848f9ed0b5767351925748e78b9fbc2d4b600b9629bdb95182ad238d6",
+      "matches": true
+    },
+    {
+      "source_path": "compiler/mesh-rt/src/actor/process.rs",
+      "frozen_path": "owned-invocation-api-review-r1/pinned/compiler/mesh-rt/src/actor/process.rs",
+      "expected_sha256": "edf6185428b7a3907057cc51b2218603828e47ad6c1a64998c67db41eb230668",
+      "frozen_sha256": "edf6185428b7a3907057cc51b2218603828e47ad6c1a64998c67db41eb230668",
+      "git_object_sha256": "edf6185428b7a3907057cc51b2218603828e47ad6c1a64998c67db41eb230668",
+      "matches": true
+    },
+    {
+      "source_path": "compiler/mesh-rt/src/actor/scheduler.rs",
+      "frozen_path": "owned-invocation-api-review-r1/pinned/compiler/mesh-rt/src/actor/scheduler.rs",
+      "expected_sha256": "a95b78c25c6efa61575daeabe624d7699a42c14bfdb3f2e7819b322358224f81",
+      "frozen_sha256": "a95b78c25c6efa61575daeabe624d7699a42c14bfdb3f2e7819b322358224f81",
+      "git_object_sha256": "a95b78c25c6efa61575daeabe624d7699a42c14bfdb3f2e7819b322358224f81",
+      "matches": true
+    },
+    {
+      "source_path": "compiler/mesh-rt/src/actor/stack.rs",
+      "frozen_path": "owned-invocation-api-review-r1/pinned/compiler/mesh-rt/src/actor/stack.rs",
+      "expected_sha256": "0affdca82f13551db082ba8af92c2ff119763731666411bd7a388c294e54cf07",
+      "frozen_sha256": "0affdca82f13551db082ba8af92c2ff119763731666411bd7a388c294e54cf07",
+      "git_object_sha256": "0affdca82f13551db082ba8af92c2ff119763731666411bd7a388c294e54cf07",
+      "matches": true
+    },
+    {
+      "source_path": "compiler/mesh-rt/src/http/client.rs",
+      "frozen_path": "owned-invocation-api-review-r1/pinned/compiler/mesh-rt/src/http/client.rs",
+      "expected_sha256": "adf1b435cabee73afcb8de088ede01082933112c9fb8ea91496f8dbfd8ac035d",
+      "frozen_sha256": "adf1b435cabee73afcb8de088ede01082933112c9fb8ea91496f8dbfd8ac035d",
+      "git_object_sha256": "adf1b435cabee73afcb8de088ede01082933112c9fb8ea91496f8dbfd8ac035d",
+      "matches": true
+    },
+    {
+      "source_path": "compiler/mesh-rt/src/db/sqlite.rs",
+      "frozen_path": "owned-invocation-api-review-r1/pinned/compiler/mesh-rt/src/db/sqlite.rs",
+      "expected_sha256": "d443bf83725d3ea824dbfee7ae86b4ae69eac2012d82f30e14593690ec116dde",
+      "frozen_sha256": "d443bf83725d3ea824dbfee7ae86b4ae69eac2012d82f30e14593690ec116dde",
+      "git_object_sha256": "d443bf83725d3ea824dbfee7ae86b4ae69eac2012d82f30e14593690ec116dde",
+      "matches": true
+    },
+    {
+      "source_path": "compiler/mesh-codegen/src/codegen/mod.rs",
+      "frozen_path": "owned-invocation-api-review-r1/pinned/compiler/mesh-codegen/src/codegen/mod.rs",
+      "expected_sha256": "3fe12a73338edc57992bb53e36c0d49fe92ec7e88dfe514ccb69a79336236246",
+      "frozen_sha256": "3fe12a73338edc57992bb53e36c0d49fe92ec7e88dfe514ccb69a79336236246",
+      "git_object_sha256": "3fe12a73338edc57992bb53e36c0d49fe92ec7e88dfe514ccb69a79336236246",
+      "matches": true
+    },
+    {
+      "source_path": "compiler/mesh-rt/src/actor/mod.rs",
+      "frozen_path": "owned-invocation-api-review-r2/pinned/compiler/mesh-rt/src/actor/mod.rs",
+      "expected_sha256": "63f923a0a0d3a9477e0fb7de3bcf10062d494c0ef894abd2235c2eb620d42e1d",
+      "frozen_sha256": "63f923a0a0d3a9477e0fb7de3bcf10062d494c0ef894abd2235c2eb620d42e1d",
+      "git_object_sha256": "63f923a0a0d3a9477e0fb7de3bcf10062d494c0ef894abd2235c2eb620d42e1d",
+      "matches": true
+    },
+    {
+      "source_path": "compiler/mesh-rt/src/actor/service.rs",
+      "frozen_path": "owned-invocation-api-review-r2/pinned/compiler/mesh-rt/src/actor/service.rs",
+      "expected_sha256": "5c78363f05642b5bd2388f92c4759f3e10946597570292402bbab4773f54e623",
+      "frozen_sha256": "5c78363f05642b5bd2388f92c4759f3e10946597570292402bbab4773f54e623",
+      "git_object_sha256": "5c78363f05642b5bd2388f92c4759f3e10946597570292402bbab4773f54e623",
+      "matches": true
+    },
+    {
+      "source_path": "compiler/mesh-rt/src/actor/supervisor.rs",
+      "frozen_path": "owned-invocation-api-review-r2/pinned/compiler/mesh-rt/src/actor/supervisor.rs",
+      "expected_sha256": "841c8b888e7a228101b4e7dba7924954abcc1aedc76625174087190224f7a7af",
+      "frozen_sha256": "841c8b888e7a228101b4e7dba7924954abcc1aedc76625174087190224f7a7af",
+      "git_object_sha256": "841c8b888e7a228101b4e7dba7924954abcc1aedc76625174087190224f7a7af",
+      "matches": true
+    },
+    {
+      "source_path": "compiler/mesh-rt/src/channel.rs",
+      "frozen_path": "owned-invocation-api-review-r2/pinned/compiler/mesh-rt/src/channel.rs",
+      "expected_sha256": "ec1d4c63f8f03a439e6c39cda4c5ae88e9eada0e9d9d9d4640e07043be5e36f4",
+      "frozen_sha256": "ec1d4c63f8f03a439e6c39cda4c5ae88e9eada0e9d9d9d4640e07043be5e36f4",
+      "git_object_sha256": "ec1d4c63f8f03a439e6c39cda4c5ae88e9eada0e9d9d9d4640e07043be5e36f4",
+      "matches": true
+    },
+    {
+      "source_path": "compiler/mesh-rt/src/actor/job.rs",
+      "frozen_path": "owned-invocation-api-review-r2/pinned/compiler/mesh-rt/src/actor/job.rs",
+      "expected_sha256": "2d0050953e47a8bfd5d686a13ae27c5138ef8b9782548c275c51f556e2d125aa",
+      "frozen_sha256": "2d0050953e47a8bfd5d686a13ae27c5138ef8b9782548c275c51f556e2d125aa",
+      "git_object_sha256": "2d0050953e47a8bfd5d686a13ae27c5138ef8b9782548c275c51f556e2d125aa",
+      "matches": true
+    }
+  ],
+  "round_one_input_checks": [
+    {
+      "path": "owned-invocation-api-review-r1/pinned/compiler/meshc/src/library_authority.h",
+      "expected_sha256": "5bbaf429dbd3749924b041847aba40ce40ee33c5a13a5c97f454601d79f87843",
+      "actual_sha256": "5bbaf429dbd3749924b041847aba40ce40ee33c5a13a5c97f454601d79f87843",
+      "matches": true
+    },
+    {
+      "path": "owned-invocation-api-review-r1/pinned/compiler/meshc/src/library_bindings.rs",
+      "expected_sha256": "180e66fd9728b981d6317f80309ffa7496c5796c9693716e3d63ba3ed2e75c78",
+      "actual_sha256": "180e66fd9728b981d6317f80309ffa7496c5796c9693716e3d63ba3ed2e75c78",
+      "matches": true
+    },
+    {
+      "path": "owned-invocation-api-review-r1/pinned/compiler/mesh-rt/src/library.rs",
+      "expected_sha256": "45b78822ff5cc601f95b969b02b50059c745b5b2e0fdb596433e83fe7af21f8d",
+      "actual_sha256": "45b78822ff5cc601f95b969b02b50059c745b5b2e0fdb596433e83fe7af21f8d",
+      "matches": true
+    },
+    {
+      "path": "owned-invocation-api-review-r1/pinned/compiler/mesh-rt/src/authority.rs",
+      "expected_sha256": "3d8f612848f9ed0b5767351925748e78b9fbc2d4b600b9629bdb95182ad238d6",
+      "actual_sha256": "3d8f612848f9ed0b5767351925748e78b9fbc2d4b600b9629bdb95182ad238d6",
+      "matches": true
+    },
+    {
+      "path": "owned-invocation-api-review-r1/pinned/compiler/mesh-rt/src/actor/process.rs",
+      "expected_sha256": "edf6185428b7a3907057cc51b2218603828e47ad6c1a64998c67db41eb230668",
+      "actual_sha256": "edf6185428b7a3907057cc51b2218603828e47ad6c1a64998c67db41eb230668",
+      "matches": true
+    },
+    {
+      "path": "owned-invocation-api-review-r1/pinned/compiler/mesh-rt/src/actor/scheduler.rs",
+      "expected_sha256": "a95b78c25c6efa61575daeabe624d7699a42c14bfdb3f2e7819b322358224f81",
+      "actual_sha256": "a95b78c25c6efa61575daeabe624d7699a42c14bfdb3f2e7819b322358224f81",
+      "matches": true
+    },
+    {
+      "path": "owned-invocation-api-review-r1/pinned/compiler/mesh-rt/src/actor/stack.rs",
+      "expected_sha256": "0affdca82f13551db082ba8af92c2ff119763731666411bd7a388c294e54cf07",
+      "actual_sha256": "0affdca82f13551db082ba8af92c2ff119763731666411bd7a388c294e54cf07",
+      "matches": true
+    },
+    {
+      "path": "owned-invocation-api-review-r1/parent/CONTRACT.md",
+      "expected_sha256": "a848962558e0ee1c639747063eede5312afc863d11c80b6a2a5b3caa0d21a0cb",
+      "actual_sha256": "a848962558e0ee1c639747063eede5312afc863d11c80b6a2a5b3caa0d21a0cb",
+      "matches": true
+    },
+    {
+      "path": "owned-invocation-api-review-r1/parent/SKETCH.md",
+      "expected_sha256": "2189f1ef8e6a25e62bc5d4bf792744d8fbe0c54dd3b63e89dd8c2bcb227e9c70",
+      "actual_sha256": "2189f1ef8e6a25e62bc5d4bf792744d8fbe0c54dd3b63e89dd8c2bcb227e9c70",
+      "matches": true
+    },
+    {
+      "path": "owned-invocation-api-review-r1/parent/API_CONSTRAINTS.md",
+      "expected_sha256": "6b2d67277a4ef2220b3b6696e5fd3622e2475ca68141e59b73a22e39b6dd90c8",
+      "actual_sha256": "6b2d67277a4ef2220b3b6696e5fd3622e2475ca68141e59b73a22e39b6dd90c8",
+      "matches": true
+    },
+    {
+      "path": "owned-invocation-api-review-r1/parent/ALLOCATIONS.md",
+      "expected_sha256": "cd33e98e50fed45435074bb124381e2867b32b7769a09f0cd6e3f61c387f33e9",
+      "actual_sha256": "cd33e98e50fed45435074bb124381e2867b32b7769a09f0cd6e3f61c387f33e9",
+      "matches": true
+    },
+    {
+      "path": "owned-invocation-api-review-r1/parent/PROOF_MATRIX.md",
+      "expected_sha256": "40dda63cf76a7d0fe946daf06f39dde7e720ca51ab99c7f4ae1e7667ddacaa51",
+      "actual_sha256": "40dda63cf76a7d0fe946daf06f39dde7e720ca51ab99c7f4ae1e7667ddacaa51",
+      "matches": true
+    },
+    {
+      "path": "owned-invocation-api-review-r1/parent/review/final-contract-review-r2.md",
+      "expected_sha256": "6e10966876d85a6d0bf8ada3fd6945f4d9550ba5d756708b6425021bdf156f55",
+      "actual_sha256": "6e10966876d85a6d0bf8ada3fd6945f4d9550ba5d756708b6425021bdf156f55",
+      "matches": true
+    },
+    {
+      "path": "owned-invocation-api-review-r1/pinned/compiler/mesh-rt/src/http/client.rs",
+      "expected_sha256": "adf1b435cabee73afcb8de088ede01082933112c9fb8ea91496f8dbfd8ac035d",
+      "actual_sha256": "adf1b435cabee73afcb8de088ede01082933112c9fb8ea91496f8dbfd8ac035d",
+      "matches": true
+    },
+    {
+      "path": "owned-invocation-api-review-r1/pinned/compiler/mesh-rt/src/db/sqlite.rs",
+      "expected_sha256": "d443bf83725d3ea824dbfee7ae86b4ae69eac2012d82f30e14593690ec116dde",
+      "actual_sha256": "d443bf83725d3ea824dbfee7ae86b4ae69eac2012d82f30e14593690ec116dde",
+      "matches": true
+    },
+    {
+      "path": "owned-invocation-api-review-r1/pinned/compiler/mesh-codegen/src/codegen/mod.rs",
+      "expected_sha256": "3fe12a73338edc57992bb53e36c0d49fe92ec7e88dfe514ccb69a79336236246",
+      "actual_sha256": "3fe12a73338edc57992bb53e36c0d49fe92ec7e88dfe514ccb69a79336236246",
+      "matches": true
+    },
+    {
+      "path": "owned-invocation-api-review-r1/app-frozen/mesh-private-messenger/apps/mobile/scripts/generate-scoped-bindings.mjs",
+      "expected_sha256": "cab26e3b25cff5beeab2aa5e2e3829a307df9a2ba7e153dd0184beccdbdc2ea5",
+      "actual_sha256": "cab26e3b25cff5beeab2aa5e2e3829a307df9a2ba7e153dd0184beccdbdc2ea5",
+      "matches": true
+    }
+  ],
+  "supplemental_checks": [
+    {
+      "path": "app-frozen/mesh-private-messenger/apps/desktop/src-tauri/src/request.rs",
+      "source": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/mesh-private-messenger/apps/desktop/src-tauri/src/request.rs",
+      "source_kind": "app-consumer-snapshot-not-runtime-owner-source",
+      "expected_sha256": "63976d6a193deb5b9ca67ca7d26c8db0a47440b2eced4da57b83ec76487eb668",
+      "actual_sha256": "63976d6a193deb5b9ca67ca7d26c8db0a47440b2eced4da57b83ec76487eb668",
+      "matches": true
+    },
+    {
+      "path": "app-frozen/mesh-private-messenger/apps/desktop/src-tauri/src/mesh.rs",
+      "source": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/mesh-private-messenger/apps/desktop/src-tauri/src/mesh.rs",
+      "source_kind": "app-consumer-snapshot-not-runtime-owner-source",
+      "expected_sha256": "e96bef8106213a1eed5103507fad7b728520ca84584f2d80967c3a486ed7f7c3",
+      "actual_sha256": "e96bef8106213a1eed5103507fad7b728520ca84584f2d80967c3a486ed7f7c3",
+      "matches": true
+    },
+    {
+      "path": "app-frozen/mesh-private-messenger/apps/mobile/modules/mesh-messenger/MeshMessenger.podspec",
+      "source": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/mesh-private-messenger/apps/mobile/modules/mesh-messenger/MeshMessenger.podspec",
+      "source_kind": "app-consumer-snapshot-not-runtime-owner-source",
+      "expected_sha256": "6abd969b1aed56372255aa0d51ea908fd85e3ff65a85f3e558db7ea2c0920f47",
+      "actual_sha256": "6abd969b1aed56372255aa0d51ea908fd85e3ff65a85f3e558db7ea2c0920f47",
+      "matches": true
+    },
+    {
+      "path": "app-frozen/mesh-private-messenger/apps/mobile/modules/mesh-messenger/ios/MeshMessengerModule.swift",
+      "source": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/mesh-private-messenger/apps/mobile/modules/mesh-messenger/ios/MeshMessengerModule.swift",
+      "source_kind": "app-consumer-snapshot-not-runtime-owner-source",
+      "expected_sha256": "9c0c35dc96b7cbbd446cc256800b9f339b91532390223e46d72a31e50ac370ff",
+      "actual_sha256": "9c0c35dc96b7cbbd446cc256800b9f339b91532390223e46d72a31e50ac370ff",
+      "matches": true
+    },
+    {
+      "path": "app-frozen/mesh-private-messenger/apps/mobile/modules/mesh-messenger/android/src/main/java/expo/modules/meshmessenger/MeshMessengerModule.kt",
+      "source": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/mesh-private-messenger/apps/mobile/modules/mesh-messenger/android/src/main/java/expo/modules/meshmessenger/MeshMessengerModule.kt",
+      "source_kind": "app-consumer-snapshot-not-runtime-owner-source",
+      "expected_sha256": "95d3be58e8084e5cd93b459d80a116a54bdc20c47bf326a0fee159cfac85da2e",
+      "actual_sha256": "95d3be58e8084e5cd93b459d80a116a54bdc20c47bf326a0fee159cfac85da2e",
+      "matches": true
+    },
+    {
+      "path": "app-frozen/mesh-private-messenger/apps/mobile/modules/mesh-messenger/android/src/main/cpp/CMakeLists.txt",
+      "source": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/mesh-private-messenger/apps/mobile/modules/mesh-messenger/android/src/main/cpp/CMakeLists.txt",
+      "source_kind": "app-consumer-snapshot-not-runtime-owner-source",
+      "expected_sha256": "c96c7b03b7351cbd1365f6c069cf84620e7861beca52cf56d31542367664425a",
+      "actual_sha256": "c96c7b03b7351cbd1365f6c069cf84620e7861beca52cf56d31542367664425a",
+      "matches": true
+    },
+    {
+      "path": "app-frozen/mesh-private-messenger/apps/mobile/modules/mesh-messenger/android/src/main/cpp/MeshMessengerHost.cpp",
+      "source": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/mesh-private-messenger/apps/mobile/modules/mesh-messenger/android/src/main/cpp/MeshMessengerHost.cpp",
+      "source_kind": "app-consumer-snapshot-not-runtime-owner-source",
+      "expected_sha256": "31f8e858030e86a5fc484580a5b071641844707cf67fa7141baa4c33243aaaf8",
+      "actual_sha256": "31f8e858030e86a5fc484580a5b071641844707cf67fa7141baa4c33243aaaf8",
+      "matches": true
+    },
+    {
+      "path": "app-frozen/mesh-private-messenger/apps/mobile/scripts/generate-scoped-bindings.mjs",
+      "source": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/mesh-private-messenger/apps/mobile/scripts/generate-scoped-bindings.mjs",
+      "source_kind": "app-consumer-snapshot-not-runtime-owner-source",
+      "expected_sha256": "cab26e3b25cff5beeab2aa5e2e3829a307df9a2ba7e153dd0184beccdbdc2ea5",
+      "actual_sha256": "cab26e3b25cff5beeab2aa5e2e3829a307df9a2ba7e153dd0184beccdbdc2ea5",
+      "matches": true
+    },
+    {
+      "path": "app-frozen/mesh-private-messenger/scripts/build-mobile-native.sh",
+      "source": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/mesh-private-messenger/scripts/build-mobile-native.sh",
+      "source_kind": "app-consumer-snapshot-not-runtime-owner-source",
+      "expected_sha256": "bcbaa5b00e78a7b3873fe60b93fe970c99e4f1ef37064adc930834faecdf14d4",
+      "actual_sha256": "bcbaa5b00e78a7b3873fe60b93fe970c99e4f1ef37064adc930834faecdf14d4",
+      "matches": true
+    },
+    {
+      "path": "app-frozen/mesh-private-messenger/ops/attachment-paid-native/build.py",
+      "source": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/mesh-private-messenger/ops/attachment-paid-native/build.py",
+      "source_kind": "app-consumer-snapshot-not-runtime-owner-source",
+      "expected_sha256": "e7edfc9a3006195198507550f787a0451038917072a147bef3cec02a4f2c9cf3",
+      "actual_sha256": "e7edfc9a3006195198507550f787a0451038917072a147bef3cec02a4f2c9cf3",
+      "matches": true
+    },
+    {
+      "path": "app-frozen/mesh-private-messenger/apps/mobile/modules/mesh-messenger/generated/libmessenger_mobile.h",
+      "source": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/mesh-private-messenger/apps/mobile/modules/mesh-messenger/generated/libmessenger_mobile.h",
+      "source_kind": "app-consumer-snapshot-not-runtime-owner-source",
+      "expected_sha256": "f58fbbc780f6174ea188b389455c0197295ee23022b5b11d6b5cc579df3cc8ce",
+      "actual_sha256": "f58fbbc780f6174ea188b389455c0197295ee23022b5b11d6b5cc579df3cc8ce",
+      "matches": true
+    },
+    {
+      "path": "parent/CONTRACT.md",
+      "source": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/native-authority-closure-design/CONTRACT.md",
+      "source_kind": "parent-design-pinned-manifest",
+      "expected_sha256": "a848962558e0ee1c639747063eede5312afc863d11c80b6a2a5b3caa0d21a0cb",
+      "actual_sha256": "a848962558e0ee1c639747063eede5312afc863d11c80b6a2a5b3caa0d21a0cb",
+      "matches": true,
+      "manifest_sha256": "a848962558e0ee1c639747063eede5312afc863d11c80b6a2a5b3caa0d21a0cb",
+      "manifest_matches": true
+    },
+    {
+      "path": "parent/SKETCH.md",
+      "source": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/native-authority-closure-design/SKETCH.md",
+      "source_kind": "parent-design-pinned-manifest",
+      "expected_sha256": "2189f1ef8e6a25e62bc5d4bf792744d8fbe0c54dd3b63e89dd8c2bcb227e9c70",
+      "actual_sha256": "2189f1ef8e6a25e62bc5d4bf792744d8fbe0c54dd3b63e89dd8c2bcb227e9c70",
+      "matches": true,
+      "manifest_sha256": "2189f1ef8e6a25e62bc5d4bf792744d8fbe0c54dd3b63e89dd8c2bcb227e9c70",
+      "manifest_matches": true
+    },
+    {
+      "path": "parent/API_CONSTRAINTS.md",
+      "source": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/native-authority-closure-design/API_CONSTRAINTS.md",
+      "source_kind": "parent-design-pinned-manifest",
+      "expected_sha256": "6b2d67277a4ef2220b3b6696e5fd3622e2475ca68141e59b73a22e39b6dd90c8",
+      "actual_sha256": "6b2d67277a4ef2220b3b6696e5fd3622e2475ca68141e59b73a22e39b6dd90c8",
+      "matches": true,
+      "manifest_sha256": "6b2d67277a4ef2220b3b6696e5fd3622e2475ca68141e59b73a22e39b6dd90c8",
+      "manifest_matches": true
+    },
+    {
+      "path": "parent/HANDOFF.md",
+      "source": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/native-authority-closure-design/HANDOFF.md",
+      "source_kind": "parent-design-pinned-manifest",
+      "expected_sha256": "32326ac50e4e80fcfe356ce7d8d715cf63c7d6a831322282fb199b1646265ec3",
+      "actual_sha256": "32326ac50e4e80fcfe356ce7d8d715cf63c7d6a831322282fb199b1646265ec3",
+      "matches": true,
+      "manifest_sha256": "32326ac50e4e80fcfe356ce7d8d715cf63c7d6a831322282fb199b1646265ec3",
+      "manifest_matches": true
+    },
+    {
+      "path": "parent/review/final-contract-review-r2.md",
+      "source": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/native-authority-closure-design/review/final-contract-review-r2.md",
+      "source_kind": "parent-design-pinned-manifest",
+      "expected_sha256": "6e10966876d85a6d0bf8ada3fd6945f4d9550ba5d756708b6425021bdf156f55",
+      "actual_sha256": "6e10966876d85a6d0bf8ada3fd6945f4d9550ba5d756708b6425021bdf156f55",
+      "matches": true,
+      "manifest_sha256": "6e10966876d85a6d0bf8ada3fd6945f4d9550ba5d756708b6425021bdf156f55",
+      "manifest_matches": true
+    },
+    {
+      "path": "parent/review/n1-final-review-r3.md",
+      "source": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/native-authority-closure-design/review/n1-final-review-r3.md",
+      "source_kind": "parent-design-pinned-manifest",
+      "expected_sha256": "fad2890e11f12ed9c891d95a1f0a109918e8bc0947e408b1a25a216e2eacd378",
+      "actual_sha256": "fad2890e11f12ed9c891d95a1f0a109918e8bc0947e408b1a25a216e2eacd378",
+      "matches": true,
+      "manifest_sha256": "fad2890e11f12ed9c891d95a1f0a109918e8bc0947e408b1a25a216e2eacd378",
+      "manifest_matches": true
+    },
+    {
+      "path": "parent/MANIFEST.json",
+      "source": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/native-authority-closure-design/MANIFEST.json",
+      "source_kind": "parent-design-pinned-manifest",
+      "expected_sha256": "415297fc660a53ccccc94b08551a60c70a52c5dcd07c77bc20e7ed9c108515f3",
+      "actual_sha256": "415297fc660a53ccccc94b08551a60c70a52c5dcd07c77bc20e7ed9c108515f3",
+      "matches": true
+    }
+  ],
+  "counts": {
+    "exact_git_source_copies": 15,
+    "round_one_frozen_inputs": 17,
+    "supplemental_frozen_inputs": 18,
+    "parent_artifacts_checked_against_manifest": 6
+  },
+  "prior_findings": {
+    "B1": {
+      "disposition": "RESOLVED_AT_DESIGN_LEVEL_WITH_GATES",
+      "detail": "Process-lifetime code pinning, retained Host context, bounded disposal outside locks and scheduler-only shutdown are usable choices; N2 still requires explicit legacy guard scope."
+    },
+    "B2": {
+      "disposition": "PARTIALLY_RESOLVED",
+      "detail": "Normal-context status/output/once-consumption/cancellation/reference rules are coherent; N1 reentry status and no-mutation semantics remain open."
+    }
+  },
+  "contract_blockers": [
+    {
+      "id": "N1",
+      "priority": "P2",
+      "title": "Specify rejected take/cancel reentry status and state/output effects",
+      "references": [
+        "API_PROPOSAL.frozen.md:23",
+        "API_PROPOSAL.frozen.md:39-50",
+        "API_PROPOSAL.frozen.md:66"
+      ],
+      "scenario": "An operation or lifetime callback uses a different valid live handle; early rejection conflicts with cancel(any valid handle)=0 and does not say whether a Ready outcome is consumed.",
+      "required_correction": "Add higher-priority reentry rows with a fixed status, preserved completion/refusal state, empty valid output and explicit null/reentry precedence."
+    },
+    {
+      "id": "N2",
+      "priority": "P2",
+      "title": "Scope callback guards to preserve standalone V1 init/register behavior",
+      "references": [
+        "API_PROPOSAL.frozen.md:66",
+        "parent/API_CONSTRAINTS.md:14",
+        "../owned-invocation-api-review-r1/pinned/compiler/mesh-rt/src/library.rs:220-236",
+        "../owned-invocation-api-review-r1/pinned/compiler/mesh-rt/src/library.rs:263-280",
+        "../owned-invocation-api-review-r1/pinned/compiler/mesh-rt/src/library.rs:323-341"
+      ],
+      "scenario": "Without protected/scheduled use, a V1 operation callback calls idempotent init or registers a valid V1 table; pinned source returns0, while the blanket new guard says reject.",
+      "required_correction": "Define the V2 operation/lifetime guard scope and status; preserve standalone V1 behavior or obtain explicit parent disposition for a broader change. Treat nested shutdown refusal separately."
+    }
+  ],
+  "consumer_conclusion": {
+    "disposition": "SEPARATE_HEADER_AND_ADDITIVE_LOGICAL_ROW_METADATA_VIABLE_BY_SOURCE_INSPECTION",
+    "desktop_precision": "request.rs scans literal int32_t declarations in the legacy header; it does not parse C includes. mesh.rs resolves accepted symbols as three-argument Export functions.",
+    "candidate_generated_artifacts_verified": false,
+    "remaining_checks": [
+      "legacy generated output equality",
+      "physical symbol/collision inventory",
+      "actual consumer compatibility with fresh outputs",
+      "opt-in extension header packaging",
+      "V2 adapter code/context lifetime compliance"
+    ]
+  },
+  "implementation_gates": [
+    {
+      "id": "G1",
+      "status": "OPEN_NOT_EXECUTED"
+    },
+    {
+      "id": "G2",
+      "status": "OPEN_NOT_EXECUTED"
+    },
+    {
+      "id": "G3",
+      "status": "OPEN_NOT_EXECUTED"
+    },
+    {
+      "id": "G4",
+      "status": "OPEN_NOT_EXECUTED"
+    },
+    {
+      "id": "G5",
+      "status": "OPEN_NOT_EXECUTED"
+    },
+    {
+      "id": "G6",
+      "status": "OPEN_NOT_EXECUTED"
+    },
+    {
+      "id": "G7",
+      "status": "OPEN_NOT_EXECUTED"
+    },
+    {
+      "id": "G8",
+      "status": "OPEN_NOT_EXECUTED"
+    }
+  ],
+  "capability_boundary": {
+    "accepted_runtime_mask": 1,
+    "scheduler_bit4_enabled": false,
+    "bits_2_8_16_32_enabled": false,
+    "native_activation_approved": false,
+    "sdk_or_publication_approved": false,
+    "serializer_removal_approved": false,
+    "full_core_or_platform_progress_qualified": false
+  },
+  "public_api_header_generator_manifest_hold": "REMAINS_PENDING_PARENT_DISPOSITION",
+  "executed": [
+    "frozen proposal and prior-review inspection",
+    "pinned runtime/compiler and app-consumer source inspection",
+    "local immutable Git object reads",
+    "static artifact/hash verification"
+  ],
+  "not_executed": [
+    "builds",
+    "tests",
+    "network",
+    "child tasks",
+    "production changes",
+    "Git edits",
+    "candidate generated artifact qualification",
+    "reported R1 held-HTTP baseline or 31-case rerun"
+  ],
+  "evidence_limit": "Snapshot/source and contract conclusions only. Retained execution claims are not new executions or candidate scheduling proof.",
+  "write_boundary": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/owned-invocation-api-review-r2",
+  "recovered_run_writes": [
+    "REVIEW.md",
+    "verification.json"
+  ],
+  "all_evidence_and_live_drift_checks_pass": false,
+  "frozen_evidence_integrity_pass": true,
+  "drift_disposition": "Live proposal advanced to amendment 3 during resumed work. Preserve requested frozen amendment 2, report REQUEST_CHANGES for that pin only, and leave the later amendment unreviewed.",
+  "receipt_finalized_at_utc": "2026-11-07T01:43:37.694941+00:00"
+}

@@ -1,0 +1,102 @@
+[
+  {
+    "name": "baseline_live_write",
+    "command": [
+      "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+      "build",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-fix-review-r3/probes/baseline_live_write",
+      "--artifact",
+      "staticlib",
+      "--json",
+      "--plaintext-report",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-fix-review-r3/compile/baseline_live_write/plaintext.json",
+      "--output",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-fix-review-r3/compile/baseline_live_write/libprobe.a"
+    ],
+    "exit": 0,
+    "elapsed_seconds": 51.15,
+    "log_sha256": "d1d38746c87a2d41d3bbf0234e278f303610b10bccd31ecf96e44bf026dafe82",
+    "source_sha256": "3897cc19a514cfd5374292a6cc02f86f1b6a67609caa0b3dc58f2dd864172c97",
+    "diagnostics": "  Compiled: /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-fix-review-r3/compile/baseline_live_write/libprobe.a\n"
+  },
+  {
+    "name": "candidate_live_write",
+    "command": [
+      "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+      "build",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-fix-review-r3/probes/candidate_live_write",
+      "--artifact",
+      "staticlib",
+      "--json",
+      "--plaintext-report",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-fix-review-r3/compile/candidate_live_write/plaintext.json",
+      "--output",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-fix-review-r3/compile/candidate_live_write/libprobe.a"
+    ],
+    "exit": 1,
+    "elapsed_seconds": 47.72,
+    "log_sha256": "4662f507f63649426473850b8c186a611b7e948d6ecbf547ce58132330db3caf",
+    "source_sha256": "3897cc19a514cfd5374292a6cc02f86f1b6a67609caa0b3dc58f2dd864172c97",
+    "diagnostics": "{\"code\":\"E0093\",\"severity\":\"error\",\"message\":\"plaintext flow to `native export` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification\",\"file\":\"/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-fix-review-r3/probes/candidate_live_write/main.mpl\",\"spans\":[{\"start\":432,\"end\":1828,\"label\":\"plaintext reaches `native export` here\"}],\"fix\":\"plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification\"}\n{\"code\":\"C0001\",\"file\":\"\",\"fix\":null,\"message\":\"Compilation failed due to errors above.\",\"severity\":\"error\",\"spans\":[]}\n"
+  },
+  {
+    "name": "candidate_parts",
+    "command": [
+      "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+      "build",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-fix-review-r3/probes/candidate_parts",
+      "--artifact",
+      "staticlib",
+      "--json",
+      "--plaintext-report",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-fix-review-r3/compile/candidate_parts/plaintext.json",
+      "--output",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-fix-review-r3/compile/candidate_parts/libprobe.a"
+    ],
+    "exit": 1,
+    "elapsed_seconds": 43.94,
+    "log_sha256": "80812db4242c69e6d4a88647e10cade11c7dfc92e8552ac4bb517fb763ce809f",
+    "source_sha256": "b3c08d871aa951b5905adef1804166f8b9f902e28c7426ce70cc8dcde35f0840",
+    "diagnostics": "{\"code\":\"E0093\",\"severity\":\"error\",\"message\":\"plaintext flow to `native export` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification\",\"file\":\"/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-fix-review-r3/probes/candidate_parts/main.mpl\",\"spans\":[{\"start\":463,\"end\":1893,\"label\":\"plaintext reaches `native export` here\"}],\"fix\":\"plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification\"}\n{\"code\":\"E0093\",\"severity\":\"error\",\"message\":\"plaintext flow to `StorageKey.unseal_bytes` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification\",\"file\":\"/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-fix-review-r3/probes/candidate_parts/main.mpl\",\"spans\":[{\"start\":3009,\"end\":3257,\"label\":\"plaintext reaches `StorageKey.unseal_bytes` here\"}],\"fix\":\"plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification\"}\n{\"code\":\"E0093\",\"severity\":\"error\",\"message\":\"plaintext flow to `seal public metadata` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification\",\"file\":\"/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-fix-review-r3/probes/candidate_parts/main.mpl\",\"spans\":[{\"start\":3009,\"end\":3257,\"label\":\"plaintext reaches `seal public metadata` here\"}],\"fix\":\"plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification\"}\n{\"code\":\"E0093\",\"severity\":\"error\",\"message\":\"plaintext flow to `native export` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification\",\"file\":\"/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-fix-review-r3/probes/candidate_parts/main.mpl\",\"spans\":[{\"start\":1895,\"end\":3374,\"label\":\"plaintext reaches `native export` here\"}],\"fix\":\"plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification\"}\n{\"code\":\"C0001\",\"file\":\"\",\"fix\":null,\"message\":\"Compilation failed due to errors above.\",\"severity\":\"error\",\"spans\":[]}\n"
+  },
+  {
+    "name": "baseline_epoch_pending",
+    "command": [
+      "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+      "build",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-fix-review-r3/probes/baseline_epoch_pending",
+      "--artifact",
+      "staticlib",
+      "--json",
+      "--plaintext-report",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-fix-review-r3/compile/baseline_epoch_pending/plaintext.json",
+      "--output",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-fix-review-r3/compile/baseline_epoch_pending/libprobe.a"
+    ],
+    "exit": 0,
+    "elapsed_seconds": 69.06,
+    "log_sha256": "e40189200d3f1c6450957f663e664fcb45436ecd30277e666a5150bd245417f6",
+    "source_sha256": "71c2f44deb074fe34ceb52248ca7d79a3caa3be4712d07f434c2afce6c2e3ca8",
+    "diagnostics": "  Compiled: /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-fix-review-r3/compile/baseline_epoch_pending/libprobe.a\n"
+  },
+  {
+    "name": "candidate_epoch_pending",
+    "command": [
+      "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+      "build",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-fix-review-r3/probes/candidate_epoch_pending",
+      "--artifact",
+      "staticlib",
+      "--json",
+      "--plaintext-report",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-fix-review-r3/compile/candidate_epoch_pending/plaintext.json",
+      "--output",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-fix-review-r3/compile/candidate_epoch_pending/libprobe.a"
+    ],
+    "exit": 1,
+    "elapsed_seconds": 45.05,
+    "log_sha256": "b5a713a0852d30f8652632cfebc4fa35aa773f7d541db283d12c14183c4cc0cf",
+    "source_sha256": "71c2f44deb074fe34ceb52248ca7d79a3caa3be4712d07f434c2afce6c2e3ca8",
+    "diagnostics": "{\"code\":\"E0093\",\"severity\":\"error\",\"message\":\"plaintext flow to `native export` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification\",\"file\":\"/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-fix-review-r3/probes/candidate_epoch_pending/main.mpl\",\"spans\":[{\"start\":607,\"end\":3281,\"label\":\"plaintext reaches `native export` here\"}],\"fix\":\"plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification\"}\n{\"code\":\"E0093\",\"severity\":\"error\",\"message\":\"plaintext flow to `native export` is refused: plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification\",\"file\":\"/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-fix-review-r3/probes/candidate_epoch_pending/main.mpl\",\"spans\":[{\"start\":3283,\"end\":4291,\"label\":\"plaintext reaches `native export` here\"}],\"fix\":\"plaintext or control flow derived from it requires a seal, reviewed display export, or explicit declassification\"}\n{\"code\":\"C0001\",\"file\":\"\",\"fix\":null,\"message\":\"Compilation failed due to errors above.\",\"severity\":\"error\",\"spans\":[]}\n"
+  }
+]

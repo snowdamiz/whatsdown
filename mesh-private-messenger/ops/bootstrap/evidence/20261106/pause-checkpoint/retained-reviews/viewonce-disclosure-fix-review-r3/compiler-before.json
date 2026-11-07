@@ -1,0 +1,39 @@
+{
+  "pin": "8256d5d30e79f3c1de9d8507f8607f8efbee756a",
+  "toolchain": {
+    "bin/meshc": "19ef395b701a3c76ff006956597b6ec176810c78a6d07271a253199911ea4e85",
+    "lib/libmesh_rt.a": "d1e2b001783fe819f03644f5e4dcf42bc362bb1cecd04e475097d80cf9d3a8f8",
+    "lib/libmesh_test_rt.a": "9283206f47c6a52fa075a108773854ad7a12aae437c16b04c4fc747740674c33"
+  },
+  "language_dependencies": {
+    "packages/mesh-binary/binary/erasure.mpl": "ce3a472af27f2f071ce6a7883bd320cb00ca70a8667f66ac1ddba07ffbcacab4",
+    "packages/mesh-binary/binary/reader.mpl": "42bbc8a9431aa1da5e8fd27b3d2db04f0fd2cf40929c16c8003ab62557be1776",
+    "packages/mesh-binary/mesh.toml": "d7a7e8949f4ecde6fd4e5b6d5ac4374d488bed8fd2cadaa8e5d509cf7d1dc87b",
+    "packages/mesh-binary/tests/erasure.test.mpl": "959e946302c126309dfbb47c1f70505c6933ccdb2c9bf8ee586fdf990f4a3ac2",
+    "packages/mesh-lightning/lightning/invoice.mpl": "9cc5ffa251d474921ec1db9b0c046d9e998a850e95094fabfcfe59fcf93e422f",
+    "packages/mesh-lightning/mesh.toml": "447bd802191dab54eb68e634882c262e6cedfde16779da49f028a02378c894f2",
+    "packages/mesh-solana/mesh.toml": "82bef98d2a7c1e9ff3c0a2b057b0f624a9821a79334fbfb55ad87e39cdd9001b",
+    "packages/mesh-solana/solana/address.mpl": "a9258d6743a25f16d3df8e621943c6061af909c24d0311d77297697833f55cfc",
+    "packages/mesh-solana/solana/lookup_table.mpl": "cb5fdf3302e4c1c31bd082f885924d6979eb34588fd524074eafa36f002752a8",
+    "packages/mesh-solana/solana/nonce.mpl": "00bdcbe4e3dfbf29104c76484d9d84b29d297b17916d10837dd914d1ed28198b",
+    "packages/mesh-solana/solana/read.mpl": "f3c171e85196f1d881cf8be5257f6d29e51219a45dbfbf038a532d1eedb9cdcd",
+    "packages/mesh-solana/solana/slot_hashes.mpl": "56ffd988002f881e32d833855fccf083c3be1b05eaed9e830deac512f94dcee8",
+    "packages/mesh-solana/solana/transaction_read.mpl": "85c55be3ac70c0c80d6ff184c4c7f38a1b3bb7e99fd4627280fce47b934afabf",
+    "packages/mesh-solana/solana/transaction_send.mpl": "2ea1414e1b2bb83ebabe6e6b4880323ce2553823162475998da9149663b7afbc",
+    "packages/mesh-solana/solana/transaction_write.mpl": "e6904f5d392632fae24d7535ea42d511eb478ded4a2ff7cb2d9ce8a1b27e666d",
+    "packages/mesh-solana/solana/tx.mpl": "9d6ae5a7c8defc904ad7e30d80c79f56ba6775400cebc52869efc08ce7c35d44",
+    "packages/mesh-solana/tests/account_batch.test.mpl": "fbf52e2ec56ae3cd9ff1747e9ec9ee30db3ea0976aa82733568754a7cc2504b1",
+    "packages/mesh-solana/tests/account_slice.test.mpl": "e7e28a76b9879245e54188f9672d60728395ed8761089d615e5843865c60896c",
+    "packages/mesh-solana/tests/account_slice_batch.test.mpl": "9b53d9b65c0b635d4762705f5a47aeaeaeaa32be39c529e105c6edde26c91d69",
+    "packages/mesh-solana/tests/block_time.test.mpl": "77225530bb7489d3491dbffb52cd52b5b8f3300ef0638ad8577ceb2af4afa540",
+    "packages/mesh-solana/tests/clock.test.mpl": "3256e7d347463c9846c0cbd6f8a20cb688a77d89ebd66c19d5eb6de3e0bdd629",
+    "packages/mesh-solana/tests/lookup_table.test.mpl": "1f5526746054460534ad59926233dd0d6fa7efd35d90a8b18397f9718977d62a",
+    "packages/mesh-solana/tests/nonce.test.mpl": "5d1c51dfc04f893a0563fd8fd17626aa5ec8eb0ce34a62be1174622f5af0f14d",
+    "packages/mesh-solana/tests/program_accounts.test.mpl": "f85445e5e0db208860d404b793f810bf150aac3b3ee7d61a48f3b32c4dd7f2a8",
+    "packages/mesh-solana/tests/slot_hashes.test.mpl": "5aa5931193991309b646bad5045f1210e33083246d3c17b44f6903cbe29e5b07",
+    "packages/mesh-solana/tests/transaction_outcome.test.mpl": "104e6209608e01a7a161799a9c1406da422e77a93422ced3d3d839fca478c2f2",
+    "packages/mesh-solana/tests/transaction_read.test.mpl": "1b0f3cb9c74fd79639026e2d52cdb89b80bfdb0571b2e78225d7abd9cc81de65",
+    "packages/mesh-solana/tests/transaction_send.test.mpl": "d90f2348935975ea4e40202de49e495e49d6dcd73006cbc269a9d26d4fa14346",
+    "packages/mesh-solana/tests/transaction_write.test.mpl": "4b3e6f1d0e0b06df075cffdbc1808fac0b382cf7a5f441cf564062bd6ca29e94"
+  }
+}

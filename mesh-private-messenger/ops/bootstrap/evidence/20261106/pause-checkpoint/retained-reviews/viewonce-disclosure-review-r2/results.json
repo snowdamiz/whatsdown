@@ -1,0 +1,86 @@
+[
+  {
+    "name": "epoch_content_match",
+    "exit": 1,
+    "seconds": 33.64,
+    "command": [
+      "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+      "build",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-review-r2/probes/epoch_content_match",
+      "--artifact",
+      "staticlib",
+      "--emit-llvm",
+      "--json",
+      "--plaintext-report",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-review-r2/epoch_content_match.plaintext.json",
+      "--output",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-review-r2/compiled/epoch_content_match/libprobe.a"
+    ],
+    "log_sha256": "cafaf3e114b5cb43ea46305a5d88ca1e507b8f05cb10f025d96c265ab693b7af",
+    "source_sha256": "b5c1248b10f76a54f4ccf59a7325c87e2e99bc13bf2a379959da25a61f96712d",
+    "artifacts": {}
+  },
+  {
+    "name": "epoch_identity_argument",
+    "exit": 1,
+    "seconds": 33.64,
+    "command": [
+      "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+      "build",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-review-r2/probes/epoch_identity_argument",
+      "--artifact",
+      "staticlib",
+      "--emit-llvm",
+      "--json",
+      "--plaintext-report",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-review-r2/epoch_identity_argument.plaintext.json",
+      "--output",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-review-r2/compiled/epoch_identity_argument/libprobe.a"
+    ],
+    "log_sha256": "4ebefc682a54a4a58416fdf0b65061500f687bc0350e3a6c186e4f62d554d055",
+    "source_sha256": "3724d3154c8921ea42d148a793ec717d2010577a1932b431c2d9c1e033305df8",
+    "artifacts": {}
+  },
+  {
+    "name": "write_history_class",
+    "exit": 1,
+    "seconds": 33.64,
+    "command": [
+      "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+      "build",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-review-r2/probes/write_history_class",
+      "--artifact",
+      "staticlib",
+      "--emit-llvm",
+      "--json",
+      "--plaintext-report",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-review-r2/write_history_class.plaintext.json",
+      "--output",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-review-r2/compiled/write_history_class/libprobe.a"
+    ],
+    "log_sha256": "413c3bbb6d9e63a933fbab8d6b8c19afe3ae7b91c76d3eca2be321fb4a516110",
+    "source_sha256": "7c14f21104dab4f8851af0d8c75319fb3d9615c4e1c49026a81935d4028261a7",
+    "artifacts": {}
+  },
+  {
+    "name": "write_reference_bytes",
+    "exit": 1,
+    "seconds": 33.63,
+    "command": [
+      "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+      "build",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-review-r2/probes/write_reference_bytes",
+      "--artifact",
+      "staticlib",
+      "--emit-llvm",
+      "--json",
+      "--plaintext-report",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-review-r2/write_reference_bytes.plaintext.json",
+      "--output",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-review-r2/compiled/write_reference_bytes/libprobe.a"
+    ],
+    "log_sha256": "865804f65b602d7df71de1f1f5fc5aa874bec8b72c36e929a53b561e61c21649",
+    "source_sha256": "47549d020e31888dd81c40edcf25caab9807e82588dc1d851368de700c7f00b5",
+    "artifacts": {}
+  }
+]

@@ -1,0 +1,92 @@
+[
+  {
+    "path": "compiler/meshc/src/library_authority.h",
+    "commit": "9b844dbab34e61f6de575af2b25b0ed0f321059e",
+    "sha256": "5bbaf429dbd3749924b041847aba40ce40ee33c5a13a5c97f454601d79f87843",
+    "r1_copy_equals_exact_git_show": true
+  },
+  {
+    "path": "compiler/meshc/src/library_bindings.rs",
+    "commit": "9b844dbab34e61f6de575af2b25b0ed0f321059e",
+    "sha256": "180e66fd9728b981d6317f80309ffa7496c5796c9693716e3d63ba3ed2e75c78",
+    "r1_copy_equals_exact_git_show": true
+  },
+  {
+    "path": "compiler/mesh-rt/src/library.rs",
+    "commit": "9b844dbab34e61f6de575af2b25b0ed0f321059e",
+    "sha256": "45b78822ff5cc601f95b969b02b50059c745b5b2e0fdb596433e83fe7af21f8d",
+    "r1_copy_equals_exact_git_show": true
+  },
+  {
+    "path": "compiler/mesh-rt/src/authority.rs",
+    "commit": "9b844dbab34e61f6de575af2b25b0ed0f321059e",
+    "sha256": "3d8f612848f9ed0b5767351925748e78b9fbc2d4b600b9629bdb95182ad238d6",
+    "r1_copy_equals_exact_git_show": true
+  },
+  {
+    "path": "compiler/mesh-rt/src/actor/process.rs",
+    "commit": "9b844dbab34e61f6de575af2b25b0ed0f321059e",
+    "sha256": "edf6185428b7a3907057cc51b2218603828e47ad6c1a64998c67db41eb230668",
+    "r1_copy_equals_exact_git_show": true
+  },
+  {
+    "path": "compiler/mesh-rt/src/actor/scheduler.rs",
+    "commit": "9b844dbab34e61f6de575af2b25b0ed0f321059e",
+    "sha256": "a95b78c25c6efa61575daeabe624d7699a42c14bfdb3f2e7819b322358224f81",
+    "r1_copy_equals_exact_git_show": true
+  },
+  {
+    "path": "compiler/mesh-rt/src/actor/stack.rs",
+    "commit": "9b844dbab34e61f6de575af2b25b0ed0f321059e",
+    "sha256": "0affdca82f13551db082ba8af92c2ff119763731666411bd7a388c294e54cf07",
+    "r1_copy_equals_exact_git_show": true
+  },
+  {
+    "path": "compiler/mesh-rt/src/http/client.rs",
+    "commit": "9b844dbab34e61f6de575af2b25b0ed0f321059e",
+    "sha256": "adf1b435cabee73afcb8de088ede01082933112c9fb8ea91496f8dbfd8ac035d",
+    "r1_copy_equals_exact_git_show": true
+  },
+  {
+    "path": "compiler/mesh-rt/src/db/sqlite.rs",
+    "commit": "9b844dbab34e61f6de575af2b25b0ed0f321059e",
+    "sha256": "d443bf83725d3ea824dbfee7ae86b4ae69eac2012d82f30e14593690ec116dde",
+    "r1_copy_equals_exact_git_show": true
+  },
+  {
+    "path": "compiler/mesh-codegen/src/codegen/mod.rs",
+    "commit": "9b844dbab34e61f6de575af2b25b0ed0f321059e",
+    "sha256": "3fe12a73338edc57992bb53e36c0d49fe92ec7e88dfe514ccb69a79336236246",
+    "r1_copy_equals_exact_git_show": true
+  },
+  {
+    "path": "compiler/mesh-rt/src/actor/mod.rs",
+    "commit": "9b844dbab34e61f6de575af2b25b0ed0f321059e",
+    "sha256": "63f923a0a0d3a9477e0fb7de3bcf10062d494c0ef894abd2235c2eb620d42e1d",
+    "frozen": "pinned/compiler/mesh-rt/src/actor/mod.rs"
+  },
+  {
+    "path": "compiler/mesh-rt/src/actor/service.rs",
+    "commit": "9b844dbab34e61f6de575af2b25b0ed0f321059e",
+    "sha256": "5c78363f05642b5bd2388f92c4759f3e10946597570292402bbab4773f54e623",
+    "frozen": "pinned/compiler/mesh-rt/src/actor/service.rs"
+  },
+  {
+    "path": "compiler/mesh-rt/src/actor/supervisor.rs",
+    "commit": "9b844dbab34e61f6de575af2b25b0ed0f321059e",
+    "sha256": "841c8b888e7a228101b4e7dba7924954abcc1aedc76625174087190224f7a7af",
+    "frozen": "pinned/compiler/mesh-rt/src/actor/supervisor.rs"
+  },
+  {
+    "path": "compiler/mesh-rt/src/channel.rs",
+    "commit": "9b844dbab34e61f6de575af2b25b0ed0f321059e",
+    "sha256": "ec1d4c63f8f03a439e6c39cda4c5ae88e9eada0e9d9d9d4640e07043be5e36f4",
+    "frozen": "pinned/compiler/mesh-rt/src/channel.rs"
+  },
+  {
+    "path": "compiler/mesh-rt/src/actor/job.rs",
+    "commit": "9b844dbab34e61f6de575af2b25b0ed0f321059e",
+    "sha256": "2d0050953e47a8bfd5d686a13ae27c5138ef8b9782548c275c51f556e2d125aa",
+    "frozen": "pinned/compiler/mesh-rt/src/actor/job.rs"
+  }
+]

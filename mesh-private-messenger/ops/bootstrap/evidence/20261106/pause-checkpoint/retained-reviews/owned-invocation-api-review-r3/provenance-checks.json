@@ -1,0 +1,35 @@
+[
+  {
+    "path": "parent/HANDOFF.md",
+    "sha256": "32326ac50e4e80fcfe356ce7d8d715cf63c7d6a831322282fb199b1646265ec3",
+    "matches_parent_manifest": true
+  },
+  {
+    "path": "parent/API_CONSTRAINTS.md",
+    "sha256": "6b2d67277a4ef2220b3b6696e5fd3622e2475ca68141e59b73a22e39b6dd90c8",
+    "matches_parent_manifest": true
+  },
+  {
+    "path": "parent/CONTRACT.md",
+    "sha256": "a848962558e0ee1c639747063eede5312afc863d11c80b6a2a5b3caa0d21a0cb",
+    "matches_parent_manifest": true
+  },
+  {
+    "path": "parent/SKETCH.md",
+    "sha256": "2189f1ef8e6a25e62bc5d4bf792744d8fbe0c54dd3b63e89dd8c2bcb227e9c70",
+    "matches_parent_manifest": true
+  },
+  {
+    "path": "parent/PROOF_MATRIX.md",
+    "sha256": "40dda63cf76a7d0fe946daf06f39dde7e720ca51ab99c7f4ae1e7667ddacaa51",
+    "matches_parent_manifest": true
+  },
+  {
+    "path": "prior/r1/REVIEW.md",
+    "sha256": "fa4418a92da00c791232f66fd90b249a22a7f7375c63728ba6d9dab4d17c974f"
+  },
+  {
+    "path": "prior/r2/REVIEW.md",
+    "sha256": "dcdac997e47e6eda7f8bc7ed347796e2a5d1f31db8225b3611d520a54a46e3c1"
+  }
+]

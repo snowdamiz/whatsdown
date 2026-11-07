@@ -1,0 +1,30 @@
+{
+  "verdict": "REQUEST_CHANGES",
+  "report": "verdict.md",
+  "findings": [
+    {
+      "id": "R1",
+      "severity": "high",
+      "blocking": true,
+      "location": "inputs/proposal/messages.mpl:339,357,508,581,918,972",
+      "summary": "Self-sync release lacks a binding between the sender credential and locally trusted account authority; initial admission can use a packet-controlled key with the local account ID, undermining dependent ratchet provenance.",
+      "evidence": "source review only; no runtime reproduction"
+    },
+    {
+      "id": "R2",
+      "severity": "low",
+      "blocking": false,
+      "location": "inputs/proposal/source.json:45",
+      "summary": "Ratchet caller anchor must name receive_message."
+    }
+  ],
+  "new_sites_approved": false,
+  "compiled": false,
+  "adopted": false,
+  "combined_source_accepted": false,
+  "full_consumer_closure": false,
+  "builds_or_tests_run": false,
+  "source_or_git_mutations": false,
+  "owner_test_gates": "verdict.md",
+  "integrity": "integrity-summary.json"
+}

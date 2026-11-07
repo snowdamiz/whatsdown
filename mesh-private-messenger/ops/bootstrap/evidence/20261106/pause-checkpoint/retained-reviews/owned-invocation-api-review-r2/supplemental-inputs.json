@@ -1,0 +1,110 @@
+[
+  {
+    "source": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/mesh-private-messenger/apps/desktop/src-tauri/src/request.rs",
+    "frozen": "app-frozen/mesh-private-messenger/apps/desktop/src-tauri/src/request.rs",
+    "sha256": "63976d6a193deb5b9ca67ca7d26c8db0a47440b2eced4da57b83ec76487eb668",
+    "source_kind": "app-consumer-snapshot-not-runtime-owner-source"
+  },
+  {
+    "source": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/mesh-private-messenger/apps/desktop/src-tauri/src/mesh.rs",
+    "frozen": "app-frozen/mesh-private-messenger/apps/desktop/src-tauri/src/mesh.rs",
+    "sha256": "e96bef8106213a1eed5103507fad7b728520ca84584f2d80967c3a486ed7f7c3",
+    "source_kind": "app-consumer-snapshot-not-runtime-owner-source"
+  },
+  {
+    "source": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/mesh-private-messenger/apps/mobile/modules/mesh-messenger/MeshMessenger.podspec",
+    "frozen": "app-frozen/mesh-private-messenger/apps/mobile/modules/mesh-messenger/MeshMessenger.podspec",
+    "sha256": "6abd969b1aed56372255aa0d51ea908fd85e3ff65a85f3e558db7ea2c0920f47",
+    "source_kind": "app-consumer-snapshot-not-runtime-owner-source"
+  },
+  {
+    "source": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/mesh-private-messenger/apps/mobile/modules/mesh-messenger/ios/MeshMessengerModule.swift",
+    "frozen": "app-frozen/mesh-private-messenger/apps/mobile/modules/mesh-messenger/ios/MeshMessengerModule.swift",
+    "sha256": "9c0c35dc96b7cbbd446cc256800b9f339b91532390223e46d72a31e50ac370ff",
+    "source_kind": "app-consumer-snapshot-not-runtime-owner-source"
+  },
+  {
+    "source": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/mesh-private-messenger/apps/mobile/modules/mesh-messenger/android/src/main/java/expo/modules/meshmessenger/MeshMessengerModule.kt",
+    "frozen": "app-frozen/mesh-private-messenger/apps/mobile/modules/mesh-messenger/android/src/main/java/expo/modules/meshmessenger/MeshMessengerModule.kt",
+    "sha256": "95d3be58e8084e5cd93b459d80a116a54bdc20c47bf326a0fee159cfac85da2e",
+    "source_kind": "app-consumer-snapshot-not-runtime-owner-source"
+  },
+  {
+    "source": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/mesh-private-messenger/apps/mobile/modules/mesh-messenger/android/src/main/cpp/CMakeLists.txt",
+    "frozen": "app-frozen/mesh-private-messenger/apps/mobile/modules/mesh-messenger/android/src/main/cpp/CMakeLists.txt",
+    "sha256": "c96c7b03b7351cbd1365f6c069cf84620e7861beca52cf56d31542367664425a",
+    "source_kind": "app-consumer-snapshot-not-runtime-owner-source"
+  },
+  {
+    "source": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/mesh-private-messenger/apps/mobile/modules/mesh-messenger/android/src/main/cpp/MeshMessengerHost.cpp",
+    "frozen": "app-frozen/mesh-private-messenger/apps/mobile/modules/mesh-messenger/android/src/main/cpp/MeshMessengerHost.cpp",
+    "sha256": "31f8e858030e86a5fc484580a5b071641844707cf67fa7141baa4c33243aaaf8",
+    "source_kind": "app-consumer-snapshot-not-runtime-owner-source"
+  },
+  {
+    "source": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/mesh-private-messenger/apps/mobile/scripts/generate-scoped-bindings.mjs",
+    "frozen": "app-frozen/mesh-private-messenger/apps/mobile/scripts/generate-scoped-bindings.mjs",
+    "sha256": "cab26e3b25cff5beeab2aa5e2e3829a307df9a2ba7e153dd0184beccdbdc2ea5",
+    "source_kind": "app-consumer-snapshot-not-runtime-owner-source"
+  },
+  {
+    "source": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/mesh-private-messenger/scripts/build-mobile-native.sh",
+    "frozen": "app-frozen/mesh-private-messenger/scripts/build-mobile-native.sh",
+    "sha256": "bcbaa5b00e78a7b3873fe60b93fe970c99e4f1ef37064adc930834faecdf14d4",
+    "source_kind": "app-consumer-snapshot-not-runtime-owner-source"
+  },
+  {
+    "source": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/mesh-private-messenger/ops/attachment-paid-native/build.py",
+    "frozen": "app-frozen/mesh-private-messenger/ops/attachment-paid-native/build.py",
+    "sha256": "e7edfc9a3006195198507550f787a0451038917072a147bef3cec02a4f2c9cf3",
+    "source_kind": "app-consumer-snapshot-not-runtime-owner-source"
+  },
+  {
+    "source": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/mesh-private-messenger/apps/mobile/modules/mesh-messenger/generated/libmessenger_mobile.h",
+    "frozen": "app-frozen/mesh-private-messenger/apps/mobile/modules/mesh-messenger/generated/libmessenger_mobile.h",
+    "sha256": "f58fbbc780f6174ea188b389455c0197295ee23022b5b11d6b5cc579df3cc8ce",
+    "source_kind": "app-consumer-snapshot-not-runtime-owner-source"
+  },
+  {
+    "source": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/native-authority-closure-design/CONTRACT.md",
+    "frozen": "parent/CONTRACT.md",
+    "sha256": "a848962558e0ee1c639747063eede5312afc863d11c80b6a2a5b3caa0d21a0cb",
+    "source_kind": "parent-design-pinned-manifest"
+  },
+  {
+    "source": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/native-authority-closure-design/SKETCH.md",
+    "frozen": "parent/SKETCH.md",
+    "sha256": "2189f1ef8e6a25e62bc5d4bf792744d8fbe0c54dd3b63e89dd8c2bcb227e9c70",
+    "source_kind": "parent-design-pinned-manifest"
+  },
+  {
+    "source": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/native-authority-closure-design/API_CONSTRAINTS.md",
+    "frozen": "parent/API_CONSTRAINTS.md",
+    "sha256": "6b2d67277a4ef2220b3b6696e5fd3622e2475ca68141e59b73a22e39b6dd90c8",
+    "source_kind": "parent-design-pinned-manifest"
+  },
+  {
+    "source": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/native-authority-closure-design/HANDOFF.md",
+    "frozen": "parent/HANDOFF.md",
+    "sha256": "32326ac50e4e80fcfe356ce7d8d715cf63c7d6a831322282fb199b1646265ec3",
+    "source_kind": "parent-design-pinned-manifest"
+  },
+  {
+    "source": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/native-authority-closure-design/review/final-contract-review-r2.md",
+    "frozen": "parent/review/final-contract-review-r2.md",
+    "sha256": "6e10966876d85a6d0bf8ada3fd6945f4d9550ba5d756708b6425021bdf156f55",
+    "source_kind": "parent-design-pinned-manifest"
+  },
+  {
+    "source": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/native-authority-closure-design/review/n1-final-review-r3.md",
+    "frozen": "parent/review/n1-final-review-r3.md",
+    "sha256": "fad2890e11f12ed9c891d95a1f0a109918e8bc0947e408b1a25a216e2eacd378",
+    "source_kind": "parent-design-pinned-manifest"
+  },
+  {
+    "source": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/native-authority-closure-design/MANIFEST.json",
+    "frozen": "parent/MANIFEST.json",
+    "sha256": "415297fc660a53ccccc94b08551a60c70a52c5dcd07c77bc20e7ed9c108515f3",
+    "source_kind": "parent-design-pinned-manifest"
+  }
+]

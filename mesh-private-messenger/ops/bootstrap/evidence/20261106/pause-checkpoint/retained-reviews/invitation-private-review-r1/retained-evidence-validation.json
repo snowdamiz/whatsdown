@@ -1,0 +1,73 @@
+[
+  {
+    "summary": "invitation-authority-counterexample",
+    "raw_evidence": "inputs/owner/.morse/decoded-body-labels/invitation-authority-historical/evidence.json",
+    "expected": "dffb8693f9c8f17e5c486eac8e72736ec3ff4c508a29d81ea34dee1494e10f6e",
+    "actual": "dffb8693f9c8f17e5c486eac8e72736ec3ff4c508a29d81ea34dee1494e10f6e",
+    "matches": true,
+    "raw_status": "passed",
+    "keys": [
+      "status",
+      "baseline",
+      "runner_sha256",
+      "fixture_sha256",
+      "held_patch_sha256",
+      "scope",
+      "execution",
+      "sources",
+      "runs",
+      "toolchain",
+      "language_before",
+      "toolchain_stable",
+      "language_stable",
+      "snapshot_restored"
+    ],
+    "logs": [
+      {
+        "name": "original-refuses",
+        "sha256": "9ae3f9520c4c4b17144342dd8e02d61d29b7590028692afd95ed49664796dcda",
+        "E0093_occurrences": 19
+      },
+      {
+        "name": "held-prototype-admits",
+        "sha256": "8a5a95c85da18d2e368937195c1f1e32abee729250ee8780b87f97ae924006c8",
+        "E0093_occurrences": 0
+      }
+    ]
+  },
+  {
+    "summary": "invitation-seal-effects",
+    "raw_evidence": "inputs/owner/.morse/decoded-body-labels/invitation-seal-effects/run-02/evidence.json",
+    "expected": "ad36875a341399e4875f170a15a02a973cb343dcb5fb081f7127d1e83fa618d1",
+    "actual": "ad36875a341399e4875f170a15a02a973cb343dcb5fb081f7127d1e83fa618d1",
+    "matches": true,
+    "raw_status": "passed",
+    "keys": [
+      "status",
+      "baseline",
+      "runner",
+      "fixture",
+      "held_patch",
+      "platform",
+      "output",
+      "commands",
+      "snapshots",
+      "cases",
+      "key_inspection",
+      "scope",
+      "error_order",
+      "toolchain",
+      "app_head_at_start",
+      "baseline_tree",
+      "language_head_at_start",
+      "runtime_source_read_only",
+      "runtime_source_limit",
+      "language_dependencies",
+      "sandbox",
+      "build_env_overrides",
+      "baseline_source_hashes",
+      "artifacts",
+      "integrity"
+    ]
+  }
+]

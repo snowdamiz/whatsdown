@@ -1,0 +1,114 @@
+{
+  "verdict": "ACCEPT_BOUNDED_SOURCE",
+  "base": "bd24a8a31d81a00b31d4e4af5959ce56ba9fb1e5",
+  "frozen_manifest": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-39088f20/.morse/view-once-core-admission/evidence/disclosure-boundary-fix/frozen/source-sha256.json",
+  "frozen_manifest_sha256": "8914231e3023f0f3a18f7bfe5d34a32c4edb78d429e2b9e187f9fef5477d19df",
+  "source_sha256": {
+    "mesh-private-messenger/packages/mobile-core/mobile/messages.mpl": "4f0d42f6badd824cb543a23a2f26026e850d9bfa7c8817514619d74868b769a0",
+    "mesh-private-messenger/packages/mobile-core/mobile/view_once_admission.mpl": "d75488f7760ceaeba4a26e44b29bc3f233c86f8b2d2e024b7a8ca77f39dc65ea",
+    "mesh-private-messenger/packages/mobile-core/tests/view_once_epoch_fence.test.mpl": "d2509aff53da1b67e26ea7220bd5f96510c2bdf8006796baa777635a7b87871b"
+  },
+  "before_after_match": true,
+  "prior_findings": {
+    "require_view_once_epoch": "FIXED_SOURCE_AND_INDEPENDENT_COMPILE",
+    "prepare_view_once_write": "FIXED_SOURCE_AND_INDEPENDENT_COMPILE",
+    "prepare_view_once_pending": "FIXED_SOURCE_AND_INDEPENDENT_COMPILE"
+  },
+  "blocking_production_findings": [],
+  "evidence_notes": [
+    {
+      "severity": "LOW",
+      "site": "disclosure-boundary-fix/probes/pending_validity/main.mpl:24",
+      "proof": "Fixed device ID does not reliably equal generated DeviceKeys.device_id; corrected scratch comparison uses device.device_id."
+    },
+    {
+      "severity": "LOW",
+      "site": "disclosure-boundary-fix/probes/write_history_class/main.mpl:32",
+      "proof": "Expiry 0 at time 0 makes both history-choice branches refuse; corrected scratch comparison uses expiry 1."
+    }
+  ],
+  "compiler_pin": "8256d5d30e79f3c1de9d8507f8607f8efbee756a",
+  "compiler_runtime_sha256": {
+    "bin/meshc": "19ef395b701a3c76ff006956597b6ec176810c78a6d07271a253199911ea4e85",
+    "lib/libmesh_rt.a": "d1e2b001783fe819f03644f5e4dcf42bc362bb1cecd04e475097d80cf9d3a8f8",
+    "lib/libmesh_test_rt.a": "9283206f47c6a52fa075a108773854ad7a12aae437c16b04c4fc747740674c33"
+  },
+  "language_dependency_files_verified": 29,
+  "compile_comparisons": [
+    {
+      "name": "baseline_live_write",
+      "exit": 0,
+      "source_sha256": "3897cc19a514cfd5374292a6cc02f86f1b6a67609caa0b3dc58f2dd864172c97",
+      "log_sha256": "d1d38746c87a2d41d3bbf0234e278f303610b10bccd31ecf96e44bf026dafe82",
+      "E0093_count": 0,
+      "native_export_refusals": 0
+    },
+    {
+      "name": "candidate_live_write",
+      "exit": 1,
+      "source_sha256": "3897cc19a514cfd5374292a6cc02f86f1b6a67609caa0b3dc58f2dd864172c97",
+      "log_sha256": "4662f507f63649426473850b8c186a611b7e948d6ecbf547ce58132330db3caf",
+      "E0093_count": 1,
+      "native_export_refusals": 1
+    },
+    {
+      "name": "candidate_parts",
+      "exit": 1,
+      "source_sha256": "b3c08d871aa951b5905adef1804166f8b9f902e28c7426ce70cc8dcde35f0840",
+      "log_sha256": "80812db4242c69e6d4a88647e10cade11c7dfc92e8552ac4bb517fb763ce809f",
+      "E0093_count": 4,
+      "native_export_refusals": 2
+    },
+    {
+      "name": "baseline_epoch_pending",
+      "exit": 0,
+      "source_sha256": "71c2f44deb074fe34ceb52248ca7d79a3caa3be4712d07f434c2afce6c2e3ca8",
+      "log_sha256": "e40189200d3f1c6450957f663e664fcb45436ecd30277e666a5150bd245417f6",
+      "E0093_count": 0,
+      "native_export_refusals": 0
+    },
+    {
+      "name": "candidate_epoch_pending",
+      "exit": 1,
+      "source_sha256": "71c2f44deb074fe34ceb52248ca7d79a3caa3be4712d07f434c2afce6c2e3ca8",
+      "log_sha256": "b5a713a0852d30f8652632cfebc4fa35aa773f7d541db283d12c14183c4cc0cf",
+      "E0093_count": 2,
+      "native_export_refusals": 2
+    }
+  ],
+  "execution": {
+    "native_oracles_invoked": false,
+    "receive_suite_run": false,
+    "full_cohort_run": false,
+    "candidate_artifact_qualified": false,
+    "abi_source_exports_unchanged": 176,
+    "history_02HST_source_unchanged": true,
+    "production_edits": false,
+    "plan_inventory_edits": false,
+    "network": false,
+    "children": false,
+    "commit": false,
+    "adoption": false
+  },
+  "limits": [
+    "Bounded frozen-source review and compiler-policy evidence only.",
+    "No demonstrated executed runtime leak or authorization bypass.",
+    "Owner wider-suite reports are not independent evidence from this reviewer.",
+    "Parent owns exact suite, combined stack, native artifact qualification and adoption.",
+    "Native fetch/open, group admission, UI composition, migration, whole product and other preexisting disclosures excluded."
+  ],
+  "ambient_parent_head_before": "2b13a8939c5a6fe8bd33349b0938bc84f65c0d5a",
+  "ambient_parent_head_after": "b558320a37468f54fd8f1b4ec68ac1015a8001d2",
+  "ambient_parent_tracked_status_after": "",
+  "review_sha256": "408ebb6ef9e4596ae47907715da2f337425a1fe72f7de5658491554c1e675cce",
+  "evidence_files_sha256": {
+    "hashes-before.json": "31acc107ee8840262f32f86daa992abb9cfcecf4c942b90c13fe36e424b19f08",
+    "hashes-after.json": "6f5d8f0b79f931b1fdc0b4655c244fcc180d43531a5ae1b294e175ccba389f7f",
+    "source-equivalence.json": "a47b24b0c8057b4a517cb442fa6f315d8ef623982148f062fc5848071465589d",
+    "abi-source-check.json": "0d6c8a129d3ea5767acf41023d6b8dce75e3e0789bd43099ac80742cdf02f8a2",
+    "compiler-before.json": "f771f3834d5e5e96ed0d246d3f76aa11d3ea1e3022c96059aea89f23bc90f517",
+    "compile-results.json": "f0d5b7c03ebbafafde6015273040b4cd879d018a00b9ec6541a4d1d7c0379b41",
+    "compiler-source-baseline-hashes.json": "6740abad970d05c2a803e8358222820622694087d72dedd854ac116d1c0b6f63",
+    "compiler-source-candidate-hashes.json": "6a4f362e3c0ef3012b25553481b62841fe09fc3d202d5ed1a3062b540ede6171"
+  }
+}

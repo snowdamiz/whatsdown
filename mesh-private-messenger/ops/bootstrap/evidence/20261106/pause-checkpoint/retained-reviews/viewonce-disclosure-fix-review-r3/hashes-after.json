@@ -1,0 +1,22 @@
+{
+  "base": "bd24a8a31d81a00b31d4e4af5959ce56ba9fb1e5",
+  "frozen_manifest_sha256": "8914231e3023f0f3a18f7bfe5d34a32c4edb78d429e2b9e187f9fef5477d19df",
+  "files": {
+    "mesh-private-messenger/packages/mobile-core/mobile/messages.mpl": {
+      "before": "4f0d42f6badd824cb543a23a2f26026e850d9bfa7c8817514619d74868b769a0",
+      "after": "4f0d42f6badd824cb543a23a2f26026e850d9bfa7c8817514619d74868b769a0"
+    },
+    "mesh-private-messenger/packages/mobile-core/mobile/view_once_admission.mpl": {
+      "before": "d75488f7760ceaeba4a26e44b29bc3f233c86f8b2d2e024b7a8ca77f39dc65ea",
+      "after": "d75488f7760ceaeba4a26e44b29bc3f233c86f8b2d2e024b7a8ca77f39dc65ea"
+    },
+    "mesh-private-messenger/packages/mobile-core/tests/view_once_epoch_fence.test.mpl": {
+      "before": "d2509aff53da1b67e26ea7220bd5f96510c2bdf8006796baa777635a7b87871b",
+      "after": "d2509aff53da1b67e26ea7220bd5f96510c2bdf8006796baa777635a7b87871b"
+    }
+  },
+  "frozen_unchanged": true,
+  "compiler_runtime_unchanged": true,
+  "language_dependency_files_unchanged": 29,
+  "reconstructed_app_sources_unchanged": true
+}

@@ -1,0 +1,197 @@
+[
+  {
+    "name": "write_history_oracle",
+    "exit": 0,
+    "seconds": 48.74,
+    "command": [
+      "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+      "build",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-review/probes/write_history_oracle",
+      "--artifact",
+      "staticlib",
+      "--emit-llvm",
+      "--json",
+      "--plaintext-report",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-review/write_history_oracle.plaintext.json",
+      "--output",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-review/compiled/write_history_oracle/libprobe.a"
+    ],
+    "log_sha256": "3d024d768461403e877ff2eac854d7ad0abb2df208409f7e9e021794afedefa2",
+    "source_sha256": "e6fbebc3c3cba667f87d8dcf9e2ff04d808854483a2da11c21ea82606a09994a",
+    "artifacts": {
+      "compiled/write_history_oracle/libprobe.a": "27e2f13cf7a4f992e456a2997d89dc7fcc250dcd938463bece8f010e87277517",
+      "compiled/write_history_oracle/libprobe.abi.json": "942dcf438891e3435bf41781761f45e4dd5229c8cdf78240956f805efa8d208e",
+      "compiled/write_history_oracle/libprobe.h": "0d1887c6893127731bc1fce53d4dccf365ed1d8b21ff44cc5a83b5857ec71294",
+      "compiled/write_history_oracle/libprobe.jni.c": "5046facb85bdcaa6403396ce15fb46a7698d68c76e3676f0027aa9b293b04e0b",
+      "compiled/write_history_oracle/libprobe.kt": "0948632e931179d1ed8e7945b207a7808aec2d2e7055a5e2c3bd055f25b3f98a",
+      "compiled/write_history_oracle/libprobe.ll": "b18bbb0a2c0d0df6f944ecc8206734ca51bbdeddd3ab8de35b7596a01d638acc",
+      "compiled/write_history_oracle/libprobe.swift": "03ba3a09ee1704c7bab33d948bfdc7397a09a3d97e917aa2bc935404ef50f88d",
+      "compiled/write_history_oracle/libprobe.ts": "65fa91e63c83b2c9db286e92c1c169f3a82dba9799b2de800c8e15b385a61077"
+    }
+  },
+  {
+    "name": "write_error_oracle",
+    "exit": 0,
+    "seconds": 51.55,
+    "command": [
+      "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+      "build",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-review/probes/write_error_oracle",
+      "--artifact",
+      "staticlib",
+      "--emit-llvm",
+      "--json",
+      "--plaintext-report",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-review/write_error_oracle.plaintext.json",
+      "--output",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-review/compiled/write_error_oracle/libprobe.a"
+    ],
+    "log_sha256": "3456fa251b2c067b8e59ed6995393d9c4087db60f1e18f20b10703818b7b1006",
+    "source_sha256": "c0f4bf8f36bf4bcea703e4fe336cb7395c4be190d15aec5a4422bf8fb6fcac19",
+    "artifacts": {
+      "compiled/write_error_oracle/libprobe.a": "c867e0d7d28bc529d7584e5667c55003fc385bf90583e0b95349e9b8280ad911",
+      "compiled/write_error_oracle/libprobe.abi.json": "942dcf438891e3435bf41781761f45e4dd5229c8cdf78240956f805efa8d208e",
+      "compiled/write_error_oracle/libprobe.h": "0d1887c6893127731bc1fce53d4dccf365ed1d8b21ff44cc5a83b5857ec71294",
+      "compiled/write_error_oracle/libprobe.jni.c": "5046facb85bdcaa6403396ce15fb46a7698d68c76e3676f0027aa9b293b04e0b",
+      "compiled/write_error_oracle/libprobe.kt": "0948632e931179d1ed8e7945b207a7808aec2d2e7055a5e2c3bd055f25b3f98a",
+      "compiled/write_error_oracle/libprobe.ll": "b18bbb0a2c0d0df6f944ecc8206734ca51bbdeddd3ab8de35b7596a01d638acc",
+      "compiled/write_error_oracle/libprobe.swift": "03ba3a09ee1704c7bab33d948bfdc7397a09a3d97e917aa2bc935404ef50f88d",
+      "compiled/write_error_oracle/libprobe.ts": "65fa91e63c83b2c9db286e92c1c169f3a82dba9799b2de800c8e15b385a61077"
+    }
+  },
+  {
+    "name": "write_raw_payload",
+    "exit": 1,
+    "seconds": 29.44,
+    "command": [
+      "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+      "build",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-review/probes/write_raw_payload",
+      "--artifact",
+      "staticlib",
+      "--emit-llvm",
+      "--json",
+      "--plaintext-report",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-review/write_raw_payload.plaintext.json",
+      "--output",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-review/compiled/write_raw_payload/libprobe.a"
+    ],
+    "log_sha256": "4861e1f52ccc08829850188c6ff464525c6f48236bf259c4bcf83cd6812aa8dc",
+    "source_sha256": "f080f8f9242d566d59cb09ef3a826254b702668a4949457ef8f5ede6f76b4a06",
+    "artifacts": {}
+  },
+  {
+    "name": "write_prior_control",
+    "exit": 1,
+    "seconds": 30.82,
+    "command": [
+      "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+      "build",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-review/probes/write_prior_control",
+      "--artifact",
+      "staticlib",
+      "--emit-llvm",
+      "--json",
+      "--plaintext-report",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-review/write_prior_control.plaintext.json",
+      "--output",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-review/compiled/write_prior_control/libprobe.a"
+    ],
+    "log_sha256": "ea198f1cb7bd1dcff19a5a0edf5dc493ae6c6ccd247d3318fc655245d011554e",
+    "source_sha256": "61a51e63ef9d37af00108fcb5ee0f81c7f2f5f94495362d13215a551209d82bb",
+    "artifacts": {}
+  },
+  {
+    "name": "epoch_identity_oracle",
+    "exit": 1,
+    "seconds": 33.78,
+    "command": [
+      "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+      "build",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-review/probes/epoch_identity_oracle",
+      "--artifact",
+      "staticlib",
+      "--emit-llvm",
+      "--json",
+      "--plaintext-report",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-review/epoch_identity_oracle.plaintext.json",
+      "--output",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-review/compiled/epoch_identity_oracle/libprobe.a"
+    ],
+    "log_sha256": "485ff5236e5cc39b6a34a2830278800d0f2c8c33bfe2b514c6e89152db6df580",
+    "source_sha256": "01af116d00f5a9e68baadf1a7e564643fd0219c9bdb81ac92183474a128bfa95",
+    "artifacts": {}
+  },
+  {
+    "name": "pending_wire_oracle",
+    "exit": 0,
+    "seconds": 49.0,
+    "command": [
+      "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+      "build",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-review/probes/pending_wire_oracle",
+      "--artifact",
+      "staticlib",
+      "--emit-llvm",
+      "--json",
+      "--plaintext-report",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-review/pending_wire_oracle.plaintext.json",
+      "--output",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-review/compiled/pending_wire_oracle/libprobe.a"
+    ],
+    "log_sha256": "0695dde487cd9a4aa35ae7094e9b62a8c2e6019e761648b5c9e9d35746ca4bf9",
+    "source_sha256": "471b41d0c8cfd2db664e80e5989cc0d9ba6189f98c7026bb57f90a18140d45cb",
+    "artifacts": {
+      "compiled/pending_wire_oracle/libprobe.a": "d3f1a632b116413d5bfed9d15563e0c688173aa5332c72896a3b9176acf2607c",
+      "compiled/pending_wire_oracle/libprobe.abi.json": "942dcf438891e3435bf41781761f45e4dd5229c8cdf78240956f805efa8d208e",
+      "compiled/pending_wire_oracle/libprobe.h": "0d1887c6893127731bc1fce53d4dccf365ed1d8b21ff44cc5a83b5857ec71294",
+      "compiled/pending_wire_oracle/libprobe.jni.c": "5046facb85bdcaa6403396ce15fb46a7698d68c76e3676f0027aa9b293b04e0b",
+      "compiled/pending_wire_oracle/libprobe.kt": "0948632e931179d1ed8e7945b207a7808aec2d2e7055a5e2c3bd055f25b3f98a",
+      "compiled/pending_wire_oracle/libprobe.ll": "2e158ed313ab4c396813af08982c224ccada7abff1a7af1e867569bb495bf2bb",
+      "compiled/pending_wire_oracle/libprobe.swift": "03ba3a09ee1704c7bab33d948bfdc7397a09a3d97e917aa2bc935404ef50f88d",
+      "compiled/pending_wire_oracle/libprobe.ts": "65fa91e63c83b2c9db286e92c1c169f3a82dba9799b2de800c8e15b385a61077"
+    }
+  },
+  {
+    "name": "pending_prior_control",
+    "exit": 1,
+    "seconds": 39.78,
+    "command": [
+      "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+      "build",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-review/probes/pending_prior_control",
+      "--artifact",
+      "staticlib",
+      "--emit-llvm",
+      "--json",
+      "--plaintext-report",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-review/pending_prior_control.plaintext.json",
+      "--output",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-review/compiled/pending_prior_control/libprobe.a"
+    ],
+    "log_sha256": "08caafdef077bc1ee65440303ddedba5ad46ad397f787f98891cac5b2a5c4e5c",
+    "source_sha256": "bd2888e3c6a08cc4a9f4c247b824fc3743a220b7bbac21ca31f84edf3a095963",
+    "artifacts": {}
+  },
+  {
+    "name": "pending_raw_payload",
+    "exit": 1,
+    "seconds": 38.17,
+    "command": [
+      "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+      "build",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-review/probes/pending_raw_payload",
+      "--artifact",
+      "staticlib",
+      "--emit-llvm",
+      "--json",
+      "--plaintext-report",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-review/pending_raw_payload.plaintext.json",
+      "--output",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-review/compiled/pending_raw_payload/libprobe.a"
+    ],
+    "log_sha256": "b9005e150726917bbdc29a8e738e3a497bf39ffa8025fb1aebec5dda5f73c0ce",
+    "source_sha256": "432327915ea3d3f3823fd90dfcd007f52f8293568f00907dd5f8a5bd9ec65035",
+    "artifacts": {}
+  }
+]

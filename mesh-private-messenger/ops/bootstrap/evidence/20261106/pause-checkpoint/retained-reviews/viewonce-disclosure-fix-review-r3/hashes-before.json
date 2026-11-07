@@ -1,0 +1,22 @@
+{
+  "base": "bd24a8a31d81a00b31d4e4af5959ce56ba9fb1e5",
+  "frozen": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-39088f20/.morse/view-once-core-admission/evidence/disclosure-boundary-fix/frozen",
+  "manifest_sha256": "8914231e3023f0f3a18f7bfe5d34a32c4edb78d429e2b9e187f9fef5477d19df",
+  "files": {
+    "mesh-private-messenger/packages/mobile-core/mobile/messages.mpl": {
+      "candidate_sha256": "4f0d42f6badd824cb543a23a2f26026e850d9bfa7c8817514619d74868b769a0",
+      "base_sha256": "422d569f8552d639f27319db767638dc7b5f19be075d29300929984c3a6fb101",
+      "snapshot_path": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-39088f20/.morse/view-once-core-admission/evidence/disclosure-boundary-fix/frozen/sources/mesh-private-messenger/packages/mobile-core/mobile/messages.mpl"
+    },
+    "mesh-private-messenger/packages/mobile-core/mobile/view_once_admission.mpl": {
+      "candidate_sha256": "d75488f7760ceaeba4a26e44b29bc3f233c86f8b2d2e024b7a8ca77f39dc65ea",
+      "base_sha256": "3ed90ad6792df1070a741e4108f079002e598e5f3118460d339601861b004837",
+      "snapshot_path": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-39088f20/.morse/view-once-core-admission/evidence/disclosure-boundary-fix/frozen/sources/mesh-private-messenger/packages/mobile-core/mobile/view_once_admission.mpl"
+    },
+    "mesh-private-messenger/packages/mobile-core/tests/view_once_epoch_fence.test.mpl": {
+      "candidate_sha256": "d2509aff53da1b67e26ea7220bd5f96510c2bdf8006796baa777635a7b87871b",
+      "base_sha256": "b97b9e1670b9fbbd9ad25682cc997794fc976ba913a68bc7e076e385bdab4fec",
+      "snapshot_path": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-39088f20/.morse/view-once-core-admission/evidence/disclosure-boundary-fix/frozen/sources/mesh-private-messenger/packages/mobile-core/tests/view_once_epoch_fence.test.mpl"
+    }
+  }
+}
