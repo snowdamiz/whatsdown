@@ -22,6 +22,11 @@ from Groups.Mls import (
 from Groups.WelcomeWire import decode_group_welcome, encode_group_welcome
 from Groups.Tree import GroupMember
 
+fn fixture_only(value :: Plaintext<Bool>) -> Bool do
+  declassify(value,
+    "synthetic public group wire fixture comparisons only; no application disclosure")
+end
+
 fn repeated(value :: Int, length :: Int) -> Bytes do
   case Bytes.repeat(value, length) do
     Err(_) -> Bytes.empty()
@@ -95,9 +100,9 @@ fn encrypted(outcome :: GroupEncryptOutcome) -> Result<(GroupState, GroupMessage
   end
 end
 
-fn opened(outcome :: GroupDecryptOutcome, expected :: Bytes) -> GroupState!GroupError do
+fn opened(outcome :: GroupDecryptOutcome, expected :: Plaintext<Bytes>) -> GroupState!GroupError do
   case outcome do
-    MessageOpened(state, plaintext) -> if Bytes.secure_equals(plaintext, expected) do
+    MessageOpened(state, plaintext) -> if fixture_only(Bytes.secure_equals(plaintext, expected)) do
       Ok(state)
     else
       consume_state(state)
@@ -286,12 +291,13 @@ fn proof(set_id :: Bytes, tamper :: Bool) -> Bool!GroupError do
       decode_group_message(encode_group_message(timed_message)?)?,
       caller_data),
     timed_bytes)?
-  let restored_payload = case decode_timed_group_payload(timed_bytes) do
-    Err(_) -> return Err(InvalidGroup)
-    Ok(value) -> value
+  let expected_timestamp = wide(1000)?
+  let restored_fields_match = case decode_timed_group_payload(timed_bytes) do
+    Err(_) -> false
+    Ok(value) -> value.disappearing_seconds == 60
+      && U64.compare(value.timestamp, expected_timestamp) == 0
   end
-  assert(restored_payload.disappearing_seconds == 60)
-  assert(U64.compare(restored_payload.timestamp, wide(1000)?) == 0)
+  assert(fixture_only(restored_fields_match))
   let bob_state = case decrypt_group_message(bob_state, timed_message, caller_data) do
     MessageRejected(state, _) -> state
     MessageOpened(state, _) -> do
@@ -305,19 +311,10 @@ fn proof(set_id :: Bytes, tamper :: Bool) -> Bool!GroupError do
 end
 
 test("group commit, welcome, and message codecs are canonical and bounded") do
-  case proof(Bytes.empty(), false) do
-    Err(_) -> assert(false)
-    Ok(value) -> assert(value)
-  end
+  assert(fixture_only(Result.unwrap_or(proof(Bytes.empty(), false), false)))
 end
 
 test("group welcome v2 authenticates the pinned witness set") do
-  case proof(repeated(91, 32), false) do
-    Err(_) -> assert(false)
-    Ok(value) -> assert(value)
-  end
-  case proof(repeated(91, 32), true) do
-    Err(_) -> assert(false)
-    Ok(value) -> assert(value)
-  end
+  assert(fixture_only(Result.unwrap_or(proof(repeated(91, 32), false), false)))
+  assert(fixture_only(Result.unwrap_or(proof(repeated(91, 32), true), false)))
 end

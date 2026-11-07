@@ -10,6 +10,10 @@ from Transparency.Merkle import sign_checkpoint, sign_witness, WitnessAttestatio
 from Protocol.EnvelopeWire import encode_inner_envelope, decode_inner_envelope
 from Protocol.V1 import InnerEnvelope, ProtocolExtension
 
+fn fixture_only(value :: Plaintext<Bool>) -> Bool do
+  declassify(value, "synthetic public gossip fixture comparisons only; no application disclosure")
+end
+
 fn repeated(value :: Int, count :: Int) -> Bytes!String do
   case Bytes.repeat(value, count) do
     Err(_) -> Err("test bytes failed")
@@ -86,17 +90,9 @@ fn proof() -> Bool!String do
     Err(_) -> return Err("test inner decode failed")
     Ok(value) -> value
   end
-  assert(Bytes.secure_equals(decoded.body, inner.body))
-  assert(!List.head(decoded.extensions).mandatory)
-  Ok(true)
+  Ok(Bytes.secure_equals(decoded.body, inner.body) && !List.head(decoded.extensions).mandatory)
 end
 
 test("checkpoint gossip uses bounded canonical controls and optional hints preserve legacy messages") do
-  case proof() do
-    Err(error) -> do
-      println(error)
-      assert(false)
-    end
-    Ok(value) -> assert(value)
-  end
+  assert(fixture_only(Result.unwrap_or(proof(), false)))
 end

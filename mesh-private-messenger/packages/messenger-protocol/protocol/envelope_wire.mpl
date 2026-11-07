@@ -271,7 +271,7 @@ fn validate_inner_envelope(value :: InnerEnvelope) -> Result<(), ProtocolError> 
   end
 end
 
-pub fn encode_inner_envelope(value :: InnerEnvelope) -> Bytes!ProtocolError do
+pub fn encode_inner_envelope(value :: InnerEnvelope) -> Plaintext<Bytes>!ProtocolError do
   let encoded = encode_inner_fields(value)
   let status = case encoded do
     Err(error) -> inner_protocol_error_code(error)

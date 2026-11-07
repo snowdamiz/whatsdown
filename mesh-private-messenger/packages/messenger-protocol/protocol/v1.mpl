@@ -86,7 +86,7 @@ pub struct InnerEnvelope do
   client_message_id :: Bytes
   client_timestamp :: U64
   message_type :: Int
-  body :: Bytes
+  body :: Plaintext<Bytes>
   reply_reference :: Bytes
   attachment_manifest :: Bytes
   receipt_policy :: Int

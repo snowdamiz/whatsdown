@@ -1,4 +1,4 @@
-from Groups.GroupPayload import GroupPayload, encode_group_payload, decode_group_payload
+from Groups.GroupPayload import GroupPayload, encode_group_payload, decode_expiring_group_payload
 from Groups.Mls import GroupError
 from Groups.GroupCodec import (
   group_byte,
@@ -63,23 +63,21 @@ fn decode(input :: Bytes) -> TimedGroupPayload!GroupError do
   let tail = group_wire_fixed(duration.state, Bytes.length(input) - 16)?
   group_wire_end(tail.state)?
   let legacy = group_join([group_byte(1)?, Bytes.from_utf8("GAP"), tail.value], 0, Bytes.empty())?
-  let payload = case decode_group_payload(legacy) do
+  let payload = case decode_expiring_group_payload(legacy) do
     Err(_) -> return Err(InvalidGroup)
     Ok(value) -> value
   end
-  let value = TimedGroupPayload {
+  if duration.value < 1 || duration.value > 2592000 || payload.kind != 1 do
+    return Err(InvalidGroup)
+  end
+  Ok(TimedGroupPayload {
     timestamp: timestamp.value,
     disappearing_seconds: duration.value,
     payload: payload
-  }
-  if valid(value) do
-    Ok(value)
-  else
-    Err(InvalidGroup)
-  end
+  })
 end
 
-pub fn encode_timed_group_payload(value :: TimedGroupPayload) -> Bytes!String do
+pub fn encode_timed_group_payload(value :: TimedGroupPayload) -> Plaintext<Bytes>!String do
   let encoded = encode(value)
   if declassify(Result.is_err(encoded),
     "timed group payload framing releases only bounded encoding success or refusal before encryption; body timestamp duration hints exact sizes and error payloads remain private") do
