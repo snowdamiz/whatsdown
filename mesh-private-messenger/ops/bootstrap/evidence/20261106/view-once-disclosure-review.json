@@ -1,0 +1,72 @@
+{
+  "status": "ADOPTION_HELD_FOR_AUTHORITY_CORRECTION",
+  "candidate_core": "bd24a8a31d81a00b31d4e4af5959ce56ba9fb1e5",
+  "review_task": "witness-viewonce-disclosure-grok-review-20261106-r2",
+  "review_result": {
+    "path": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-disclosure-review-r2/task-result.json",
+    "sha256": "949517ce8466f4bfffe3ba6c16f85cfdbcbe49450f2ef5b5c1328239a9e5187f"
+  },
+  "frozen_sources": {
+    "mobile/messages.mpl": "422d569f8552d639f27319db767638dc7b5f19be075d29300929984c3a6fb101",
+    "mobile/view_once_admission.mpl": "3ed90ad6792df1070a741e4108f079002e598e5f3118460d339601861b004837",
+    "mobile/history.mpl": "58b37fcaab1e4fe8c6db20d0b2c1cd222888d4fd9f142e2b1d360c195f42cb28",
+    "mobile/groups.mpl": "7959d4513bdacd38ab8975963922e824509fed4d40dd997de844a53d0420a793",
+    "mobile_core.mpl": "7529482ce4a68943ea136695fe31dbbe9443498e9b6384a3976a90790cc37794"
+  },
+  "parent_verified_retained_files": {
+    "epoch_content_match.log": "4cad1fced10f3263f1985c3319a6322f1f158021b886c426ec2b91d30a0d9ff2",
+    "epoch_content_match.plaintext.json": "ebd12a21d72b0b1975fc765395f3b9b0035045749eb77634516d91cb399abcf2",
+    "epoch_identity_argument.log": "4ebefc682a54a4a58416fdf0b65061500f687bc0350e3a6c186e4f62d554d055",
+    "probes/epoch_content_match/main.mpl": "5dc06cf76cbf709e9f11b97118d7823b2421ace8fe69a6a77e15ad11e74abd62",
+    "probes/epoch_content_match/mesh.toml": "b19b7c74afb0fe62cd793fc183a96ce87634700206292269f0d6d2c5232033f5",
+    "probes/epoch_identity_argument/main.mpl": "3724d3154c8921ea42d148a793ec717d2010577a1932b431c2d9c1e033305df8",
+    "probes/epoch_identity_argument/mesh.toml": "ea9ad2f59c791ebc44c8d78c0c87044c10199e27c5b7cfdc37bcface2e5d482b",
+    "probes/write_history_class/main.mpl": "add19b628e08c4719f17bdd81f3428e7320adbc09bc7e88760d62728c2c3362f",
+    "probes/write_history_class/mesh.toml": "91850b00a8f173d0b72c733522261975141f1daeec60f88e8349dc87c729a114",
+    "probes/write_reference_bytes/main.mpl": "5e4aba21edc3dd7d36619c0eb910aed50921d13b646901a5da6c489b00163cb5",
+    "probes/write_reference_bytes/mesh.toml": "edabde24a92b07dda763364ef5318b6c367c7b6c30e5f74c7f23980875355983",
+    "rerun-results.json": "32e5595c38c816653cdece8804a0e7ed598a9ca200d2f35dfeb36d3aa0c36675",
+    "results.json": "7d44ed227068bf85cf67e6ca665c2322a7760f1eecd1321358a10655d082d9c1",
+    "write_history_class.log": "8289215e2356780968d290a44a16f25db32ee80d20c4575697a64c7f62ec4ca8",
+    "write_history_class.plaintext.json": "22e4c09575adbd4f2c59faebdd501226c0389a4c561def814a95ef799c310682",
+    "write_reference_bytes.log": "aaf2dba63762ae0124ef0505d97b73d6b38497a9443f425df5a47ecbe94af6fa"
+  },
+  "findings": [
+    {
+      "site": "mobile/view_once_admission.mpl:157",
+      "helper": "require_view_once_epoch",
+      "evidence": "Actual exported compiler probe accepted caller-controlled labeled epoch content and public accepted/refused output; source and compile log verified. No binary execution."
+    },
+    {
+      "site": "mobile/view_once_admission.mpl:414",
+      "helper": "prepare_view_once_write",
+      "evidence": "Actual exported compiler probe accepted labeled HistoryAbsent/HistoryConflict selection and public accepted/refused output; source and compile log verified. No binary execution."
+    },
+    {
+      "site": "mobile/view_once_admission.mpl:480",
+      "helper": "prepare_view_once_pending",
+      "evidence": "Source establishes same public-helper declassification shape; this review did not compile a separate live pending export. Earlier uncalled pending probes remain unclassified."
+    }
+  ],
+  "intended_sites": [
+    "messages:269",
+    "messages:318",
+    "messages:537",
+    "history:356",
+    "history:417",
+    "history:513",
+    "groups:1035",
+    "mobile_core:554 existing display reason"
+  ],
+  "negative_controls": [
+    "pending reference bytes refused E0093",
+    "privately selected epoch account refused E0093"
+  ],
+  "decision": "Keep helper validity/admission decisions private; permit only reviewed finite projections at the actual private authenticated receive boundary. Correct, requalify and independently review before Core/UI/inventory adoption.",
+  "limits": [
+    "Checker acceptance, not a demonstrated executed network leak or authorization bypass.",
+    "Prior failed review partial probes are not approval or automatically findings.",
+    "Reviewer inspected emitted live IR before artifact cleanup; parent rehashed retained source/log/report evidence, did not rerun compilation in this verification.",
+    "All native/group/fetch/old-account migration and combined-source gates remain open."
+  ]
+}
