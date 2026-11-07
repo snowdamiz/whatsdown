@@ -1,0 +1,178 @@
+{
+  "head": "f2e872a51457ec5963132ec9cbf4303c31e453ea",
+  "scope": "macOS Foundation/Objective-C host; no UIKit/Expo/Android product qualification",
+  "sources": {
+    "mesh-private-messenger/apps/mobile/modules/mesh-messenger/ios/MeshMessengerAppLockPolicy.swift": "52ca75b1546b7dc7bcbb00a9dd7c6d8b47bb79a2507f0b4991841eb9c37fa4c0",
+    "mesh-private-messenger/apps/mobile/modules/mesh-messenger/ios/MeshMessengerAppLock.swift": "8b2913dd793aaa19f4ee664c5e762769b00e76c07b065c592e712f2a8e48d952",
+    "mesh-private-messenger/apps/mobile/modules/mesh-messenger/ios/MeshMessengerProtectedFiles.swift": "979d217c25113fa3e9bdb090e3eb2e0d6fcef4c7172a1df3652c660602a730bb",
+    "mesh-private-messenger/apps/mobile/modules/mesh-messenger/ios/MeshMessengerLockedNotifications.swift": "a1cfe6053dd5c0a973f6c30109413cbe2387f5132541b90aca837fcff2625d7a",
+    "mesh-private-messenger/apps/mobile/modules/mesh-messenger/ios/MeshMessengerDataProtection.swift": "3700ccd0b79ddb4bcf02b278b24c94c46f9cd90dd552057cc351e3734abb1bd8",
+    "mesh-private-messenger/apps/mobile/modules/mesh-messenger/ios/Tests/MeshMessengerRetirementTests.swift": "f9920b6ee30fd1a3f6ce1a8b6c3b12abc7a9d10d6d21b2c2bd8ba1618f41dfa6",
+    "mesh-private-messenger/apps/mobile/modules/mesh-messenger/ios/Tests/MeshMessengerRootBindingTests.swift": "25cdcefe196195645694893e8883629fdec8ff6176bd4732c26acc7b225edede",
+    "mesh-private-messenger/apps/mobile/modules/mesh-messenger/ios/Tests/MeshMessengerAppLockTests.swift": "396383e164c46f4f2731b4b1b9729b4dafd52aa3b796d349089209e5d454f0a6",
+    "mesh-private-messenger/apps/desktop/src-tauri/src/desktop_lock/native/ProcessOwner.m": "b6a5dfc60aa31307996656ab7d5b1b548f1a9fbb7018e9b59cebfce4e532aa92",
+    "mesh-private-messenger/apps/desktop/src-tauri/src/desktop_lock/native/ProcessOwner.h": "aa0cb9a38748e464abcb015be09967d04d691b1afb335cd3199de367ba4e04f6",
+    "mesh-private-messenger/apps/desktop/src-tauri/src/desktop_lock/native/Policy.h": "7bdf4327d763de49f410fb08c36a3ecae1edd768168401e7021747310f5a2faa",
+    "mesh-private-messenger/apps/desktop/src-tauri/src/desktop_lock/tests/process_owner_closure.m": "9648ef085716cefe34c6c5a4132d8cb8589e0d2d55ee6105147a8d7090e020cf",
+    "mesh-private-messenger/tests/native-effect-authority-unit0/prove.py": "d835b7b95ad46d7196d1b1e5cb976d9a11801cf54023b3990b72648e7c9579ee"
+  },
+  "binaries": {
+    "retirement-red-control": "fff4ad94330233e00e3c7d719c502d00d158504f0d7b352ab820b4eb5b1c7a04",
+    "retirement": "a6b773166963400b021f7a8af3a1cd94c0472505c79da895b94b989976bcc04e",
+    "root-bindings": "06f615b4bb062c3f38bc94a456370d74fee9ae1966fc2f4ea595e7a2e48f0f55",
+    "app-lock": "d29b25d563eb07998ec19a5dccf114786a6bda421dc3852924b7871d81dba843",
+    "process-owner": "b343dfc5f7e555702b190c78e808ce0176c244dfc7621451f40fc3b855136f87"
+  },
+  "runs": [
+    {
+      "name": "retirement-red-control-compile",
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "summary": "compile passed"
+    },
+    {
+      "name": "retirement-red-control",
+      "exit": 1,
+      "expected": 1,
+      "log_sha256": "c9f1d19b5d139c52893637fbaa8c820a38d489fea4dbfe4028ce04e8d63c693a",
+      "summary": "RESULT 1/3 native retirement groups passed"
+    },
+    {
+      "name": "retirement-compile",
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "summary": "compile passed"
+    },
+    {
+      "name": "retirement",
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "ccb8d998c009180d89975451960fdd22495d253486d41f692800848a39fec63c",
+      "summary": "RESULT 3/3 native retirement groups passed"
+    },
+    {
+      "name": "root-bindings-compile",
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "summary": "compile passed"
+    },
+    {
+      "name": "root-bindings",
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "7bfe5ab08989c6211448944225b892da112201ae8ebb24d1ddce3e4c8cf86d3a",
+      "summary": "RESULT 23/23 root-binding groups passed"
+    },
+    {
+      "name": "root-startup",
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "9855d4e646afd24a52ed004643832f30d13ef89915ea8d3c402b29b072071921",
+      "summary": "RESULT 3/3 native-startup groups passed"
+    },
+    {
+      "name": "root-owner-scope",
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "82db58c5853af627bba17d9c4fc9d9336e412d961825d1ac6b1e2aa5081dd2ad",
+      "summary": "RESULT 4/4 native-owner-scope groups passed"
+    },
+    {
+      "name": "root-publication",
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "5c9bfe79b5abfd69f826889392dc8cf2d9bc09c67c2050969ecec2fd8f0c107d",
+      "summary": "RESULT 1/1 pending-publication groups passed"
+    },
+    {
+      "name": "root-headless-admission",
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "77da119286878fc5b80e6121504545a0aa93cd03000f3c5bc7248907d02e3385",
+      "summary": "RESULT 3/3 native-headless-admission groups passed"
+    },
+    {
+      "name": "root-owner-construction",
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "5a9ad5f35fbd571f8fc65e121f2db4abed8716974fce60ba162dd5ee0b36f037",
+      "summary": "RESULT 1/1 native-owner-construction groups passed"
+    },
+    {
+      "name": "root-account-transition",
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "956ed4062b4bb0baa565e52a8f4cb5cbff8ddb3d8f8b6f56497671997cdf6d42",
+      "summary": "RESULT 4/4 native-account-transition groups passed"
+    },
+    {
+      "name": "root-headless-lifetime",
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "5e610e94a7d8c7f0a5df5246fc4e0a527a1e8ba534c3343e487c41cba3a0f9a8",
+      "summary": "RESULT 1/1 native-headless-lifetime groups passed"
+    },
+    {
+      "name": "app-lock-compile",
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "summary": "compile passed"
+    },
+    {
+      "name": "app-lock",
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "6ab6ca483d3ce34c935910ce583a6c3a020e058c1c01d18722dc80c8420abcbd",
+      "summary": "IOS_CONTROLLER_HOST_RESULT failures=0 groups=31"
+    },
+    {
+      "name": "process-owner-compile",
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "summary": "compile passed"
+    },
+    {
+      "name": "process-owner",
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "b31cd7929ce6a20c3000ce800dc6780db62952e95590e6e3e3913e7b3dd4e64f",
+      "summary": "RESULT 2/2 process-owner capability limits demonstrated"
+    }
+  ],
+  "base": "f2e872a51457ec5963132ec9cbf4303c31e453ea",
+  "qualification": "SOURCE + macOS Foundation/controller host + actual ProcessOwner OS controls; product platforms NOT QUALIFIED",
+  "swift_version": "Apple Swift version 6.4.2 (swiftlang-6.4.2.1.9 clang-2100.4.1.1)\nTarget: arm64-apple-macosx27.0.0",
+  "clang_version": "Apple clang version 21.0.0 (clang-2100.4.1.1)\nTarget: arm64-apple-darwin27.0.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin",
+  "negative_control_source_sha256": "2481370d43bbb8500148915a514d60a66d6342fa619d250c0ae50236116e7f42",
+  "initial_red": {
+    "source_sha256": "83e729a395874b338ac3ed577414b2dd8268113ce8f692fc94f068ff93a43367",
+    "test_sha256": "f9920b6ee30fd1a3f6ce1a8b6c3b12abc7a9d10d6d21b2c2bd8ba1618f41dfa6",
+    "binary_sha256": "569897d85f1c7dfa7a4cdeadcedd9ff44c4790b4592b00893b9477cefda17236",
+    "exit": 1
+  },
+  "android_config": {
+    "exit": 0,
+    "passed": 6,
+    "log_sha256": "90a6d68f02b0ee79e80976c7f565e41c9c0c86ede5f9a99d57cf9aa8c3b9e395",
+    "command": "NODE_PATH=/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/mesh-private-messenger/apps/mobile/node_modules node --test --test-name-pattern=Android|Firebase scripts/app-lock-config.test.mjs",
+    "sources": {
+      "mesh-private-messenger/apps/mobile/scripts/app-lock-config.test.mjs": "e6b78a14eb5bc32e1c6afa997225c70ff9d59f32c6e0710c4aa82cf30bebb4d1",
+      "mesh-private-messenger/apps/mobile/plugins/with-app-lock.cjs": "4286c74f93a6ce6809687017d274365d0e6e7992635e174fb00f460b9d3e009a",
+      "mesh-private-messenger/apps/mobile/package-lock.json": "f28ece85921491203e2276bdaec3059d015d88d526e4cd00c7e1bc0cc9e3dd7d"
+    }
+  },
+  "independent_review": {
+    "task_id": "node:delegated-task:command%3Amcp%3A06124e60-25a9-44b5-98ca-4086e3094c67%3Adelegate-task%3Aunit0-bounded-native-review-20261106-r1",
+    "result": "No blocker found",
+    "replayed": "negative control 1/3 expected; corrected retirement 3/3; existing Swift 71/71; ProcessOwner2/2",
+    "scope": "retained small host binaries and source/hash review; no product platform qualification"
+  },
+  "production_commit": "62da3c4e5a125aec58f7efe23e47a0258c2c5263",
+  "production_tree": "6edd4cb5abb3eb9d90de3123f6de37b1915d5ec2",
+  "production_patch_sha256": "b981a228cf003a2de567b96ba512f47f0ed1f098ede79499c5433b94efc081aa"
+}
