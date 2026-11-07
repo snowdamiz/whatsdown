@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "status": "PASS_LOCAL_ENVELOPE_NAMESPACE",
+  "base": "f2e872a51457ec5963132ec9cbf4303c31e453ea",
+  "source_files": {
+    "mesh-private-messenger/packages/mobile-core/storage/records.mpl": "015c85452ee0271f934277b73851fc742c35c897d9fbe88fd40bd291600d89f1",
+    "mesh-private-messenger/packages/mobile-core/tests/api_boundary.test.mpl": "17e448579c280829f16d775fdd36aa6decc3fb74aae7a3107c27985085bd4ce3",
+    "mesh-private-messenger/protocol/local-storage-index-v2.md": "bba90b1ac04cb1526e9b2492d5b537eaf951b12954118c957cbacf5d091fbae7"
+  },
+  "change": "Every public envelope key is mapped into envelope/v1/<hex(raw key)> before keyed indexing. Old internal addresses are not written or migrated.",
+  "regression": {
+    "red": "actual public facade replaced sealed internal view-once record; one failure and original API control passed",
+    "green": "two cases passed; optimized exact formatted source also two passed",
+    "preserved": "canonical envelope validation, limits, opaque64-byte return shape, repeat updates and binary keys",
+    "warnings": "Two generic assert-resolution warnings retained. The protected-row assertion genuinely failed in baseline."
+  },
+  "main": {
+    "artifact_sha256": "77f79f5751e3d68ad6be2ba2ad4514d7dcd6fc45d47b71345ca55b70c5d15583",
+    "abi_sha256": "876cb493b91669fd9e99dfff64b687ccdfc393b0efee4b766529ef0ef13975d4",
+    "report_sha256": "a1be2a9de7f2737973973d352bbf3f6c412844ca706957ffa5f0127f1641d68b",
+    "modules": 330,
+    "exports": 176,
+    "sites": 69,
+    "changed_modules": [
+      "Storage.Records"
+    ]
+  },
+  "toolchain": {
+    "bin/meshc": "19ef395b701a3c76ff006956597b6ec176810c78a6d07271a253199911ea4e85",
+    "lib/libmesh_rt.a": "d1e2b001783fe819f03644f5e4dcf42bc362bb1cecd04e475097d80cf9d3a8f8",
+    "lib/libmesh_test_rt.a": "9283206f47c6a52fa075a108773854ad7a12aae437c16b04c4fc747740674c33"
+  },
+  "verification": {
+    "full_mesh_lint": "exit0 and empty",
+    "format": "both touched Mesh files --check exit0",
+    "diff_check": "pass",
+    "review": "Independent read-only review found no verified defect; reviewer checked source and retained evidence, did not rerun runtime."
+  },
+  "evidence_root": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/envelope-namespace",
+  "evidence_hashes": {
+    "red-sources.json": "92cca1993dfec39763f75577ef4d24e49b078d49f8b26d73a0ab83fff6df489d",
+    "red.log": "090231f2dc27d6e4c8bc21f99b1c86296560357aaf15d9a415491421f6209fc3",
+    "green.log": "8ef7c7e580d8e406410550819c09d29b0ab569a3a6de0f7f5ff26c912a799dd5",
+    "api-opt2.log": "2d4c8e40f0274db77a068f11e91f18d8938b4e3048991a321038e5c408c29f8f",
+    "qualification-runs.json": "608cc5fe2819531824b753c303664371bc1bea88f60a052010a0ed65adf27e82",
+    "main-build.log": "979ffbffc4852d17c056d9dac9ad6dcdd429c565fcc650213ac4cfcca691c51a",
+    "lint.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "candidate.json": "931feebfd184702edf7b6201ed6bfb0a0d2391629b5ac5dba0c50f4c8615a712",
+    "verification.json": "3619a845535379af2c1e53ca997363ea54224dd4d760c07324fa4ff642e8a140",
+    "verify.py": "55e2a534a02eb489df715706f37228e9bc2f88986c3f9f009389dd0d226410f4",
+    "product-main-gate.json": "4cd7fed1c966a22fa3109c9b1369b2724a68544311ffa040ca8dee7a7962cdcf",
+    "product-main-gate.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "review1/review.txt": "6a060dcaa62dec184513d23b7a32f09745e1ed6cd9ed0e87a4868040928a8d9b",
+    "cleanup.json": "88112c81e4fcfe878996d55002acfd9309fc12ee64900ccb165e19943dd6b385"
+  },
+  "limits": [
+    "Local macOS tests and optimized staticlib qualification; no native UI/device/release or live production claim.",
+    "Former public record addresses differ; no production consumer of old addresses found. Existing old rows stay untouched.",
+    "This isolates future public envelope writes; it does not establish legacy view-once completeness or migrate existing users. Fresh account/link epoch admission remains separately unadopted.",
+    "No native intra-export owner/effect boundary is closed by this storage namespace correction."
+  ]
+}
