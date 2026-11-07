@@ -1,0 +1,6 @@
+AUTH_PREFLIGHT_EXPLICIT_ISSUER_FRAME_READY
+  ✓ attachment-inclusive export accepts authenticated view-once caption without exporting its image material
+
+1 passed in 0.25s
+
+1 test file passed in 34.55s

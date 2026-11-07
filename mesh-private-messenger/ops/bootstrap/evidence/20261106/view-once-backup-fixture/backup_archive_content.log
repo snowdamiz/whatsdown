@@ -1,0 +1,7 @@
+  ✓ whole backup export preserves inclusive range ordinals exclusive omission precedence and attachment placeholders
+  ✓ whole backup export preserves historical seven eight and current nine group fields and rejects duplicate nonempty IDs
+  ✓ whole backup maximum canonical payload imports through HCB2 reads exactly and preserves every original row
+
+3 passed in 1.85s
+
+1 test file passed in 36.27s

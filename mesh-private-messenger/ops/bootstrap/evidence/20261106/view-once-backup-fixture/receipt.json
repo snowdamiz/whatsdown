@@ -1,0 +1,34 @@
+{
+  "status": "FOUR_BACKUP_CASES_QUALIFIED_CANDIDATE_STILL_HELD",
+  "baseline": {
+    "files_passed": 40,
+    "cases_passed": 110,
+    "compile_blocked_files": 2
+  },
+  "rerun": {
+    "files_passed": 2,
+    "cases_passed": 4,
+    "only_two_fixture_setup_guards_changed": true
+  },
+  "counts_limit": "114 passing cases across retained baseline plus targeted rerun, not one new full cohort execution.",
+  "manifest_sha256": "97bfa94b215f3fdcd6a5c85f47f93ff1485b00e18d9b0f5c3446bd857885ef55",
+  "fixture_sha256": {
+    "mesh-private-messenger/packages/mobile-core/tests/backup_archive_fixture.mpl": "f2dedf7a0e00445e72c8b20d4cbef97845d308e9241df0d34cebc7fc83259da4",
+    "mesh-private-messenger/packages/mobile-core/tests/backup_attachment_capture_fixture.mpl": "8cc985ff2f989aec69f94090aa6103430f9cb0d478186fcfbb4363b60698a738"
+  },
+  "limits": [
+    "Only these two files/four cases were rerun; this is not a fresh full 114-case cohort run. Earlier baseline evidence remains separately pinned and unchanged.",
+    "The synthetic fixture has no ordinary attachments. Zero object requests qualifies selected view-once exclusion in this actual export, not ordinary attachment fetching or general network behavior.",
+    "Absence assertions cover the listed selected byte sequences in the restored payload, not every possible transformation or encoding of secret material.",
+    "No sibling self-sync authorization coverage; the separate same-ID/different-key correction remains outside this run.",
+    "No production, deployment, UI/device, native artifact/ABI or whole-product qualification.",
+    "New fixture setup guards were not forced to return false; test-case expectations are byte-identical to baseline."
+  ],
+  "raw_evidence_sha256": {
+    "baseline-result-manifest.json": "17d0713879959d8210d495720c5c2305331d5776e962af1caacb4cfd4f22886e",
+    "backup_archive_content.log": "5b86db83ef2e58b53fd3f1a935048ed373e247ff5a2deba325a051ecd12668b4",
+    "view_once_backup.log": "0b33f086928519898393d48657c493c06c0194020237aed8d64fd93b5b7643ba",
+    "rerun-result-manifest.json": "97bfa94b215f3fdcd6a5c85f47f93ff1485b00e18d9b0f5c3446bd857885ef55",
+    "baseline-run-summary.json": "4ab0d967e1777dda056a8c4f8137b47afc3bf3964589a103ae7ef5375b1457b8"
+  }
+}

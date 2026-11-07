@@ -1,0 +1,10 @@
+{
+  "failed_cases": 0,
+  "failures": [
+    "backup_archive_content",
+    "view_once_backup"
+  ],
+  "files": 42,
+  "passed_cases": 110,
+  "passed_files": 40
+}

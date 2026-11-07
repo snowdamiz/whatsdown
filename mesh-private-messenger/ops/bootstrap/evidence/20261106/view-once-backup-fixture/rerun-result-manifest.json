@@ -1,0 +1,256 @@
+{
+  "artifact_hashes": {
+    "path": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-composed/core-tests/fixture-guard-rerun-01/artifact-hashes.json",
+    "sha256": "0c41b82d60c6b37c6b64ce934229a016a05f12c9135c339dcd3d91f3c9f854ce"
+  },
+  "assertion_coverage": {
+    "assertion_count_boundary": "16 lexical assertion sites across the two unchanged test files. No instrumented runtime assertion counter was collected; loops and predicate checks are described separately.",
+    "backup_archive_content": {
+      "cases": 3,
+      "checks": [
+        "Inclusive range selection, ordinals, exclusive-omission precedence, attachment placeholders and export source-row preservation.",
+        "Historical 7-, 8-, and current 9-field group history compatibility; duplicate nonempty IDs rejected while original rows remain unchanged.",
+        "Maximum canonical archive import and exact readback; expected receipt/id; stored blob exceeds 16 MiB and begins HCB2; original rows preserved with exactly the expected additional rows; repeated import returns duplicate disposition and identical readback."
+      ],
+      "lexical_assert_sites": 14
+    },
+    "fixture_guard_boundary": "Both new fail-closed setup guards executed on their successful configuration path; false-return setup paths were not deliberately fault-injected.",
+    "view_once_backup": {
+      "cases": 1,
+      "checks": [
+        "Real synthetic initial encrypted ordinary receive followed by established-ratchet view-once receive; received bodies and Pending/history fixture checked before export.",
+        "Actual create_pending_content_backup_export under RequireArchiveAttachments, followed by portable restore and archive decode.",
+        "One direct scope with expected conversation ID; exactly two entries; ordinary text and view-once caption/ID preserved; view-once ordinal 1; every attachment list empty and attachment_messages zero.",
+        "Restored payload excludes the selected VOR marker, complete reference, object ID, download capability, encrypted manifest, wrapped key, encrypted chunk, image bytes, image/png marker, and view-once/v2 and view-once/id/v2 storage prefixes.",
+        "Owned ephemeral loopback object server recorded zero requests while the case actually executed and passed."
+      ],
+      "closed_result_required": 2,
+      "lexical_assert_sites": 2
+    }
+  },
+  "backup": {
+    "network": {
+      "loopback_only": true,
+      "request_count": 0,
+      "requests": [],
+      "server_closed": true
+    },
+    "network_sha256": "829ce1cd1f40e4de8b45fd6c04d55b573408ddfac4fbe89327e06d0e2dbbcd76",
+    "object_requests": 0,
+    "ready": {
+      "address": "127.0.0.1",
+      "listening": true,
+      "port": 61474
+    },
+    "ready_sha256": "3d9472c9416f0ecf2a247a3afe88f5155fb986fb0c34a60f47a6ae415735fa18",
+    "runtime_case_executed": true,
+    "runtime_case_passed": true
+  },
+  "baseline_preservation": {
+    "after": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-composed/core-tests/fixture-guard-rerun-01/baseline-artifacts-after.json",
+    "after_sha256": "d83d946c7b4402dc4776bab7799683ae39b88ea6fcc139778d529cb8f6e39f1b",
+    "before": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-composed/core-tests/fixture-guard-rerun-01/baseline-artifacts-before.json",
+    "before_sha256": "d83d946c7b4402dc4776bab7799683ae39b88ea6fcc139778d529cb8f6e39f1b",
+    "files_verified_unchanged": 938,
+    "old_manifest": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-composed/core-tests/result-manifest.json",
+    "old_manifest_sha256": "17d0713879959d8210d495720c5c2305331d5776e962af1caacb4cfd4f22886e",
+    "old_no_adapter_diagnosis": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-composed/core-tests/diagnostics-results.json",
+    "old_no_adapter_diagnosis_sha256": "9ee4ae94aba112ed1f48e819fe34eb9385abacba7d9b1988c0ee673524fd5280",
+    "old_red_logs": [
+      {
+        "log": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-composed/core-tests/tests/backup_archive_content/test.log",
+        "log_sha256": "a9b6663b3672d35fe3f5bf3f653c54ad0d7913d50da2400bbdbb58ae7404e5ca",
+        "test": "backup_archive_content"
+      },
+      {
+        "log": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-composed/core-tests/backup/view_once_backup/test.log",
+        "log_sha256": "c53ed85109938516dfaf629f5639cc28263b27bac7dc13b66ff15febe37d5a58",
+        "test": "view_once_backup"
+      }
+    ]
+  },
+  "completed_at": "2026-11-07T02:09:35Z",
+  "confinement_and_adapter": {
+    "adapter": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-composed/core-tests/fixture-paths.dylib",
+    "hashes": {
+      "confinement.sb": "694ef3e86f99bdfb81df88a49fe0d011eaa9f60c5217a5ddf6b64237e0b9c604",
+      "fixture-paths.c": "fd462f40660604aeda60a2731255124bdaf488e10601639670a78c2400dbc0e3",
+      "fixture-paths.dylib": "9c49c3bb961a592ca67dd9eab5c4ca5a7b6f0981030675870d8ec07383c296ab",
+      "run-tests.py": "46ec6a6d1181770c3624fcf40df66921fe700fac458c525dfb0934dda93aa513"
+    },
+    "max_concurrent_mesh_compiles": 2,
+    "no_production_endpoints": true,
+    "profile": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-composed/core-tests/confinement.sb",
+    "timeout_per_file_seconds": 300,
+    "unchanged_from_baseline": true
+  },
+  "core_base": "a0511fdabf3c89b99d445b6fb9e8f8564bf08848",
+  "counts": {
+    "failed_cases": 0,
+    "files": 2,
+    "passed_cases": 4,
+    "passed_files": 2,
+    "unexecuted_cases": 0
+  },
+  "failures": [],
+  "fixture_delta": {
+    "fixture_hashes": {
+      "mesh-private-messenger/packages/mobile-core/tests/backup_archive_fixture.mpl": "f2dedf7a0e00445e72c8b20d4cbef97845d308e9241df0d34cebc7fc83259da4",
+      "mesh-private-messenger/packages/mobile-core/tests/backup_attachment_capture_fixture.mpl": "8cc985ff2f989aec69f94090aa6103430f9cb0d478186fcfbb4363b60698a738"
+    },
+    "parent_applied": true,
+    "path": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-composed/core-tests/fixture-guard-rerun-01/verified-fixture-delta.patch",
+    "sha256": "db2772039c24e3cb02ac520993e61c81c5b8685de338b082b340d0b236d3b424",
+    "test_agent_source_or_test_edits": false
+  },
+  "limits": [
+    "Only these two files/four cases were rerun; this is not a fresh full 114-case cohort run. Earlier baseline evidence remains separately pinned and unchanged.",
+    "The synthetic fixture has no ordinary attachments. Zero object requests qualifies selected view-once exclusion in this actual export, not ordinary attachment fetching or general network behavior.",
+    "Absence assertions cover the listed selected byte sequences in the restored payload, not every possible transformation or encoding of secret material.",
+    "No sibling self-sync authorization coverage; the separate same-ID/different-key correction remains outside this run.",
+    "No production, deployment, UI/device, native artifact/ABI or whole-product qualification.",
+    "New fixture setup guards were not forced to return false; test-case expectations are byte-identical to baseline."
+  ],
+  "only_expected_two_fixture_hunks": true,
+  "parent_head_after": "0d6826b5d02e3439d93568ecc1d6fa996135a505",
+  "parent_head_before": "0d6826b5d02e3439d93568ecc1d6fa996135a505",
+  "results": [
+    {
+      "command": [
+        "/usr/bin/sandbox-exec",
+        "-f",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-composed/core-tests/confinement.sb",
+        "/usr/bin/env",
+        "DYLD_INSERT_LIBRARIES=/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-composed/core-tests/fixture-paths.dylib",
+        "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+        "test",
+        "tests/backup_archive_content.test.mpl"
+      ],
+      "cwd": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/mesh-private-messenger/packages/mobile-core",
+      "elapsed_seconds": 36.43,
+      "environment": {
+        "CLANG_MODULE_CACHE_PATH": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-composed/core-tests/fixture-guard-rerun-01/tests/backup_archive_content/tmp/modules",
+        "MESH_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_rt.a",
+        "MESH_TEST_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_test_rt.a",
+        "MORSE_C1_FIXTURE_ROOT": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-composed/core-tests/fixture-guard-rerun-01/tests/backup_archive_content/fixture",
+        "MORSE_OWNED_LEGACY_ROOT": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-composed/core-tests/fixture-guard-rerun-01/tests/backup_archive_content/legacy-fixture",
+        "MORSE_VIEW_ONCE_EVIDENCE_ROOT": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-composed/core-tests/fixture-guard-rerun-01/tests/backup_archive_content/evidence",
+        "NO_COLOR": "1",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "TEMP": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-composed/core-tests/fixture-guard-rerun-01/tests/backup_archive_content/tmp",
+        "TMP": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-composed/core-tests/fixture-guard-rerun-01/tests/backup_archive_content/tmp",
+        "TMPDIR": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-composed/core-tests/fixture-guard-rerun-01/tests/backup_archive_content/tmp"
+      },
+      "executed_case_names": [
+        "whole backup export preserves inclusive range ordinals exclusive omission precedence and attachment placeholders",
+        "whole backup export preserves historical seven eight and current nine group fields and rejects duplicate nonempty IDs",
+        "whole backup maximum canonical payload imports through HCB2 reads exactly and preserves every original row"
+      ],
+      "exit": 0,
+      "failed_cases": 0,
+      "finished_at": "2026-11-07T02:08:22Z",
+      "group": "fixture-guard-rerun-01/tests",
+      "log_path": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-composed/core-tests/fixture-guard-rerun-01/tests/backup_archive_content/test.log",
+      "log_sha256": "5b86db83ef2e58b53fd3f1a935048ed373e247ff5a2deba325a051ecd12668b4",
+      "mesh_command": [
+        "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+        "test",
+        "tests/backup_archive_content.test.mpl"
+      ],
+      "passed": true,
+      "passed_cases": 3,
+      "removed_environment_variable_names": [],
+      "source_case_count": 3,
+      "source_sha256": "73ab539dad861f2c13be5685ae98f8a6dce9ccef75ae09bd2fc1959c9dbdcdc6",
+      "started_at": "2026-11-07T02:07:46Z",
+      "tail": "  \u2713 whole backup export preserves inclusive range ordinals exclusive omission precedence and attachment placeholders\n  \u2713 whole backup export preserves historical seven eight and current nine group fields and rejects duplicate nonempty IDs\n  \u2713 whole backup maximum canonical payload imports through HCB2 reads exactly and preserves every original row\n\n3 passed in 1.85s\n\n1 test file passed in 36.27s\n",
+      "test": "backup_archive_content",
+      "timed_out": false,
+      "timeout_seconds": 300
+    },
+    {
+      "command": [
+        "/usr/bin/sandbox-exec",
+        "-f",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-composed/core-tests/confinement.sb",
+        "/usr/bin/env",
+        "DYLD_INSERT_LIBRARIES=/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-composed/core-tests/fixture-paths.dylib",
+        "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+        "test",
+        "tests/view_once_backup.test.mpl"
+      ],
+      "cwd": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/mesh-private-messenger/packages/mobile-core",
+      "elapsed_seconds": 35.065,
+      "environment": {
+        "CLANG_MODULE_CACHE_PATH": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-composed/core-tests/fixture-guard-rerun-01/backup/view_once_backup/tmp/modules",
+        "MESH_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_rt.a",
+        "MESH_TEST_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_test_rt.a",
+        "MORSE_C1_FIXTURE_ROOT": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-composed/core-tests/fixture-guard-rerun-01/backup/view_once_backup/fixture",
+        "MORSE_OWNED_LEGACY_ROOT": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-composed/core-tests/fixture-guard-rerun-01/backup/view_once_backup/legacy-fixture",
+        "MORSE_VIEW_ONCE_EVIDENCE_ROOT": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-composed/core-tests/fixture-guard-rerun-01/backup/view_once_backup/evidence",
+        "MORSE_VO_BACKUP_PORT": "61474",
+        "NO_COLOR": "1",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "TEMP": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-composed/core-tests/fixture-guard-rerun-01/backup/view_once_backup/tmp",
+        "TMP": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-composed/core-tests/fixture-guard-rerun-01/backup/view_once_backup/tmp",
+        "TMPDIR": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-composed/core-tests/fixture-guard-rerun-01/backup/view_once_backup/tmp"
+      },
+      "executed_case_names": [
+        "attachment-inclusive export accepts authenticated view-once caption without exporting its image material"
+      ],
+      "exit": 0,
+      "failed_cases": 0,
+      "finished_at": "2026-11-07T02:08:21Z",
+      "group": "fixture-guard-rerun-01/backup",
+      "log_path": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-composed/core-tests/fixture-guard-rerun-01/backup/view_once_backup/test.log",
+      "log_sha256": "0b33f086928519898393d48657c493c06c0194020237aed8d64fd93b5b7643ba",
+      "mesh_command": [
+        "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+        "test",
+        "tests/view_once_backup.test.mpl"
+      ],
+      "network_sha256": "829ce1cd1f40e4de8b45fd6c04d55b573408ddfac4fbe89327e06d0e2dbbcd76",
+      "object_requests": 0,
+      "passed": true,
+      "passed_cases": 1,
+      "removed_environment_variable_names": [],
+      "source_case_count": 1,
+      "source_sha256": "550b61162da3e15ccfd0c6b15d2c4171f56cc2a5c662c20c3558eec906ea108b",
+      "started_at": "2026-11-07T02:07:46Z",
+      "tail": "AUTH_PREFLIGHT_EXPLICIT_ISSUER_FRAME_READY\n  \u2713 attachment-inclusive export accepts authenticated view-once caption without exporting its image material\n\n1 passed in 0.25s\n\n1 test file passed in 34.55s\n",
+      "test": "view_once_backup",
+      "timed_out": false,
+      "timeout_seconds": 300
+    }
+  ],
+  "source_candidate": "Core a0511fd bytes plus exactly the two parent-applied fixture guard hunks; unrelated native/docs HEAD 0d6826b.",
+  "source_verification": {
+    "after": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-composed/core-tests/fixture-guard-rerun-01/sources-after.json",
+    "after_sha256": "1f942c513cccf2e0e126c857871261e52af08fc277d62bb9d8950475864d3831",
+    "before": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-composed/core-tests/fixture-guard-rerun-01/sources-before.json",
+    "before_sha256": "1f942c513cccf2e0e126c857871261e52af08fc277d62bb9d8950475864d3831",
+    "changed_during_run": [],
+    "files": 740
+  },
+  "toolchain": {
+    "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc": {
+      "after_sha256": "19ef395b701a3c76ff006956597b6ec176810c78a6d07271a253199911ea4e85",
+      "expected_sha256": "19ef395b701a3c76ff006956597b6ec176810c78a6d07271a253199911ea4e85",
+      "sha256": "19ef395b701a3c76ff006956597b6ec176810c78a6d07271a253199911ea4e85",
+      "unchanged": true
+    },
+    "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_rt.a": {
+      "after_sha256": "d1e2b001783fe819f03644f5e4dcf42bc362bb1cecd04e475097d80cf9d3a8f8",
+      "expected_sha256": "d1e2b001783fe819f03644f5e4dcf42bc362bb1cecd04e475097d80cf9d3a8f8",
+      "sha256": "d1e2b001783fe819f03644f5e4dcf42bc362bb1cecd04e475097d80cf9d3a8f8",
+      "unchanged": true
+    },
+    "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_test_rt.a": {
+      "after_sha256": "9283206f47c6a52fa075a108773854ad7a12aae437c16b04c4fc747740674c33",
+      "expected_sha256": "9283206f47c6a52fa075a108773854ad7a12aae437c16b04c4fc747740674c33",
+      "sha256": "9283206f47c6a52fa075a108773854ad7a12aae437c16b04c4fc747740674c33",
+      "unchanged": true
+    }
+  },
+  "verdict": "PASS_BOUNDED_FIXTURE_GUARD_RERUN"
+}
