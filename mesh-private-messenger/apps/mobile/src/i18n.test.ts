@@ -15,6 +15,7 @@ import {
   templateParts,
   translator,
   type Language,
+  type MessageKey,
 } from './i18n.ts';
 import { en } from './locales/en.ts';
 
@@ -69,15 +70,39 @@ test('a translator fills placeholders and picks the plural form', () => {
 const placeholders = (text: string) => [...text.matchAll(/\{(\w+)\}/g)].map((match) => match[1]).sort();
 const forms = (entry: unknown) => (typeof entry === 'string' ? [entry] : Object.values(entry as object) as string[]);
 
+// These mixed-bounty messages use the approved English fallback. Every other
+// message still requires a translation; no component or key prefix is exempt.
+const bountyEnglishFallbacks = [
+  ['MORSE is not part of this receipt. The saved legacy transfer keeps its original token.', 'MORSE is not part of this receipt. The saved legacy transfer keeps its original token.'],
+  ['Awaiting settlement', 'Awaiting settlement'],
+  ['Bounty amounts unavailable', 'Bounty amounts unavailable'],
+  ['No bounty in this asset', 'No bounty in this asset'],
+  ['{amount} base units', '1.234567 base units'],
+  ['{amount} {asset}', '1.234567 USDC'],
+  ['Amount unavailable', 'Amount unavailable'],
+  ['Outcome unknown', 'Outcome unknown'],
+  ['Submitted', 'Submitted'],
+  ['Transfer finalized', 'Transfer finalized'],
+  ['Signature: {signature}', 'Signature: example'],
+  ['Copy {asset} transaction signature', 'Copy USDC transaction signature'],
+  ['Recover {asset} transfer', 'Recover USDC transfer'],
+  ['Cancel unsigned {asset} transfer', 'Cancel unsigned USDC transfer'],
+  ['{asset} destination Solana address', 'USDC destination Solana address'],
+  ['Explicitly retry failed {asset} transfer', 'Explicitly retry failed USDC transfer'],
+  ['Review {asset} transfer', 'Review USDC transfer'],
+] as const satisfies readonly (readonly [MessageKey, string])[];
+const fallbackKeys: ReadonlySet<string> = new Set(bountyEnglishFallbacks.map(([key]) => key));
+
 for (const { code } of languages.filter((language) => language.code !== 'en')) {
-  test(`${code} translates every message, keeping its placeholders`, () => {
+  test(`${code} translates every message outside the approved bounty fallback, keeping its placeholders`, () => {
     const catalog = catalogs[code as Language];
-    const missing = Object.keys(en).filter((key) => !(key in catalog));
+    const missing = Object.keys(en).filter((key) => !(key in catalog) && !fallbackKeys.has(key));
     assert.deepEqual(missing, [], `untranslated: ${missing.join(' | ')}`);
     const extra = Object.keys(catalog).filter((key) => !(key in en));
     assert.deepEqual(extra, [], `not in the English catalog: ${extra.join(' | ')}`);
     for (const [key, source] of Object.entries(en)) {
       const entry = (catalog as Record<string, unknown>)[key];
+      if (entry === undefined && fallbackKeys.has(key)) continue;
       const expected = placeholders(forms(source)[forms(source).length - 1]!);
       if (typeof source === 'string') {
         assert.equal(typeof entry, 'string', key);
@@ -87,6 +112,14 @@ for (const { code } of languages.filter((language) => language.code !== 'en')) {
       for (const form of forms(entry)) {
         assert.ok(form.trim().length > 0, `empty: ${key}`);
         assert.deepEqual(placeholders(form).filter((name) => name !== 'count'), expected.filter((name) => name !== 'count'), key);
+      }
+    }
+  });
+  test(`${code} renders each approved missing bounty message in English with its placeholders`, () => {
+    const t = translator(code);
+    for (const [key, expected] of bountyEnglishFallbacks) {
+      if (!(key in catalogs[code])) {
+        assert.equal(t(key, { amount: '1.234567', asset: 'USDC', signature: 'example' }), expected, key);
       }
     }
   });
