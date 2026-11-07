@@ -1,0 +1,45 @@
+# Historical recovery fixture only. This supplies an old signed journal to the
+# production state codec; it does not assert that an economic receipt was paid.
+@export("bounty_fixture_prepare_legacy")
+pub fn fixture_prepare_legacy(request :: Bytes) -> Bytes!String do
+  let path = mobile_utf8(request, "invalid_path")?
+  let key = platform_key()?
+  let plan = case prepare_native_filing(path, disclosable_fork(path, key)?)? do
+    None -> return Err("disabled_fixture")
+    Some(value) -> value
+  end
+  let intent = decode_bounty_transfer(Bytes.from_hex(File.read(path <> ".intent")?)?)?
+  let value = prepare_bounty_transfer(path, key, plan.identity, intent,
+    Bytes.from_hex(File.read(path <> ".payer")?)?, plan.mint.bytes,
+    U64.parse("100000")?, U64.parse("1000000")?, U64.parse("1")?, intent.issued_at)?
+  encode_output_list([value.identity, value.intent])
+end
+
+@export("bounty_fixture_commit_legacy")
+pub fn fixture_commit_legacy(request :: Bytes) -> Bytes!String do
+  let path = mobile_utf8(request, "invalid_path")?
+  let key = platform_key()?
+  let value = case load_bounty_transfer(path, key)? do
+    None -> return Err("fixture_journal_missing")
+    Some(value) -> value
+  end
+  let signed = commit_bounty_transfer(path, key, value.identity,
+    Bytes.from_hex(File.read(path <> ".packet")?)?, U64.parse("1")?,
+    decode_bounty_transfer(value.intent)?.issued_at)?
+  encode_output_list([signed.identity, signed.intent, signed.wire, signed.signature])
+end
+
+@export("bounty_fixture_old_capture")
+pub fn fixture_old_capture(request :: Bytes) -> Bytes!String do
+  let path = mobile_utf8(request, "invalid_path")?
+  encode_output_list([load_blob(path, "bounty-transfer/v1")?, load_blob(path, "fork-bounty/v1")?])
+end
+
+@export("bounty_fixture_old_write")
+pub fn fixture_old_write(request :: Bytes) -> Bytes!String do
+  let path = mobile_utf8(request, "invalid_path")?
+  let previous = Bytes.from_hex(File.read(path <> ".old")?)?
+  store_bounty_transfer_snapshot(path, ["bounty-transfer/v1"], [previous], previous,
+    Bytes.from_hex(File.read(path <> ".guard")?)?)?
+  Ok(Bytes.empty())
+end

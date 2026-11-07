@@ -1,0 +1,6 @@
+[package]
+name = "bounty-mixed-native-proof"
+version = "0.1.0"
+
+[dependencies]
+messenger-mobile-core = { path = "../../packages/mobile-core" }

@@ -1,0 +1,43 @@
+from Mobile.BountyTransferState import load_bounty_transfer
+from Bounty.Transfer import decode_bounty_transfer
+
+# This runs only against the retained 1868725 source. Both writes enter the
+# actual encrypted SQLite state owner; no hand-authored journal is inserted.
+@export("bounty_fixture_singleton_red")
+pub fn singleton_red(request :: Bytes) -> Bytes!String do
+  let path = mobile_utf8(request, "invalid_path")?
+  let key = platform_key()?
+  let selected = bounty_state(path, key)?
+  let mint = Bytes.from_hex(String.repeat("07", 32))?
+  let first = BountyTransfer {
+    index: selected.index,
+    finder: selected.finder,
+    destination: Bytes.from_hex(String.repeat("15", 32))?,
+    mint: mint,
+    amount: U64.parse("7")?,
+    blockhash: Bytes.from_hex(String.repeat("08", 32))?,
+    issued_at: U64.parse("1000")?,
+    expires_at: U64.parse("1300")?,
+    purpose: 1,
+    decimals: 6
+  }
+  let identity = Bytes.from_hex(String.repeat("09", 32))?
+  let payer = Bytes.from_hex(String.repeat("16", 32))?
+  let usdc = prepare_bounty_transfer(path, key, identity, first, payer, mint,
+    U64.parse("50")?, U64.parse("90")?, U64.parse("60")?, first.issued_at)?
+  let second = %{first | mint: Bytes.from_hex(String.repeat("0a", 32))?, amount: U64.parse("11")?}
+  let error = case prepare_bounty_transfer(path, key, identity, second, payer, mint,
+    U64.parse("50")?, U64.parse("90")?, U64.parse("60")?, first.issued_at) do
+    Err(value) -> value
+    Ok(_) -> return Err("singleton_unexpectedly_admitted_second_asset")
+  end
+  let retained = case load_bounty_transfer(path, key)? do
+    None -> return Err("singleton_lost_first_asset")
+    Some(value) -> value
+  end
+  if !Bytes.secure_equals(retained.intent, usdc.intent)
+    || decode_bounty_transfer(retained.intent)?.amount != U64.parse("7")? do
+    return Err("singleton_first_asset_changed")
+  end
+  Ok(Bytes.from_utf8(error))
+end
