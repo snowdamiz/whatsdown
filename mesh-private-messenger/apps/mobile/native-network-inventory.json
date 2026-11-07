@@ -455,7 +455,7 @@
         "resolve:android"
       ],
       "moduleConfig": "03cf494e0ad3d85613cfc49c2a70b64e8ef50bbb5b10673bd7368b14c850ebf7",
-      "sha256": "38ff04ee750a3be7d3b6cc32e09b34231c2cd5cb1611539861711efd62bb19ee",
+      "sha256": "580ed7ff2353947fd434f520c63a225264ec2fd0ce472930098b5037f0119b6c",
       "sources": 53,
       "connectionSites": []
     },
@@ -698,7 +698,7 @@
     }
   ],
   "desktopHost": {
-    "sha256": "915dee830adf6015704519234641e2de6ddb1e90718e21486ddf29f07083cef7",
+    "sha256": "29069221bf2786015c8004e06230dfcff6aadf618d5a2fd6ba7d8d4e0f156b10",
     "sources": 83,
     "connectionSites": [
       "desktop_lock/bootstrap.rs",

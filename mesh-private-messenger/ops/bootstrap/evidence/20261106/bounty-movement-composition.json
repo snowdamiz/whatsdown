@@ -1,0 +1,69 @@
+{
+  "status": "PASS_BOUNDED_COMPOSED_BOUNTY",
+  "production_head": "57f0db8085230a77ec51d88456a0560bab820c05",
+  "owner_head": "4d258811201a4f74dc3f087f609afa246ca6fa94",
+  "owner_handoff_sha256": "41fbffd4c596b8ce15c46bbde1f580deccd2eba123ea4bdfbda0c6fa23d50ba0",
+  "owner_review_sha256": "cb45b20241a65c368481431fd033fd0f0afe7c10797b30c629eae76c5da9db61",
+  "composition_test_delta": {
+    "mesh-private-messenger/packages/mobile-core/tests/bounty_transfer_mixed_state.test.mpl": {
+      "owner": "a568207995ed96057e218da8ecbc9d18c197f013a0b50956759e89f7678bff76",
+      "current": "ccd9101fa392f2bccf7650af6c832556a6674379f0b9ebdffbfe751f27b9a155"
+    }
+  },
+  "main": {
+    "modules": 330,
+    "exports": 176,
+    "sites": 69
+  },
+  "fixture": {
+    "exports": 180,
+    "production_subset_exact": 176,
+    "extra_fixture_exports": 4
+  },
+  "original_aggregate": "FAIL due to one test-fixture lint; preserved. Normalized pass-through arm, full lint then empty and focused optimized test passed. All production inputs unchanged by follow-up.",
+  "scope": "Fresh composed optimizedMain, Core+SDK+SBF movement/correlation, app and extracted scoped validators. Retained owner opt0/2 full10 configuration matrix separately reviewed. No actual native owner, final SDK/IPC publication, real device, independent provider or live finality claim.",
+  "verification": {
+    "path": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/bounty-adoption/composed/composition-verification.json",
+    "sha256": "bbb941291ad77c12740f459019119bcf56b7c978a419b39b208799e039657981"
+  },
+  "fresh_results": {
+    "app": 830,
+    "request_rust": 22,
+    "request_swift": "PASS",
+    "request_kotlin": "PASS installed2.4.10",
+    "core_parser": 43,
+    "mixed_opt2": "PASS actualCore/SDK/SBF",
+    "correlation_opt2": "PASS actualRusthost/Core/SDK/SBF",
+    "mixed_state_opt2": 1,
+    "mesh_lint": "empty",
+    "scoped_format": "five files PASS",
+    "typecheck": "PASS",
+    "messages": "PASS",
+    "native_inventory": "36 packages/5903sourcefiles; source hashes only"
+  },
+  "retained_results": "Owner ten current opt0/2 configurations; parent rehash and R4 bounded review, not ten fresh parent reruns",
+  "native_effect_gate": "OPEN_PARENT_HELD",
+  "artifacts": {
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/bounty-adoption/composed/libmessenger.a": "a903a8638abfd68d7429cf0013773869ed7d86c4eb4735fc66b2bc8701d2cfea",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/bounty-adoption/composed/libmessenger.abi.json": "876cb493b91669fd9e99dfff64b687ccdfc393b0efee4b766529ef0ef13975d4",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/bounty-adoption/composed/libmessenger.a.plaintext.json": "5f50b261a5e4d72bddc35435602dc5a6a8ba3c90a025e2e86d0efd95ffe88bc2",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/bounty-adoption/composed/bounty-native.dylib": "dd599a999b338c676aaed46faea8d0118c283aee5ba02d684836b70da8c1b913",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/bounty-adoption/composed/bounty-native.abi.json": "96026b42f5b9cf7b4403cda09ff5a930dae6a1e0c219d703428ac18585415cb9",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/bounty-adoption/composed/bounty-native.dylib.plaintext.json": "8af36146ecd518c9cc87fb6adbb6503aa0a5d9f83c5f44c05fad37737060e5c6",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/bounty-adoption/composed/host-driver": "531cb69c67285175f08f8004424d3df53f0fa7650ed0d1be8776ed92daf17cb5",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/bounty-adoption/composed/main-verification.json": "91548c361a555f51e94d6dd652596c37104baf560ba61abc50431031995c066d",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/bounty-adoption/composed/product-main-gate.json": "0cd7a7f64e310c85a05f56c45d637f45424e24d366e5f66856e28a00eb8c5adc",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/bounty-adoption/composed/mixed-usdc-o2/result.json": "b4bdcd8d2d827e1a35bfea35a9cce512af7f0b355da6ea7092deaed8c7f9986c",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/bounty-adoption/composed/correlation-o2/result.json": "69822543868d0d67f5cf765b85f1f30407d17a8dad1754d3db20751007e4d843",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/bounty-adoption/composed/parser/result.json": "cfd87a9828daa45619e68945ba56dd69d5edf0a5f5be3426bba5a5ebfb0734fe",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/bounty-adoption/composed/mixed-state-opt2.log": "3ac9d69df6327010e58d96c92b7360e9466134656bb07dee10ccef9b6a4255a2",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/bounty-adoption/composed/inventory-review.json": "a8c87447d6ca331b11a67b0b0651b1f81b812a234de8ac03c7c3b8e40e4cf6ab",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/bounty-adoption/composed/inventory-gate.log": "d671611f053c75dd64b563751b93968ed4ff1734334198900978f5329c27b7cb",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/bounty-adoption/composed/inputs.json": "d416c0221ef73ddf10e091edfdc3ac02958be1043770dbac897a92963e0612f6",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/bounty-adoption/composed/run.py": "9bb646cb55afca8dd61ccba08a3c9ee5fed19bc46d9affd44e169d05ffc1732a",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/bounty-adoption/composed/result.json": "9becb8abf3d171f7c64a05330f9ed89c0bbd1347b0fe9954e727f463c5d99d63",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/bounty-adoption/composed/lint.log": "2363f78d0e2f1dfbdc11fb54f92ca64a535c87c9f1f0ac44c0017e95b04f5d3b",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/bounty-adoption/composed/lint-green.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/bounty-adoption/composed/followup-checks.json": "abf325674182491b030c51eb1dd7c8619c6b6dfad1ac56bdec23f773016ca585"
+  }
+}

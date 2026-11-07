@@ -125,7 +125,7 @@ revisited at each phase gate.
 ### Current continuation status — 2026-11-06
 
 This table is the current continuation reference, through source checkpoint
-`5b3941e`. Detailed entries below retain the history of implementation and proof;
+`57f0db8`. Detailed entries below retain the history of implementation and proof;
 an older candidate or pending note does not override a later adoption record.
 Local source, local execution, native UI qualification and live production
 acceptance are separate states. No live deployment inventory was refreshed by
@@ -143,16 +143,16 @@ passing local fixture does not close a native-device or production gate.
 | Quorum source identity | Shared Mesh and writer host checks adopted through `f4c21c2`; seven Mesh and 28 native/writer checks pass, including mapped/nonmapped IPv6 controls | Independent-provider and live RPC qualification; different names alone do not establish different operators |
 | V2 rewards | Bounded scheduling plus directory/current-attendance grace assessment adopted (`cee839c`); 47 composed local Node/native/Kit/SBF checks pass | Deployment, funded operation, independent providers and live duration gates; finite requests stop at their configured bound |
 | Desktop private services | Actual root, native ownership, retirement, files and backups connected through `311146f`; prior 800 app checks remain recorded. Current TLS/body composition passes 126 native checks and the default Debug build. A certificate-signed actual-store probe still refuses with `-34018` | Matching macOS profile/entitlements and provisioned bundle, then unlocked native UI/provider acceptance; Windows/Linux ownership adapters; D4/D6 remain open |
-| Native effects after suspension | Selected design uses native admission at concrete sinks. The generated-ABI baseline reproduces writes after retirement and after export return; parent freshly replayed success/control. The isolated Mesh candidate reports 19 generated-ABI cases and existing runtime controls passing, but its first independent review requires fixes for SQLite prepare-time recovery, termination cleanup, V1 error provenance and a timer-test dispatch error | Review corrections, full language gates and a fresh review remain pending. Only synchronous-sink capability is proposed; native policy, complete effects, SDK/IPC publication and fresh-owner scheduling are not qualified or activated |
+| Native effects after suspension | Selected design uses native admission at concrete sinks. The generated-ABI baseline reproduces writes after retirement and after export return. The isolated Mesh implementation has reproduced and corrected review findings in SQLite preparation, terminated registrations, V1 error provenance, timer dispatch and refused HTTP request cleanup; broad language gates pass | All 31 current generated-ABI cases pass after a fixture-only GC error conversion. Final review and runtime qualification remain pending; the default parallel runtime run has one peer-registration failure under investigation, while its serial rerun is separate evidence. Only synchronous-sink capability is proposed. Native policy, complete effects, SDK/IPC publication and fresh-owner scheduling are not qualified or activated |
 | Native lifecycle prerequisite | Adopted `f814681`/`fccdcdd`: iOS Main-thread teardown retires its exact owner inline. Parent freshly rebuilt/replayed 71 existing Swift groups, three retirement groups and two real macOS process-owner controls; the always-deferred control fails both Main cases. A 57-row predicate matrix records the remaining gaps | Off-Main teardown, framework identity changes, actual SDK/IPC publication and external macOS named-path authority still require qualified integration. No protected runtime activation, serializer removal, UIKit/Expo or Android product claim |
 | Public envelope storage | Adopted `25e31b3`: caller keys use a separate envelope namespace, so public writes cannot select native record labels. The actual facade regression fails before and passes after; two optimized cases pass, full Mesh lint is empty, and optimized Main preserves all 176 exports and 69 disclosure sites | Existing rows are not migrated or removed. This does not establish legacy view-once completeness; fresh-account epoch admission and authenticated migration remain separate |
 | Plaintext propagation | Presentation labels plus outgoing direct/fanout/group-send/self-sync body labels adopted through `4eaed22`. Fresh qualified-compiler proof refuses seven selected HTTP exits, passes label-removal/production controls and the 69-site disclosure gate; three send/invitation test files pass | The three demonstrated raw storage/fanout-target/triple-payload projections are private in the native facade at `b59eaf1`; eight import refusals, 18 facade tests and the unchanged 69-site gate pass. Remaining semantic decoders, general byte decoding, decoded receive/history boundaries, mobile targets and release qualification stay open |
 | Bootstrap acceptance | Scoped native RPC TLS adopted through `748270a`; retained fresh compiled-Core fixture exits zero with 37 checks and `consistent`. Parent verified its source/artifact hashes; the combined product Main build passes with 69 sites, 176 exports and exact generated bindings | Full phone/UI and platform packaging, real production-clock next-due controls, broader bootstrap acceptance and all eight scheduled production checks remain open |
 | Witness outage qualification | Tooling adopted through `fc0e701`. Exact owner source `a66889a` passed 900.056500333 seconds with 155 native lookups and C's retained 1→31 catch-up; parent verified retained provenance and freshly rebuilt the combined sources for a passing 60-second control | Hosted B1 deployment, seven-day observation and the scheduled production outage drill remain open. The 900-second artifact predates TLS/body composition; the composed artifact has the separately recorded short control |
-| View-once receive | Durable local consume/restart refusal exists. App candidate `75fb777` remains paired with unadopted Core admission; parent verified its 25 files and freshly passed 63 focused app tests | The draft reports actual direct/sync identity, epoch, rollback and duplicate red/green controls. R5 caption/reference and post-history-eviction duplicate findings are corrected locally; R6 found raw reference material retained through arbitrary history extensions, now being fixed with VO-only stripping. Current-source backup/privacy qualification and fresh review remain pending. Fresh account/link epochs require adopted envelope isolation `25e31b3`; existing-account completeness, groups, native fetching and effect authority remain open. Adopt Core and UI together |
+| View-once receive | Durable local consume/restart refusal exists. App candidate `75fb777` remains paired with unadopted Core admission; parent verified its 25 files and freshly passed 63 focused app tests | R7 source review found no new defect after R5 caption/evicted-duplicate and R6 raw-extension corrections. The owner reports current backup and privacy controls passing; remaining exact-source tests/provenance and separate disclosure-policy review are pending. Fresh account/link epochs require adopted envelope isolation `25e31b3`; existing-account completeness, groups, native fetching and effect authority remain open. Adopt Core and UI together |
 | Monitor acceptance | §4.3 now matches §6.8: verify every consecutive posting from the retained observation baseline, with full catch-up and no gaps. Five current monitor test files pass locally | Scheduled live coverage and preserved observation history; fresh local tests do not establish the production window |
 | Mixed-asset fork filing | Phone FFS2 persistence and 16-field display plus shared operator/phone permanent receipt authentication adopted through `1ab2a78`. The combined source matches the qualified 80-packet SBF proof and 20-group native replay, including 13 refusal vectors and three production relay admissions. Parent verified 619 source files and 80 artifacts; Main keeps 176 exports and 69 reviewed disclosure sites | Bounty movement/recovery is separately implementing real signer/bank proofs. Shared native effect admission, whole-app/device UI, optimized phone release, independent providers and live qualification remain unfinished |
-| Per-asset bounty movement | Unadopted `4d25881` is pushed on `t3/mixed-bounty-recovery`. The ten current Core/SDK/SBF configurations pass: both asset orders at opt0/2, genuine zero variants, old BWJ1 migration/stale writers and exact-signature submission. Parent matched 718 source inputs, both libraries and the retained results, then freshly passed 43 actual Core parser cases at each optimization level | Final independent R4 and combined-branch adoption remain pending. R3 malformed-tag fallback and 17-key locale-test findings are corrected; the owner reports 830 mobile tests and typechecking passing. Native owner admission, device UI and live/provider qualification remain separate open gates |
+| Per-asset bounty movement | Reviewed implementation adopted through `57f0db8`: independent asset journals, exact-signature submission, scoped native selectors and per-asset UI. R4 resolves all 14 findings. Parent freshly passes 830 app tests, typecheck, Rust/Swift/Kotlin request validation, optimized Main with 176 exports/69 unchanged sites, the actual mixed Core/SDK/SBF flow and stale-host correlation | Native owner admission, actual SDK/IPC final delivery, provisioned/device UI, independent providers and live operation remain open. The ten owner matrix configurations and parser opt0/2 proofs remain exact-source retained evidence; the parent freshly rebuilds/runs opt2 after envelope composition |
 | Weekly credit check | Acceptance now uses the standard $5 / 100-credit pack, matching fixed pricing in §7 | Actual live weekly purchase and redemption of each deployed extra |
 
 The unadopted history UI checkpoint `75fb777` is also pushed on
@@ -255,9 +255,49 @@ ordering, Android identity replacement and desktop filesystem-owner policy
 remain substantive qualification obligations; cached epochs cannot substitute
 for their actual predicates.
 
+### Independent bounty movement adoption — 2026-11-06
+
+Commits `ceb87c5` → `78dc7de` → `a8cd370` → `64b05f0` → `10ef2fb` →
+`bd52013` → `57f0db8` adopt the seven reviewed bounty commits. Each asset keeps
+its own immutable entitlement and durable attempt; a completed USDC transfer
+cannot hide, replace or replay the MORSE leg. Submission binds the exact signed
+attempt, so a stale host continuation cannot send a newer transfer under the
+same leg identity. Scoped native validators parse the closed asset frame before
+choosing the database. The app uses the captured service database and renders
+both asset states separately.
+
+Independent R4 review resolves all fourteen prior findings with no new finding
+in its bounded scope. The owner retains ten passing opt0/opt2 Core/SDK/SBF
+configurations, including both asset orders, genuine zero combinations, old
+BWJ1 recovery/migration and exact-attempt correlation. Parent rehashed those
+inputs and artifacts and freshly rebuilt the combined optimized Main and native
+fixture. The composed Main has 330 source-verified modules, 176 unchanged exports
+and 69 unchanged reviewed disclosure sites; only the four bounty modules differ
+from the preceding envelope-isolation Main.
+
+Fresh parent runs pass 830 default app tests, typechecking, catalog validation,
+22 Rust request tests plus Swift/Kotlin scoped validation, the 43-case actual
+Core parser, an unequal-amount mixed SDK/SBF flow and the real Rust-host/Core/SDK/
+SBF stale-submission regression. The mixed run checks durable packets before
+send, lost acknowledgements, restart, finalized-failure retry/archive and both
+exact payouts. Parent additionally normalizes one pass-through arm in a test
+fixture; its optimized test passes and full Mesh lint is now empty. The original
+full-lint failure remains recorded. Native inventory
+review changes source hashes only: connection sites, package counts and all
+controls remain unchanged.
+
+The [composition receipt](mesh-private-messenger/ops/bootstrap/evidence/20261106/bounty-movement-composition.json)
+separates fresh parent execution from retained owner evidence and records the
+small composition delta. These are local synthetic custody, signer and bank
+proofs. Private-owner admission at concrete effects, final native/JS delivery,
+Keychain/device UI, real provider independence, validator finality, live funding
+and release remain open. The fixture's three loopback origins are not independent
+providers, and the legacy migration proof is not a new paid MPR1 movement.
+
 ### Active candidate review checkpoints — 2026-11-06
 
-These are isolated candidates, not adopted source or release claims.
+The bounty checkpoint below is now adopted as described above; the view-once
+and runtime candidates remain isolated and unadopted. None is a release claim.
 
 - **Bounty `4d25881`:** the [parent preflight](mesh-private-messenger/ops/bootstrap/evidence/20261106/bounty-candidate-preflight.json)
   verifies the current 34 owned files, 718 compile inputs, both libraries and
@@ -267,21 +307,28 @@ These are isolated candidates, not adopted source or release claims.
   versioned controls still reach their intended path. This closes the reproduced
   parser failure in the candidate. The 17-key locale fallback correction retains
   old-key completeness checks and leaves translator files unchanged; the owner's
-  default app suite passes 830 tests. Final R4 review is pending. The source
+  default app suite passes 830 tests. Final R4 review subsequently passed and the
+  seven commits were adopted through `57f0db8`. The source
   inventory retains its earlier `bba5d9f` head field; parent matched every exact
   current input hash rather than treating that field as a current-head claim.
 - **View-once Core:** R5 real receive controls refuse malformed/raw-reference
   captions and changed duplicate fields after history eviction. Both sealed
-  identity rows now include a content digest. R6 still found arbitrary extensions
-  retained in VO history; stripping those deliberately ignored extensions is
-  being qualified. Ordinary-message extensions remain outside this correction.
-  The final marker contract, current backup run, privacy controls, reviewed
-  disclosure inventory and independent approval are not yet adopted. The fixed
+  identity rows now include a content digest. R6 found arbitrary extensions
+  retained in VO history; the actual decrypted-history regression now passes
+  after VO-only stripping, with ordinary extensions preserved. R7 reviewed the
+  frozen source without a new finding. The owner reports exact-source backup and
+  privacy controls passing; remaining qualification and separate disclosure-policy
+  review are pending. No disclosure inventory is adopted. The fixed
   direct `02HST` UI contract remains unchanged.
 - **Mesh runtime:** the first candidate's review requires a preparation-time
   SQLite hot-journal gate, terminated-actor registration cleanup, V1 callback-error
-  provenance and a corrected timer driver. The owner reproduced those failures;
-  focused fixes and remaining language gates are active. Its archived C header
+  provenance and a corrected timer driver. A second review found pending HTTP
+  request leaks on refusal; repeated 4,096-request reds reproduce them and the
+  cleanup correction is under final qualification. Broad language gates pass;
+  all 31 current generated-ABI cases pass after a GC-test error-conversion
+  correction. Fresh review and runtime qualification remain pending: the default
+  parallel runtime run reports one peer-registration failure, with a serial
+  rerun and collision investigation in progress. Its archived C header
   advertises only synchronous sinks (mask 1). No complete-effect, scheduler,
   publication, service or native-policy capability is qualified. Native closure
   design must preserve live platform predicates and original-request delivery;
@@ -6465,10 +6512,10 @@ that first ships BR1.
 - Local mixed-asset relay execution, prepared-winner recovery, versioned phone
   filing and shared permanent MPR1/MPR2 authentication are adopted through
   `1ab2a78`. The composed source matches the qualified 80-packet SBF and 20-group
-  native receipt proofs. Unadopted asset-transfer candidate `4d25881` passes ten
-  current local Core/SDK/SBF configurations; parent verifies retained inputs and
-  freshly passes the parser at opt0/2. Final review and composition, native
-  effect/UI qualification and funded operation remain unfinished.
+  native receipt proofs. Independent per-asset movement is adopted through
+  `57f0db8`, with ten owner configurations and fresh parent optimized Core/SDK/SBF
+  composition, exact-signature correlation and app/native request checks. Native
+  effect/final-publication/UI qualification and funded operation remain unfinished.
 - Public page of burns, bonds and slashes.
 - **Exit:** the first four weekly burns are executed and published.
 
@@ -7025,7 +7072,7 @@ shared witness operator are already Phases 0.1, 0.2 and 2.
 | D3 | **Development source/libraries adopted:** guarded direct/group sync deletion, concurrent writer fencing, timed group transport and preview cleanup are implemented. Host expiry, dual-native timers, partial expiry and complete history-row deletion before display pass | `protocol/disappearing-messages-v1.md`; `protocol/group-message-expiry-v1.md` | Finish full app and physical-device/release acceptance | P2 |
 | D4 | **Backup implementation adopted; whole-app acceptance remains open.** Text and attachment-content creation/import, archive browsing, guarded file reads and ciphertext-only pending export are integrated. Require-all and explicit-omission policies retain authenticated source/expiry checks and atomic publication. Desktop now constructs backups from captured native authority. The current Core has 69 reviewed sites and 176 exports, with a fresh macOS desktop library and native boundary tests; earlier four-target mobile evidence covers the historical 49-site/175-export closure. Genuine Android work reached a three-message backup selection and the stock picker's filename/Save step, but destination/recovery acceptance remains unresolved; a later emulator readiness failure provided no backup result. Larger-file streaming and historical local-owner proof for generic legacy group history remain open | `protocol/backup-text-archive-v1.md`; `protocol/backup-content-archive-v1.md`; `packages/mobile-core/mobile/backup_archive.mpl`; [mobile evidence](.morse/d4-backup-app-native-work-v1/CHECKPOINT-v90.json); [desktop adoption](.morse/continuation-20261106/desktop-adoption/provenance.json) | Qualify the current mobile artifacts and authenticated whole-app backup/provider flows, interrupted publication, OS-authentication interaction, larger-file streaming and physical-device/release acceptance | P2 |
 | D5 | **Implemented locally, device qualification pending:** QR display/scan and manual verification submit the exact safety number; Mesh compares and commits against guarded account/index/session snapshots. Host, actual React checks and matching candidate native builds pass | `apps/mobile/src/App.tsx:3966` | A QR code carrying the safety number; scanning a match verifies | P3 |
-| D6 | **Mobile and desktop lock source adopted; device qualification remains partial.** The owned Android emulator passes 31 checks for OS-PIN cancellation/enable/unlock/authenticated disable, immediate cover, stale-dialog retirement and locked restart. iOS Simulator qualifies signup, simulated-biometric refusal/cancel/success, background cover and locked restart; passcode fallback/lockout, authenticated disable and physical devices remain open. Desktop now connects the protected root, native page/session ownership and scoped services; the prior 800 app tests remain recorded, and current TLS/body composition passes 126 native tests plus the default Debug build. Actual desktop startup refuses at Keychain provisioning (`-34018`), so unlocked WebKit and native provider behavior remain unqualified. Native Main-thread deinit retirement is corrected (`f814681`), with fresh host regression and lifecycle controls; this does not close off-Main/framework identity or intra-export native effect authority. Windows/Linux private IPC fails closed. View-once consumption and restart refusal have local Core/ABI evidence, but authenticated receive/Pending admission, sending and native opening integration remain unfinished. The isolated direct receive draft and matching `02HST` app parser are being qualified together. Parent app review passes 63 focused tests. The Core owner reports real identity/epoch/rollback and R5 caption/evicted-duplicate controls passing; R6 raw-extension retention is still being fixed, with current-source backup/privacy checks and independent review pending. New-account admission epochs and public envelope namespace isolation are prerequisites; existing-account completeness/migration, broader receive/group/native-opening and native effect authority remain open | `.morse/reviews/d6-device-controls-contract-v2/README.md`; [iOS evidence](.morse/d6-app-lock-ios-notifications-work-v1/qualified-broker2/manifest.json); [desktop adoption](.morse/continuation-20261106/desktop-adoption/provenance.json) | Qualify provisioned desktop lock/UI and remaining mobile authentication paths; connect and qualify authenticated one-shot content; retain device-passcode fallback | P3 |
+| D6 | **Mobile and desktop lock source adopted; device qualification remains partial.** The owned Android emulator passes 31 checks for OS-PIN cancellation/enable/unlock/authenticated disable, immediate cover, stale-dialog retirement and locked restart. iOS Simulator qualifies signup, simulated-biometric refusal/cancel/success, background cover and locked restart; passcode fallback/lockout, authenticated disable and physical devices remain open. Desktop now connects the protected root, native page/session ownership and scoped services; the prior 800 app tests remain recorded, and current TLS/body composition passes 126 native tests plus the default Debug build. Actual desktop startup refuses at Keychain provisioning (`-34018`), so unlocked WebKit and native provider behavior remain unqualified. Native Main-thread deinit retirement is corrected (`f814681`), with fresh host regression and lifecycle controls; this does not close off-Main/framework identity or intra-export native effect authority. Windows/Linux private IPC fails closed. View-once consumption and restart refusal have local Core/ABI evidence, but authenticated receive/Pending admission, sending and native opening integration remain unfinished. The isolated direct receive draft and matching `02HST` app parser are being qualified together. Parent app review passes 63 focused tests. The Core owner reports real identity/epoch/rollback, R5 caption/evicted-duplicate and R6 decrypted-history extension controls passing. R7 source review finds no new defect and current backup/privacy checks pass; final qualification and separate disclosure-policy review remain pending. New-account admission epochs and public envelope namespace isolation are prerequisites; existing-account completeness/migration, broader receive/group/native-opening and native effect authority remain open | `.morse/reviews/d6-device-controls-contract-v2/README.md`; [iOS evidence](.morse/d6-app-lock-ios-notifications-work-v1/qualified-broker2/manifest.json); [desktop adoption](.morse/continuation-20261106/desktop-adoption/provenance.json) | Qualify provisioned desktop lock/UI and remaining mobile authentication paths; connect and qualify authenticated one-shot content; retain device-passcode fallback | P3 |
 
 ### 22.5 Document corrections
 

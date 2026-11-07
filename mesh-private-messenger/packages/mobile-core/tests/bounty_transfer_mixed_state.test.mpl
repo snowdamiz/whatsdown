@@ -31,7 +31,7 @@ from Transparency.Config import encode_security_config
 fn pair() -> SigningKeyPair!String do
   case Crypto.signing_generate() do
     Err(_) -> Err("test key")
-    Ok(value) -> Ok(value)
+    Ok(value)
   end
 end
 
