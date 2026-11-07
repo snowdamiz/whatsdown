@@ -1,6 +1,7 @@
 #import "Policy.h"
 
 NS_ASSUME_NONNULL_BEGIN
+@class MDProcessOwnerRetirementLink;
 typedef NS_ENUM(int32_t, MDProcessOwnerStatus) {
     MDProcessOwnerOK, MDProcessOwnerBusy, MDProcessOwnerUnreadable
 };
@@ -10,6 +11,11 @@ typedef NS_ENUM(int32_t, MDProcessOwnerStatus) {
 @interface MDProcessOwner : NSObject
 + (nullable instancetype)acquireInDirectory:(NSURL *)directory
                              anchorStorage:(id<MDPolicyStorage>)anchorStorage
+                                    status:(MDProcessOwnerStatus *)status;
+// Protected native construction requires a fresh immutable owning registration.
++ (nullable instancetype)acquireInDirectory:(NSURL *)directory
+                             anchorStorage:(id<MDPolicyStorage>)anchorStorage
+                            retirementLink:(MDProcessOwnerRetirementLink *)retirementLink
                                     status:(MDProcessOwnerStatus *)status;
 @property(nonatomic, readonly) BOOL current;
 // Caller owns the returned CLOEXEC FD. Never reopens the directory path.

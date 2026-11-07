@@ -1,0 +1,5 @@
+{"event": "original-descriptors", "directory": 3, "lock": 4}
+{"event": "logical-close-before-write-release", "local_inflight": 0, "closed_fds": 2, "owner_deallocated": false}
+{"event": "settled-and-disposed", "mutations": [], "closed_fds": 2}
+{"event": "ownership-complete", "node_releases": 1, "host_lifetime": [1, 1], "exact_original_closes": 2, "reused_descriptors_survive": true}
+{"event": "PASS", "case": "close-before-store"}

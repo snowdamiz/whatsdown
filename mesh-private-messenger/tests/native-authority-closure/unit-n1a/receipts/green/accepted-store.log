@@ -1,0 +1,7 @@
+{"event": "original-descriptors", "directory": 3, "lock": 4}
+{"event": "actual-admitted-put-before-write", "local_inflight": 1}
+{"event": "logical-close-before-write-release", "local_inflight": 1, "closed_fds": 0, "owner_deallocated": false}
+{"event": "actual-fixture-write-complete", "bytes": "65786163742d66696e6974652d7772697465"}
+{"event": "settled-and-disposed", "mutations": ["put"], "closed_fds": 2}
+{"event": "ownership-complete", "node_releases": 1, "host_lifetime": [1, 1], "exact_original_closes": 2, "reused_descriptors_survive": true}
+{"event": "PASS", "case": "accepted-store"}

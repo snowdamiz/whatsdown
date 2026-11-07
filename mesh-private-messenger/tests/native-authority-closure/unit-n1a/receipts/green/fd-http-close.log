@@ -1,0 +1,6 @@
+{"event": "held-real-http", "local_inflight": 0, "db_sha256": "cd0fe56b6243429cb7c8eb318c80afa6d6e85ef7d43025e9746d4381b7503c79"}
+{"event": "original-node-bind-after-loss", "status": 10}
+{"event": "close-return-before-barrier-release", "held_flock": false, "local_inflight": 0}
+{"event": "sink-result", "rows": [], "requests": ["/hold"], "status": 10, "before_sha256": "cd0fe56b6243429cb7c8eb318c80afa6d6e85ef7d43025e9746d4381b7503c79", "after_sha256": "cd0fe56b6243429cb7c8eb318c80afa6d6e85ef7d43025e9746d4381b7503c79"}
+{"event": "post-settlement-original-descriptors-closed", "count": 2}
+{"event": "PASS", "case": "http-close"}

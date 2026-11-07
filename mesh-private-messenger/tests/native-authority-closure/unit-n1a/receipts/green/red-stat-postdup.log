@@ -1,0 +1,7 @@
+{"event": "original-descriptors", "directory": 3, "lock": 4}
+{"event": "close-returned-while-stat-held", "node_retired": true, "closed_fds": 0}
+Traceback (most recent call last):
+  File "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-9f9727d8/mesh-private-messenger/tests/native-authority-closure/unit-n1a/lifecycle.py", line 234, in <module>
+    assert observed == [0], "in-flight stat returned current after close"
+           ^^^^^^^^^^^^^^^
+AssertionError: in-flight stat returned current after close
