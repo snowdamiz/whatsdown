@@ -56,6 +56,16 @@ struct MovementRequest do
   fields :: List<Bytes>
 end
 
+fn legacy_database(input :: Bytes) -> String!String do
+  # Version 2 and the BMR discriminator namespace cannot name a legacy database.
+  let reserved = Bytes.length(input) > 0 && Bytes.get(input, 0)? == 2
+    || Bytes.length(input) >= 4 && Bytes.slice(input, 1, 3)? == Bytes.from_utf8("BMR")
+  if reserved do
+    return Err("invalid_bounty_transfer_request")
+  end
+  database(input)
+end
+
 fn request(input :: Bytes, count :: Int) -> MovementRequest!String do
   if Bytes.length(input) > 5500 do
     return Err("invalid_bounty_transfer_request")
@@ -81,7 +91,7 @@ fn request(input :: Bytes, count :: Int) -> MovementRequest!String do
     if List.length(parts) != count do
       return Err("invalid_bounty_transfer_request")
     end
-    let path = database(List.head(parts))?
+    let path = legacy_database(List.head(parts))?
     Ok(MovementRequest { path: path, asset: 0, versioned: false, fields: parts })
   end
 end
@@ -293,7 +303,7 @@ pub fn native_bounty_transfer_status(input :: Bytes) -> Bytes!String do
     let key = platform_key()?
     return aggregate(path, key)
   end
-  let path = database(input)?
+  let path = legacy_database(input)?
   ensure_schema(path)?
   let key = platform_key()?
   view(load_bounty_transfer(path, key)?)
