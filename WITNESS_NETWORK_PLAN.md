@@ -143,10 +143,10 @@ passing local fixture does not close a native-device or production gate.
 | Quorum source identity | Shared Mesh and writer host checks adopted through `f4c21c2`; seven Mesh and 28 native/writer checks pass, including mapped/nonmapped IPv6 controls | Independent-provider and live RPC qualification; different names alone do not establish different operators |
 | V2 rewards | Bounded scheduling plus directory/current-attendance grace assessment adopted (`cee839c`); 47 composed local Node/native/Kit/SBF checks pass | Deployment, funded operation, independent providers and live duration gates; finite requests stop at their configured bound |
 | Desktop private services | Actual root, native ownership, retirement, files and backups connected through `311146f`; prior 800 app checks remain recorded. Current TLS/body composition passes 126 native checks and the default Debug build. A certificate-signed actual-store probe still refuses with `-34018` | Matching macOS profile/entitlements and provisioned bundle, then unlocked native UI/provider acceptance; Windows/Linux ownership adapters; D4/D6 remain open |
-| Native effects after suspension | Selected design uses native admission at concrete sinks. The generated-ABI baseline reproduces writes after retirement and after export return. The isolated Mesh implementation has reproduced and corrected review findings in SQLite preparation, terminated registrations, V1 error provenance, timer dispatch and refused HTTP request cleanup; broad language gates pass | All 31 current generated-ABI cases pass after a fixture-only GC error conversion. Final review and runtime qualification remain pending; the default parallel runtime run has one peer-registration failure under investigation, while its serial rerun is separate evidence. Only synchronous-sink capability is proposed. Native policy, complete effects, SDK/IPC publication and fresh-owner scheduling are not qualified or activated |
+| Native effects after suspension | Selected design uses native admission at concrete sinks. The generated-ABI baseline reproduces writes after retirement and after export return. The isolated Mesh implementation has reproduced and corrected review findings in SQLite preparation, terminated registrations, V1 error provenance, timer dispatch and refused HTTP request cleanup; broad language gates pass | All 31 current generated-ABI cases pass after a fixture-only GC error conversion. The owner now reports the default-parallel runtime gate passing 1669/0 with 20 ignored after a deterministic peer-name collision red/green and test-only isolation fix. Final coherent rebuild, review and commit remain pending; the earlier failing and serial runs remain separate evidence. Only synchronous-sink capability is proposed. Native policy, complete effects, SDK/IPC publication and fresh-owner scheduling are not qualified or activated |
 | Native lifecycle prerequisite | Adopted `f814681`/`fccdcdd`: iOS Main-thread teardown retires its exact owner inline. Parent freshly rebuilt/replayed 71 existing Swift groups, three retirement groups and two real macOS process-owner controls; the always-deferred control fails both Main cases. A 57-row predicate matrix records the remaining gaps | Off-Main teardown, framework identity changes, actual SDK/IPC publication and external macOS named-path authority still require qualified integration. No protected runtime activation, serializer removal, UIKit/Expo or Android product claim |
 | Public envelope storage | Adopted `25e31b3`: caller keys use a separate envelope namespace, so public writes cannot select native record labels. The actual facade regression fails before and passes after; two optimized cases pass, full Mesh lint is empty, and optimized Main preserves all 176 exports and 69 disclosure sites | Existing rows are not migrated or removed. This does not establish legacy view-once completeness; fresh-account epoch admission and authenticated migration remain separate |
-| Plaintext propagation | Presentation labels plus outgoing direct/fanout/group-send/self-sync body labels adopted through `4eaed22`. Fresh qualified-compiler proof refuses seven selected HTTP exits, passes label-removal/production controls and the 69-site disclosure gate; three send/invitation test files pass | The three demonstrated raw storage/fanout-target/triple-payload projections are private in the native facade at `b59eaf1`; eight import refusals, 18 facade tests and the unchanged 69-site gate pass. Remaining semantic decoders, general byte decoding, decoded receive/history boundaries, mobile targets and release qualification stay open |
+| Plaintext propagation | Presentation and outgoing body labels adopted through `4eaed22`; three raw storage/fanout-target/triple-payload parsers are private in the native facade at `b59eaf1`. Existing proofs cover seven content exits, eight import refusals and the unchanged 69-site gate | A new compile-only audit accepts five decoded direct/group/timed/history body HTTP sinks; an explicit-label control refuses all five. Shared semantic body labels and coordinated consumer closure are now assigned. Raw decrypt/unseal bytes, general decoding, mobile targets and release qualification remain open |
 | Bootstrap acceptance | Scoped native RPC TLS adopted through `748270a`; retained fresh compiled-Core fixture exits zero with 37 checks and `consistent`. Parent verified its source/artifact hashes; the combined product Main build passes with 69 sites, 176 exports and exact generated bindings | Full phone/UI and platform packaging, real production-clock next-due controls, broader bootstrap acceptance and all eight scheduled production checks remain open |
 | Witness outage qualification | Tooling adopted through `fc0e701`. Exact owner source `a66889a` passed 900.056500333 seconds with 155 native lookups and C's retained 1→31 catch-up; parent verified retained provenance and freshly rebuilt the combined sources for a passing 60-second control | Hosted B1 deployment, seven-day observation and the scheduled production outage drill remain open. The 900-second artifact predates TLS/body composition; the composed artifact has the separately recorded short control |
 | View-once receive | Durable local consume/restart refusal exists. App candidate `75fb777` remains paired with unadopted Core admission; parent verified its 25 files and freshly passed 63 focused app tests | R7 source review found no new defect after R5 caption/evicted-duplicate and R6 raw-extension corrections. The owner reports current backup and privacy controls passing; remaining exact-source tests/provenance and separate disclosure-policy review are pending. Fresh account/link epochs require adopted envelope isolation `25e31b3`; existing-account completeness, groups, native fetching and effect authority remain open. Adopt Core and UI together |
@@ -327,12 +327,37 @@ and runtime candidates remain isolated and unadopted. None is a release claim.
   cleanup correction is under final qualification. Broad language gates pass;
   all 31 current generated-ABI cases pass after a GC-test error-conversion
   correction. Fresh review and runtime qualification remain pending: the default
-  parallel runtime run reports one peer-registration failure, with a serial
-  rerun and collision investigation in progress. Its archived C header
+  parallel failure was reproduced with two actual tests sharing a live peer name.
+  A test-only distinct name fixes the bounded barrier control, and the subsequent
+  default-parallel run passes 1669/0 with 20 ignored. The earlier failure and
+  serial pass remain retained; final coherent rebuild/review/commit are pending. Its archived C header
   advertises only synchronous sinks (mask 1). No complete-effect, scheduler,
   publication, service or native-policy capability is qualified. Native closure
   design must preserve live platform predicates and original-request delivery;
   observing a queued reply is insufficient to prove final handoff.
+
+### Decoded content ingress continuation — 2026-11-06
+
+The [frozen audit](mesh-private-messenger/ops/plaintext/evidence/20261106/decoded-content-ingress-audit.json)
+uses the real public inner-envelope, group, timed-group and direct-history
+parsers, including an actual history-unseal composition. All five body projections
+currently compile into an HTTP request body. Applying an explicit label only in
+the scratch control produces five E0093 refusals; a public literal remains
+accepted. The functions are typechecked but uncalled and removed from emitted
+IR, so this is compiler-policy evidence, not executed HTTP or a runtime leak.
+Parent verified all 894 frozen source files and the retained logs; the six
+selected ingress sources still match the current bounty-composed branch.
+
+The next implementation owns `InnerEnvelope.body`, `GroupPayload.body` and
+semantic codecs, then closes real consumers in the same adoption unit. It must
+preserve allowed seals and deliberate display behavior without publishing whole
+bodies or arbitrary errors through a new policy helper. CLI body display needs
+an explicit documented boundary. View-once-owned message/history/types/group
+files stay frozen until that unit's prerequisite is adopted; the content owner
+will coordinate the dependent changes afterward. A protocol-only candidate is
+not a completed application closure. Raw decrypt results, group history and
+history-specific unseal remain explicit follow-ups, while existing portable
+backup restore labels are preserved. No current disclosure inventory changed.
 
 ### View-once app candidate review — 2026-11-06
 

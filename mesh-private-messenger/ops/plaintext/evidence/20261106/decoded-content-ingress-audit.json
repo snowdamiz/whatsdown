@@ -1,0 +1,31 @@
+{
+  "status": "COMPILE_ONLY_MISSING_LABEL_REPRODUCED",
+  "source_base": "30ff8f0d8e7bf996bc8c961fab3a9afbfb9c35bf",
+  "parent_current_recheck": "a48963b",
+  "selected_ingress_sources_match_current": {
+    "mesh-private-messenger/packages/messenger-protocol/protocol/v1.mpl": "9124c583575c1f19538999d172d3151134ce64dba1d35f669323d83bb36ec489",
+    "mesh-private-messenger/packages/messenger-protocol/protocol/envelope_wire.mpl": "5a04606e730ef1bf29cbb1bed4d0613d8527225c2d8257fbbedcb35e9044a7bc",
+    "mesh-private-messenger/packages/messenger-protocol/groups/group_payload.mpl": "1576bc7149a2fe7921ef55455b9dd9fceee8684a79a0dcc53bc87fb79a6abae6",
+    "mesh-private-messenger/packages/messenger-protocol/groups/expiry.mpl": "188d906f34c284c9aab14781863f75ed64357e71c3239fe3cadd0fa526d24e95",
+    "mesh-private-messenger/packages/mobile-core/mobile/history_wire.mpl": "c2ba2abb7480d279523955b81135b3461b1fc1a75b3a4ff628da862cb8de7cc3",
+    "mesh-private-messenger/packages/mobile-core/storage/history_blobs.mpl": "31a5f2bbe46701db1388e265e9cc730620c14e4e047ff865ac5e053088405ae6"
+  },
+  "source_snapshot_files": 894,
+  "production_decoder_sink_acceptances": 5,
+  "explicit_label_control_E0093": 5,
+  "public_literal_control": "accepted",
+  "report_modules": 330,
+  "reviewed_sites": 69,
+  "scope": "Uncalled but typechecked actual production decoder/unseal compositions. Successful archive is compiler acceptance evidence, not executed HTTP, a runtime leak, a production fix or release qualification. Raw decrypt ingress remains a separate source-only finding.",
+  "next_unit": "Protocol InnerEnvelope.body and GroupPayload.body labels plus coordinated actual consumer closure; active owner avoids view-once reserved files until reviewed prerequisite adoption",
+  "evidence": {
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/decoded-content-ingress-map/audit.txt": "7f20dbd07441a05cec469a985aeb9b6ff67b9abbfcd1002b65023aac11085d1a",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/decoded-content-ingress-map/source-manifest.json": "0793f688cd12c706189263599405051a5df49e6debecb29e21f1232238d54ba0",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/decoded-content-ingress-map/probe-results.json": "78b101a124df039bf4928ad9ea0900e6230854db4aaeb45a3d4135a18071ac7f",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/decoded-content-ingress-map/verification.json": "363f662293f6ed8a34d0be6ae1720841f831755b614c4c8fb4914f736afe52b4",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/decoded-content-ingress-map/production.log": "827881c0e756f0d3da7766a18904ed974fe600ea69ab42573ec56e74322e1f48",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/decoded-content-ingress-map/labeled-control.log": "6a9d27b329e663cb777f234f57bc918957c0942d44dcb0ed71f5cd21efa7466f",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/decoded-content-ingress-map/cleanup.json": "cb7388a50e5927abafa6cb92dda66b5222d8a2396c2d2f0872d702a0c55f0e90"
+  },
+  "compiled_artifacts": "Already hashed and removed by owner after no-handle check; sources/logs/manifests retained"
+}
