@@ -222,7 +222,7 @@ fn expect_authentication_rejection(state :: consume RatchetState,
       println("authentication:opened")
       next
     end
-    Rejected(next, AuthenticationRejected) -> do
+    Rejected(next, RatchetError.AuthenticationRejected) -> do
       println("authentication:ok")
       next
     end

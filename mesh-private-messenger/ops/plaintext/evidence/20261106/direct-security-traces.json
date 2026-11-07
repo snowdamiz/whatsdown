@@ -1,0 +1,130 @@
+{
+  "status": "passed_after_test_constructor_qualification",
+  "runs": [
+    {
+      "evidence": ".morse/decoded-body-labels/direct-suite/run-01/evidence.json",
+      "sha256": "76be4a5257e716b6817a137275f8621d6501512c228e38a5cff8bd3f1da7b53b",
+      "status": "failed",
+      "toolchain_stable": true,
+      "sources_stable": true,
+      "runs": [
+        {
+          "name": "protocol",
+          "command": [
+            "sandbox-exec",
+            "-f",
+            "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/direct-suite/run-01/offline.sb",
+            "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+            "build",
+            "--json",
+            "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/direct-suite/run-01/protocol/probe",
+            "-o",
+            "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/direct-suite/run-01/protocol/proof"
+          ],
+          "build_exit": 0,
+          "seconds": 12.69224150001537,
+          "run_command": [
+            "sandbox-exec",
+            "-f",
+            "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/direct-suite/run-01/offline.sb",
+            "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/direct-suite/run-01/protocol/proof"
+          ],
+          "run_exit": 0,
+          "expected_stdout": true,
+          "empty_stderr": true
+        },
+        {
+          "name": "handshake",
+          "command": [
+            "sandbox-exec",
+            "-f",
+            "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/direct-suite/run-01/offline.sb",
+            "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+            "build",
+            "--json",
+            "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/direct-suite/run-01/handshake/probe",
+            "-o",
+            "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/direct-suite/run-01/handshake/proof"
+          ],
+          "build_exit": 0,
+          "seconds": 13.454963208001573,
+          "run_command": [
+            "sandbox-exec",
+            "-f",
+            "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/direct-suite/run-01/offline.sb",
+            "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/direct-suite/run-01/handshake/proof"
+          ],
+          "run_exit": 0,
+          "expected_stdout": true,
+          "empty_stderr": true
+        },
+        {
+          "name": "ratchet",
+          "command": [
+            "sandbox-exec",
+            "-f",
+            "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/direct-suite/run-01/offline.sb",
+            "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+            "build",
+            "--json",
+            "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/direct-suite/run-01/ratchet/probe",
+            "-o",
+            "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/direct-suite/run-01/ratchet/proof"
+          ],
+          "build_exit": 1,
+          "seconds": 12.388502374989912
+        }
+      ]
+    },
+    {
+      "evidence": ".morse/decoded-body-labels/direct-suite/run-02/evidence.json",
+      "sha256": "61a4c0aaef7b57d6a09520fab089526e8df2c7e2f75a3806b5da8b0ef3d4f5c1",
+      "status": "passed",
+      "toolchain_stable": true,
+      "sources_stable": true,
+      "runs": [
+        {
+          "name": "ratchet",
+          "command": [
+            "sandbox-exec",
+            "-f",
+            "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/direct-suite/run-02/offline.sb",
+            "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+            "build",
+            "--json",
+            "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/direct-suite/run-02/ratchet/probe",
+            "-o",
+            "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/direct-suite/run-02/ratchet/proof"
+          ],
+          "build_exit": 0,
+          "seconds": 16.010709333990235,
+          "run_command": [
+            "sandbox-exec",
+            "-f",
+            "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/direct-suite/run-02/offline.sb",
+            "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/direct-suite/run-02/ratchet/proof"
+          ],
+          "run_exit": 0,
+          "expected_stdout": true,
+          "empty_stderr": true
+        }
+      ]
+    }
+  ],
+  "sources": {
+    "mesh-private-messenger/tests/direct-security/ratchet.mpl": "8576abb4b164efeeae0286da1a7fcd75eaf30ac271b6fcf148d5b3a2f6cf752a",
+    ".morse/decoded-body-labels/direct-suite/run.py": "fcba0612c2c5c380c48606c4da6334773ef5e142f6c1ad3bba3c68e5dfda6af5",
+    ".morse/decoded-body-labels/direct-suite/run-ratchet.py": "ec6cb18f45b1842f605af7c80afa1dfcc96292a492be1942ea8d8ac615112079"
+  },
+  "change": "Existing RatchetError assertion explicitly qualifies AuthenticationRejected to avoid resolution to imported SessionError; no behavior/error expectation changed.",
+  "red": "Actual original ratchet fixture E0001 at Rejected(next, AuthenticationRejected), expected RatchetError, found SessionError.",
+  "green": "Qualified RatchetError.AuthenticationRejected compiles and runs the existing exact 28-line ratchet/snapshot/replay/error/migration stdout contract.",
+  "other_traces": "Existing outer/credential protocol10lines and real handshake15lines passed unchanged in run-01; protocol_m5 separately passed16lines in direct-decoded-codec.json.",
+  "harness": "Frozen application protocol source and original snapshot_v1 test writer; symlinked existing language packages; exact provided compiler/runtime/testlib; network denied. Sources, tools, commands, binary hashes and logs retained.",
+  "limits": [
+    "No mobile initial/receive/history qualification",
+    "Raw DecryptOutcome and unsealed wire labeling remain separate scope",
+    "No native/platform/production network execution",
+    "Runs cover separate immutable snapshots; see per-run input manifests, not a claim about a later composed commit"
+  ]
+}
