@@ -1,0 +1,10 @@
+{
+  "command": [
+    "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+    "test",
+    "tests/sibling_authority.test.mpl"
+  ],
+  "exit": 1,
+  "log_sha256": "214c1639982aa1391ac6589f43ea7a4a6e99115fcb59a424e673ea18fae08e91",
+  "source_drift": false
+}

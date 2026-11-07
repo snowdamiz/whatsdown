@@ -1,0 +1,25 @@
+[mesh-codegen] warning: call to 'assert' could not be resolved as a trait method for type 'Bool'. This may indicate a type checker bug.
+[mesh-codegen] warning: call to 'assert' could not be resolved as a trait method for type 'Bool'. This may indicate a type checker bug.
+  ✓ same account ID under attacker authority cannot admit sibling initial or follow-on
+  ✓ genuine sibling initial and successive ratchets remain usable
+unproven or revoked sibling ratchet did not refuse exactly
+  ✗ missing sibling provenance refuses before state mutation
+    assert failed: false
+unproven or revoked sibling ratchet did not refuse exactly
+  ✗ old sibling snapshot with current marker refuses before state mutation
+    assert failed: false
+unproven or revoked sibling ratchet did not refuse exactly
+  ✗ fresh witnessed revocation refuses an established sibling session
+    assert failed: false
+
+Failures:
+  ✗ missing sibling provenance refuses before state mutation
+    assert failed: false
+  ✗ old sibling snapshot with current marker refuses before state mutation
+    assert failed: false
+  ✗ fresh witnessed revocation refuses an established sibling session
+    assert failed: false
+
+3 failed, 2 passed in 0.21s
+
+1 test file failed, 0 passed in 39.14s

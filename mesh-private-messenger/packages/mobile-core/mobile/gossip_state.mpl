@@ -56,7 +56,10 @@ pub fn load_gossip_state(path :: String,
     end
     Ok(value) -> value
   end
-  let input = open_local(blob, key, local_context(name)?)?
+  decode_gossip_state(open_local(blob, key, local_context(name)?)?)
+end
+
+pub fn decode_gossip_state(input :: Bytes) -> GossipState!String do
   let state = mobile_reader(input, 3200, "invalid_gossip_state")?
   let check = take_vector(state, 8)?
   let request = take_vector(check.state, 8)?

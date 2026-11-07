@@ -1,0 +1,7 @@
+[mesh-codegen] warning: call to 'assert' could not be resolved as a trait method for type 'Bool'. This may indicate a type checker bug.
+[mesh-codegen] warning: call to 'assert' could not be resolved as a trait method for type 'Bool'. This may indicate a type checker bug.
+  ✓ authenticated initial receive and sibling sync commit pending and sanitized original history atomically
+
+1 passed in 0.41s
+
+1 test file passed in 45.40s

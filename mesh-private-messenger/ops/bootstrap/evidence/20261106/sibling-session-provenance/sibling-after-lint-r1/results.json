@@ -1,0 +1,22 @@
+[
+  {
+    "test": "sibling_authority",
+    "command": [
+      "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+      "test",
+      "tests/sibling_authority.test.mpl"
+    ],
+    "exit": 0,
+    "log_sha256": "c8d762de6af5c6d4a63850e6a1da6f9645a67c82a057cf76b32d410fb5b2ae29"
+  },
+  {
+    "test": "linked_device_sync",
+    "command": [
+      "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+      "test",
+      "tests/linked_device_sync.test.mpl"
+    ],
+    "exit": 0,
+    "log_sha256": "6a748d55aab4a62240850f038ebbb7770b3688e3fc0d56b64e56e57d0f489c9c"
+  }
+]

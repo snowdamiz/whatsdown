@@ -1,0 +1,7 @@
+[mesh-codegen] warning: call to 'assert' could not be resolved as a trait method for type 'Bool'. This may indicate a type checker bug.
+[mesh-codegen] warning: call to 'assert' could not be resolved as a trait method for type 'Bool'. This may indicate a type checker bug.
+  ✓ encrypted gossip controls survive outbox retries and both phones pause only new sessions
+
+1 passed in 0.25s
+
+1 test file passed in 36.12s

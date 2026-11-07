@@ -1,4 +1,13 @@
-from Mobile.SessionPolicy import capture_native_session_policy, native_session_minimum
+from Mobile.SiblingMembership import (
+  sibling_proof_label,
+  sibling_captured_member,
+  sibling_captured_blob
+)
+from Mobile.SessionPolicy import (
+  NativeSessionPolicy,
+  capture_native_session_policy,
+  native_session_minimum
+)
 from Mobile.HeaderCapabilities import require_header_sets, require_new_header_capacity
 from Session.State import RatchetState, RatchetError, RatchetMessage
 from Mobile.AttachmentCapabilities import require_attachment_format_sets
@@ -8,7 +17,7 @@ from Storage.FanoutCommit import (
   capture_fanout_snapshot,
   capture_fanout_history,
   combine_fanout_snapshots,
-  commit_fanout_snapshot_at_policy,
+  commit_fanout_snapshot_at_sibling,
   commit_fanout_records
 )
 from Mobile.Attachments import rewrap_reference
@@ -30,6 +39,7 @@ from Mobile.Outbox import load_outbox_ids, outbox_capacity, prepare_outbox_write
 from Mobile.Profile import load_profile, open_device, policy
 from Mobile.Transport import sealed_outer_bytes
 from Mobile.Sessions import (
+  parse_session_record,
   device_needs_prekey,
   encode_sync_payload,
   find_device_session,
@@ -72,7 +82,7 @@ from Session.Handshake import SessionError, initiate_at_minimum_suite
 from Session.Ratchet import encrypt_sealed
 from Session.Snapshot import SnapshotOutcome, snapshot
 from Storage.Blobs import ensure_schema, load_blob
-from Storage.Keys import platform_key, open_local, local_context
+from Storage.Keys import platform_key, open_local, local_context, seal_local
 from Transport.Packet import (
   ClientProfile,
   TransportPacket,
@@ -84,6 +94,76 @@ from Transport.Packet import (
 )
 
 ##! Mobile.Fanout implementation.
+
+fn earlier_deadline(left :: U64, right :: U64) -> U64 do
+  if U64.compare(left, right) < 0 do
+    left
+  else
+    right
+  end
+end
+
+fn sibling_marker_label(id :: Bytes) -> String do
+  "sibling-session/v1/#{Bytes.to_hex(id)}"
+end
+
+fn sibling_marker_plaintext(local :: ClientProfile,
+  peer :: ClientProfile,
+  id :: Bytes,
+  snapshot_blob :: Bytes) -> Bytes!String do
+  case Bytes.concat_many([
+      Bytes.from_utf8("morse/sibling-session/v1\n"),
+      id,
+      local.account_id,
+      local.device_id,
+      local.account.authorization_public_key,
+      local.credential.signing_public_key,
+      local.credential.dh_public_key,
+      peer.device_id,
+      peer.credential.signing_public_key,
+      peer.credential.dh_public_key,
+      Crypto.sha256(snapshot_blob)
+    ],
+    1024) do
+    Err(_) -> Err("sibling_marker_encoding_failed")
+    Ok(value)
+  end
+end
+
+fn sibling_marker_write(key :: borrow StorageKey,
+  local :: ClientProfile,
+  peer :: ClientProfile,
+  id :: Bytes,
+  session_label :: String,
+  session_blob :: Bytes) -> Bytes!String do
+  let record = parse_session_record(open_local(session_blob, key, local_context(session_label)?)?)?
+  seal_local(sibling_marker_plaintext(local, peer, id, record.snapshot)?,
+    key,
+    local_context(sibling_marker_label(id))?)
+end
+
+fn require_sibling_marker(basis :: FanoutSnapshot,
+  key :: borrow StorageKey,
+  local :: ClientProfile,
+  peer :: ClientProfile,
+  loaded :: MobileLoadedSession) -> Unit!String do
+  let label = sibling_marker_label(loaded.session_id)
+  let blob = sibling_captured_blob(basis.bases, label)?
+  if Bytes.length(blob) == 0 do
+    return Err("sibling_session_unproven")
+  end
+  if !Bytes.secure_equals(loaded.record.local_account_id, local.account_id)
+    || !Bytes.secure_equals(loaded.record.local_device_id, local.device_id)
+    || !Bytes.secure_equals(loaded.record.peer_account_id, local.account_id)
+    || !Bytes.secure_equals(loaded.record.peer_device_id, peer.device_id)
+    || !Bytes.secure_equals(loaded.record.peer_transport_key, peer.credential.dh_public_key)
+    || !Bytes.secure_equals(open_local(blob, key, local_context(label)?)?,
+      sibling_marker_plaintext(local, peer, loaded.session_id, loaded.record.snapshot)?) do
+    Err("sibling_session_unproven")
+  else
+    Ok(nil)
+  end
+end
 
 fn append_needed_prekeys(database_path :: String,
   wrapping_key :: borrow StorageKey,
@@ -209,9 +289,7 @@ fn send_to_device(database_path :: String,
         Err("peer_keys_changed")
       else if loaded.record.strongest_suite > peer.bundle.suite do
         Err("peer_keys_changed")
-      else if !session_uses_headers(loaded.record.snapshot)
-        || loaded.record.strongest_suite < peer.bundle.suite
-        || Bytes.length(loaded.record.safety_number) == 0 do
+      else if device_needs_prekey(database_path, wrapping_key, session_ids, peer)? do
         require_log_changes_allowed(database_path, wrapping_key)?
         let strongest_suite = loaded.record.strongest_suite
         start_device_session(claimed_prekeys,
@@ -360,7 +438,9 @@ fn self_fanout(database_path :: String,
   sync_body :: Bytes,
   attachment :: Bytes,
   index :: Int,
-  output :: List<MobilePreparedSend>) -> List<MobilePreparedSend>!String do
+  output :: List<MobilePreparedSend>,
+  before :: FanoutSnapshot,
+  session_policy :: NativeSessionPolicy) -> List<MobilePreparedSend>!String do
   if index >= List.length(local_profiles) do
     Ok(output)
   else
@@ -380,8 +460,30 @@ fn self_fanout(database_path :: String,
         sync_body,
         attachment,
         index + 1,
-        output)
+        output,
+        before,
+        session_policy)
     else
+      let (member, _deadline) = sibling_captured_member(before.bases,
+        wrapping_key,
+        local,
+        peer.device_id,
+        session_policy,
+        now)?
+      if !Bytes.secure_equals(member.credential.signing_public_key,
+        peer.credential.signing_public_key)
+        || !Bytes.secure_equals(member.credential.dh_public_key, peer.credential.dh_public_key) do
+        return Err("sibling_membership_invalid")
+      end
+      if !(device_needs_prekey(database_path, wrapping_key, session_ids, peer)?) do
+        let loaded = find_device_session(database_path,
+          wrapping_key,
+          local.account_id,
+          peer.device_id,
+          session_ids,
+          0)?
+        require_sibling_marker(before, wrapping_key, local, member, loaded)?
+      end
       let handed_over = direct_extensions(database_path, wrapping_key)?
       let inner = InnerEnvelope {
         version: 1,
@@ -426,7 +528,9 @@ fn self_fanout(database_path :: String,
         sync_body,
         attachment,
         index + 1,
-        List.append(output, prepared))
+        List.append(output, prepared),
+        before,
+        session_policy)
     end
   end
 end
@@ -489,6 +593,13 @@ pub fn send_fanout_control_after_snapshot(request :: MobileFanoutRequest,
         peers.profiles,
         local_devices.profiles,
         extra_labels)?)?
+    let proof_label = sibling_proof_label(before.bases, wrapping_key, local.account_id)?
+    let before = if proof_label == "" do
+      before
+    else
+      combine_fanout_snapshots(before,
+        capture_fanout_snapshot(request.database_path, captured_profile, [proof_label])?)?
+    end
     require_transparency_device_set(request.database_path, wrapping_key, peers)?
     require_transparency_device_set(request.database_path, wrapping_key, local_devices)?
     require_header_sets(peers, local_devices)?
@@ -646,8 +757,64 @@ pub fn send_fanout_control_after_snapshot(request :: MobileFanoutRequest,
           sync_body,
           request.attachment,
           0,
-          prepared_peers)
+          prepared_peers,
+          before,
+          session_policy)
       end?
+      let sibling_writes = for value in prepared do
+        let record = parse_session_record(open_local(value.session_blob,
+          wrapping_key,
+          local_context(value.session_label)?)?)?
+        if Bytes.secure_equals(record.peer_account_id, local.account_id) do
+          let (member, deadline) = sibling_captured_member(before.bases,
+            wrapping_key,
+            local,
+            record.peer_device_id,
+            session_policy,
+            now)?
+          Some((sibling_marker_label(value.session_id),
+            sibling_marker_write(wrapping_key,
+              local,
+              member,
+              value.session_id,
+              value.session_label,
+              value.session_blob)?,
+            deadline))
+        else
+          None
+        end
+      end
+      let marker_labels = List.flatten(for value in sibling_writes do
+        case value do
+          None -> []
+          Some((label, _, _)) -> [label]
+        end
+      end)
+      let marker_blobs = List.flatten(for value in sibling_writes do
+        case value do
+          None -> []
+          Some((_, blob, _)) -> [blob]
+        end
+      end)
+      let deadlines = List.flatten(for value in sibling_writes do
+        case value do
+          None -> []
+          Some((_, _, deadline)) -> [deadline]
+        end
+      end)
+      let deadline = if List.length(deadlines) == 0 do
+        None
+      else
+        Some(List.reduce(deadlines,
+          List.head(deadlines),
+          fn(before, value) -> earlier_deadline(before, value) end))
+      end
+      let before = if List.length(marker_labels) == 0 do
+        before
+      else
+        combine_fanout_snapshots(before,
+          capture_fanout_snapshot(request.database_path, captured_profile, marker_labels)?)?
+      end
       let envelopes = prepared_envelopes(prepared, 0, List.new())
       let session_index_blob = seal_session_ids(prepared_session_ids(prepared, 0, session_ids),
         wrapping_key)?
@@ -666,17 +833,18 @@ pub fn send_fanout_control_after_snapshot(request :: MobileFanoutRequest,
         0,
         tracked,
         local)?
-      commit_fanout_snapshot_at_policy(request.database_path,
+      commit_fanout_snapshot_at_sibling(request.database_path,
         before,
         session_policy,
         prepared,
         fanout_prekey_reservation_labels(claimed_prekeys, 0, List.new()),
         session_index_blob,
-        history_keys,
-        history_blobs,
+        history_keys ++ marker_labels,
+        history_blobs ++ marker_blobs,
         outbox_labels,
         outbox_blobs,
-        outbox_index_blob)?
+        outbox_index_blob,
+        deadline)?
       encode_output_list(envelopes)
     end
   end

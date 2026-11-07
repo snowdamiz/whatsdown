@@ -522,6 +522,16 @@ pub fn device_needs_prekey(database_path :: String,
     end
     Ok(loaded) -> if !session_uses_headers(loaded.record.snapshot) do
       Ok(true)
+    else if Bytes.secure_equals(loaded.record.local_account_id, profile.account_id)
+      && case load_blob(database_path, "sibling-session/v1/#{Bytes.to_hex(loaded.session_id)}") do
+        Err(error) -> if error == "local_state_not_found" do
+          true
+        else
+          return Err(error)
+        end
+        Ok(_) -> false
+      end do
+      Ok(true)
     else if loaded.record.strongest_suite > profile.bundle.suite do
       Err("peer_keys_changed")
     else

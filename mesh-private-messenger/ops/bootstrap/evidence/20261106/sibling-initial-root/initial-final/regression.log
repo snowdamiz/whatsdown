@@ -1,0 +1,7 @@
+[mesh-codegen] warning: call to 'assert' could not be resolved as a trait method for type 'Bool'. This may indicate a type checker bug.
+[mesh-codegen] warning: call to 'assert' could not be resolved as a trait method for type 'Bool'. This may indicate a type checker bug.
+  ✓ same account ID under attacker authority cannot admit sibling initial or follow-on
+
+1 passed in 0.06s
+
+1 test file passed in 60.97s

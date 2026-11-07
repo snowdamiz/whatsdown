@@ -1,3 +1,4 @@
+from Mobile.SiblingMembership import require_sibling_observation
 from Mobile.SessionPolicy import NativeSessionPolicy, require_current_session_policy
 from Storage.AccountGuard import (
   AccountBasis,
@@ -113,6 +114,7 @@ pub fn commit_fanout_snapshot(path :: String,
     outbox_labels,
     outbox_blobs,
     outbox_index,
+    None,
     None)
 end
 
@@ -127,6 +129,32 @@ pub fn commit_fanout_snapshot_at_policy(path :: String,
   outbox_labels :: List<String>,
   outbox_blobs :: List<Bytes>,
   outbox_index :: PreparedOutboxIndex) -> Result<(), String> do
+  commit_fanout_snapshot_at_sibling(path,
+    before,
+    policy,
+    prepared,
+    removed,
+    sessions,
+    history_labels,
+    histories,
+    outbox_labels,
+    outbox_blobs,
+    outbox_index,
+    None)
+end
+
+pub fn commit_fanout_snapshot_at_sibling(path :: String,
+  before :: FanoutSnapshot,
+  policy :: NativeSessionPolicy,
+  prepared :: List<MobilePreparedSend>,
+  removed :: List<String>,
+  sessions :: Bytes,
+  history_labels :: List<String>,
+  histories :: List<Bytes>,
+  outbox_labels :: List<String>,
+  outbox_blobs :: List<Bytes>,
+  outbox_index :: PreparedOutboxIndex,
+  fresh_through :: Option<U64>) -> Result<(), String> do
   commit_fanout_snapshot_with_policy(path,
     before,
     prepared,
@@ -137,7 +165,8 @@ pub fn commit_fanout_snapshot_at_policy(path :: String,
     outbox_labels,
     outbox_blobs,
     outbox_index,
-    Some(policy))
+    Some(policy),
+    fresh_through)
 end
 
 fn commit_fanout_snapshot_with_policy(path :: String,
@@ -150,12 +179,15 @@ fn commit_fanout_snapshot_with_policy(path :: String,
   outbox_labels :: List<String>,
   outbox_blobs :: List<Bytes>,
   outbox_index :: PreparedOutboxIndex,
-  policy :: Option<NativeSessionPolicy>) -> Result<(), String> do
+  policy :: Option<NativeSessionPolicy>,
+  fresh_through :: Option<U64>) -> Result<(), String> do
   let guarded = List.flatten(for basis in before.bases do
     basis.labels
   end)
   if List.any(history_labels,
-    fn(label) -> String.starts_with(label, "history/v1/") && !List.contains(guarded, label) end) do
+    fn(label) -> (String.starts_with(label, "history/v1/")
+      || String.starts_with(label, "sibling-session/v1/"))
+      && !List.contains(guarded, label) end) do
     return Err("invalid_fanout_history_commit")
   end
   store_outbound_after_guard(path,
@@ -172,7 +204,15 @@ fn commit_fanout_snapshot_with_policy(path :: String,
       case policy do
         None -> Ok(nil)
         Some(value) -> require_current_session_policy(value)
+      end?
+      let observation = case policy do
+        None
+        Some(value) -> case fresh_through do
+          None
+          Some(deadline) -> Some((value, deadline))
+        end
       end
+      require_sibling_observation(observation)
     end)
 end
 

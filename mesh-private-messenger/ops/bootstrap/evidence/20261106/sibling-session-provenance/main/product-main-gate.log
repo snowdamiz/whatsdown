@@ -1,0 +1,10 @@
+file:///Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f897514f/mesh-private-messenger/ops/plaintext/report.mjs:66
+  if (JSON.stringify(actual) !== JSON.stringify(expected)) throw new Error('plaintext disclosure review changed; additions, removals and changed sites require an updated reviewed inventory');
+                                                                 ^
+
+Error: plaintext disclosure review changed; additions, removals and changed sites require an updated reviewed inventory
+    at verifyDisclosureReview (file:///Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f897514f/mesh-private-messenger/ops/plaintext/report.mjs:66:66)
+    at writePlaintextBuildEvidence (file:///Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f897514f/mesh-private-messenger/ops/plaintext/report.mjs:82:17)
+    at async file:///Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f897514f/mesh-private-messenger/ops/plaintext/report.mjs:114:3
+
+Node.js v24.21.0

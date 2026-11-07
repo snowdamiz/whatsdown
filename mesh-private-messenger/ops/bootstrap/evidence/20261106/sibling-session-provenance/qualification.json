@@ -1,0 +1,90 @@
+{
+  "status": "CANDIDATE_FROZEN_FOR_REVIEW_NOT_ADOPTED",
+  "base": "b49347edde13fc3bad29f2c697e2983271e276ae",
+  "source_pin_sha256": "878451edd17c654ddbc814d00560def7cc0c740e2d37d74250b01e56f5ddf3be",
+  "changes": [
+    "Initial receive binds actual handshake signing/DH credentials to decrypted profile and local account root, then captured active membership.",
+    "Private receive/fanout/gossip owners validate and atomically refresh encrypted snapshot-bound sibling markers with captured trust sources and final policy/freshness guards.",
+    "Missing markers fail closed on receive; fanout uses fresh authenticated initial; ordinary send rejects same-account targets.",
+    "Linked control fixture now installs complete witnessed membership/view for genuine fork roots, preserving prior messaging/control/fork assertions."
+  ],
+  "qualification": {
+    "final_focused": {
+      "sibling_authority": 6,
+      "linked_device_sync": 1,
+      "all_pass": true,
+      "source_drift": false
+    },
+    "preceding_focused": {
+      "view_once_initial_sync": 1,
+      "fanout_commit": 7,
+      "gossip_transport": 1,
+      "all_pass": true,
+      "limit": "Before final style-only helper extraction; not a combined fresh-head cohort. Failed authority compile in same run was test resource reuse and is retained, corrected in final run."
+    },
+    "immutable_red": {
+      "base": "b49347e",
+      "passed": 2,
+      "expected_runtime_failures": 3,
+      "cases": [
+        "missing marker",
+        "old snapshot with current marker",
+        "fresh witnessed revocation"
+      ],
+      "test_difference": "Only metadata-only positive test invocation omitted; all five tested bodies and helper assertions unchanged."
+    },
+    "main": {
+      "exports": 176,
+      "legacy_bindings_equal": {
+        "h": true,
+        "swift": true,
+        "kt": true,
+        "jni.c": true,
+        "ts": true
+      },
+      "artifact_sha256": "3c3f6b68ba3c631e572133867f993a598e3e45ea06d4e5cf1dca86b9941559c6",
+      "source_drift": false,
+      "inventory_gate_exit": 1
+    },
+    "lint": "Retained full messenger lint exit 0 with empty final-lint-r2.log; no additional lint rerun in receipt creation."
+  },
+  "tool_hashes": {
+    "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc": "19ef395b701a3c76ff006956597b6ec176810c78a6d07271a253199911ea4e85",
+    "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_rt.a": "d1e2b001783fe819f03644f5e4dcf42bc362bb1cecd04e475097d80cf9d3a8f8",
+    "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_test_rt.a": "9283206f47c6a52fa075a108773854ad7a12aae437c16b04c4fc747740674c33",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/viewonce-composed/core-tests/fixture-paths.dylib": "9c49c3bb961a592ca67dd9eab5c4ca5a7b6f0981030675870d8ec07383c296ab"
+  },
+  "test_environment": "Retained 8256 compiler/runtime; actual public Mesh receive APIs; synthetic accounts only. DYLD fixture-path adapter redirects owned legacy test paths; no assertions/crypto/result transformations. Sequential compilation.",
+  "remaining_gates": [
+    "Independent review of full candidate and fixtures; no authentication/VO handoff yet.",
+    "Explicit fresh-initial recovery, profile/credential mismatch, sibling outbound refusal, trust/marker/freshness races and backup exclusion controls not yet qualified.",
+    "Inbox baseline failures and decoded-body proposal composition remain separate and unqualified.",
+    "Disclosure inventory is unchanged and gate remains held; no new disclosure release approved.",
+    "No native protected activation, device/UIKit execution, publication, deployment or production claim."
+  ],
+  "artifacts": {
+    "build-main.py": "b5d15cc3a596f0f6bb418f0648b1338f5f379fadf5d0b1606bc3c238eb4d2930",
+    "final-lint-r2.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "immutable-baseline-r1/result.json": "c548d0743901a4bacd063f6d9aa75754349024d503e719d3301031d6f34acc86",
+    "immutable-baseline-r1/setup.json": "5a19d10896be76bb8e4708ad18b2980e2fe83c3c0de69b16d50e1d82eca9e4f7",
+    "immutable-baseline-r1/test.log": "214c1639982aa1391ac6589f43ea7a4a6e99115fcb59a424e673ea18fae08e91",
+    "main/libmessenger_mobile.abi.json": "31b3bed61c8b34ba76d57182cd293bbc469fef1889e82248ec27aa9b1a35173b",
+    "main/product-main-gate.log": "c65ffa2ada0d370041388a4d2da171986ba1fdd0e93930867af2a8832b441851",
+    "main/product-main.json": "054686f528054f51c601c391565d0eca651b9e5f1690cb89a0b69f43c9f43b06",
+    "main/product-main.log": "edc40c5b3a78c8063ff72e6e12bc48bba8d2f1e526a09d7b686560d9a5d0433d",
+    "run.py": "67529e2369eb58b55e5f6940203d8d5d7f694fea1fed19a41f8d610761ed7835",
+    "sibling-after-lint-r1/linked_device_sync.log": "6a748d55aab4a62240850f038ebbb7770b3688e3fc0d56b64e56e57d0f489c9c",
+    "sibling-after-lint-r1/results.json": "98f4a61ddfba140d25351f7c9edacbc22b116630d3aa9362648dc31117c9858d",
+    "sibling-after-lint-r1/sibling_authority.log": "c8d762de6af5c6d4a63850e6a1da6f9645a67c82a057cf76b32d410fb5b2ae29",
+    "sibling-after-lint-r1/sources-after.json": "84c07787e86541a7fc0044d8529c85d966803775ec6e3359a412a3c56fb73b91",
+    "sibling-after-lint-r1/sources-before.json": "84c07787e86541a7fc0044d8529c85d966803775ec6e3359a412a3c56fb73b91",
+    "sibling-final-focused-r1/fanout_commit.log": "68e731819248482ec17b75fcfe20cb7561633afeadf99b0257c99feb3d5fb224",
+    "sibling-final-focused-r1/gossip_transport.log": "3f8f33979f8e0e4b699d1fec28ede5654bbc78d1237ffde1e71e66c6e93ebd06",
+    "sibling-final-focused-r1/results.json": "10c9f85135fab9bf61de73ad93d2f8880ece7c156f332e7974aa54a1b1c52152",
+    "sibling-final-focused-r1/sibling_authority.log": "a22778ed71a8841dfbeda8ea0eb0aba8010ffbee97fd5f21436d0c0e470b58a2",
+    "sibling-final-focused-r1/sources-after.json": "a962bcdc525df6f20b6588c081bda050c8276305f4a0ecb9fed45f131539c030",
+    "sibling-final-focused-r1/sources-before.json": "a962bcdc525df6f20b6588c081bda050c8276305f4a0ecb9fed45f131539c030",
+    "sibling-final-focused-r1/view_once_initial_sync.log": "01b4b3826ba3778d19669a083baf7f090d0c0da8919cfaf5d8aa8e93d5eaa6bd",
+    "source-pin.json": "878451edd17c654ddbc814d00560def7cc0c740e2d37d74250b01e56f5ddf3be"
+  }
+}

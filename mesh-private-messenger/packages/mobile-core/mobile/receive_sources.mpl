@@ -263,7 +263,8 @@ pub fn require_receive_writes(before :: AccountBasis,
   sources :: Option<ReceiveSources>,
   labels :: List<String>) -> Result<(), String> do
   for label in labels do
-    if (String.starts_with(label, "view-once/v2/")
+    if (String.starts_with(label, "sibling-session/v1/")
+      || String.starts_with(label, "view-once/v2/")
       || String.starts_with(label, "view-once/id/v2/")
       || String.starts_with(label, "view-once/message/v2/"))
       && !List.contains(before.labels, label) do

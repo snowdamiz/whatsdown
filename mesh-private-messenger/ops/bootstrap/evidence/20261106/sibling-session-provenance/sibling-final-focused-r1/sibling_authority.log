@@ -1,0 +1,13 @@
+[E0053] Error: resource ownership violation: resource `state` was used after it moved
+     ╭─[ /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f897514f/mesh-private-messenger/packages/mobile-core/tests/sibling_authority.test.mpl:257:64 ]
+     │
+ 257 │     let loaded = load_session_record(fixture.linked_path, key, state.session_id)?
+     │                                                                ──┬──
+     │                                                                  ╰──── here
+     │
+     │ Help: move each resource once, or pass it to a direct `borrow` parameter
+─────╯
+COMPILE ERROR: tests/sibling_authority.test.mpl
+  Compilation failed due to errors above.
+
+1 test file failed, 0 passed in 45.05s

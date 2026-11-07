@@ -1,3 +1,5 @@
+from Mobile.SiblingMembership import require_sibling_observation
+from Mobile.SessionPolicy import NativeSessionPolicy
 from Mobile.ReceiveSources import ReceiveSources, require_receive_writes, require_receive_sources
 from Mobile.HeaderRoutingState import (
   HeaderRoutingState,
@@ -197,6 +199,15 @@ pub fn commit_header_receive_with_sources(path :: String,
   sources :: Option<ReceiveSources>,
   labels :: List<String>,
   blobs :: List<Bytes>) -> Result<(), String> do
+  commit_header_receive_with_observation(path, route, sources, labels, blobs, None)
+end
+
+pub fn commit_header_receive_with_observation(path :: String,
+  route :: HeaderRoute,
+  sources :: Option<ReceiveSources>,
+  labels :: List<String>,
+  blobs :: List<Bytes>,
+  observation :: Option<(NativeSessionPolicy, U64)>) -> Result<(), String> do
   if List.length(labels) != List.length(blobs)
     || List.contains(labels, cursor_label())
     || List.length(List.filter(labels, fn(value) -> value == route.loaded.label end)) != 1
@@ -210,6 +221,7 @@ pub fn commit_header_receive_with_sources(path :: String,
   with_record_transaction(path,
     fn(database) do
       require_receive_sources(database, route.basis, sources)?
+      require_sibling_observation(observation)?
       put_blobs(database, labels ++ [cursor_label()], blobs ++ [route.cursor_blob], 0)
     end)
 end

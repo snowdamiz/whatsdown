@@ -7,7 +7,7 @@ from Mobile.Codec import current_time
 from Storage.Keys import platform_key
 from Transport.Packet import ClientProfile, decode_client_profile
 from Transparency.Gossip import CheckpointHint, encode_hint
-from Transparency.Wire import encode_checkpoint
+from Transparency.Wire import encode_checkpoint, encode_consistency_proof
 from Mobile.Types import ConversationSummary
 from MobileCore import (
   authorize_device_link_export,
@@ -16,7 +16,6 @@ from MobileCore import (
   create_link_request_export,
   directory_entry_export,
   install_group_transparency_for_test,
-  install_group_checkpoint_for_test,
   outbox_ack_export,
   outbox_list_export,
   list_conversations_export,
@@ -50,7 +49,14 @@ from Tests.GroupConsistencySupport import (
   wide
 )
 from Tests.Support import database_path, install_security_config, write_u32, repeated
-from Transparency.Merkle import leaf_hash, sign_tree_checkpoint_for
+from Transparency.Merkle import (
+  leaf_hash,
+  sign_tree_checkpoint_for,
+  merkle_root,
+  consistency_proof,
+  inclusion_proof,
+  verify_inclusion
+)
 
 fn assert_received_fixture(value :: Bool) do
   assert(declassify(value,
@@ -507,7 +513,19 @@ fn proof() -> Bool!String do
     delivery_pair.public_key.bytes,
     8))
   let now = current_time()?
-  for (path, root) in [(root_path, repeated(4, 32)?), (linked_path, repeated(5, 32)?)] do
+  let common_leaves = [leaf_hash(alice_set)?, leaf_hash(bob_set)?, leaf_hash(carol_set)?]
+  let root_leaves = common_leaves
+    ++ for index in 0..5 do
+      leaf_hash(repeated(index + 4, 32)?)?
+    end
+  let linked_leaves = common_leaves
+    ++ for index in 0..5 do
+      leaf_hash(repeated(index + 5, 32)?)?
+    end
+  let root_tree = merkle_root(root_leaves)?
+  for (path, leaves) in [(root_path, root_leaves), (linked_path, linked_leaves)] do
+    let root = merkle_root(leaves)?
+    assert(verify_inclusion(leaf_hash(alice_set)?, inclusion_proof(leaves, 0)?, root)?)
     let checkpoint = sign_tree_checkpoint_for(1,
       service_pair.private_key,
       service_pair.public_key.bytes,
@@ -516,7 +534,17 @@ fn proof() -> Bool!String do
       root,
       repeated(0, 32)?,
       now)?
-    install_group_checkpoint_for_test(path, encode_checkpoint(checkpoint)?)?
+    # Keep the witnessed device membership and full view consistent with each
+    # forked checkpoint. Replacing only the checkpoint leaves stale authority.
+    for devices in [alice_set, bob_set, carol_set] do
+      assert(install_group_transparency_for_test(path,
+        encode_checkpoint(checkpoint)?,
+        encode_consistency_proof(consistency_proof([], leaves)?)?,
+        service_pair.public_key.bytes,
+        witness_a.public_key.bytes,
+        witness_b.public_key.bytes,
+        devices)?)
+    end
   end
   let root_identity = decode_client_profile(root_profile)?
   let key = platform_key()?
@@ -540,7 +568,7 @@ fn proof() -> Bool!String do
         ProtocolExtension {
           id: 2,
           mandatory: false,
-          value: encode_hint(CheckpointHint { tree_size: wide(8)?, tree_root: repeated(4, 32)? })?
+          value: encode_hint(CheckpointHint { tree_size: wide(8)?, tree_root: root_tree })?
         }
       ]
     },

@@ -1,0 +1,13 @@
+[mesh-codegen] warning: call to 'assert' could not be resolved as a trait method for type 'Bool'. This may indicate a type checker bug.
+[mesh-codegen] warning: call to 'assert' could not be resolved as a trait method for type 'Bool'. This may indicate a type checker bug.
+  ✓ a late outbox snapshot cannot let old fanout crypto write into replacement custody
+  ✓ fanout guards ratchet source changes even when the outbox has not changed
+  ✓ bounded chunked fanout guards preserve every target beyond the first64 source rows
+  ✓ prekey writers preserve the first durable claim ID and cannot mutate unguarded rows
+  ✓ a later ratchet snapshot cannot bless an obsolete prepared group invitation
+  ✓ fanout cannot resurrect compacted history whose source was not captured
+  ✓ fanout must capture history absence before creating its first row
+
+7 passed in 0.04s
+
+1 test file passed in 43.85s

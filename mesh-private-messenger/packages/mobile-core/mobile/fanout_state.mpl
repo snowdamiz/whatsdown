@@ -1,5 +1,6 @@
 from Mobile.Sessions import load_session_ids, load_session_record
 from Mobile.DeviceSet import device_set_label
+from Mobile.SiblingMembership import sibling_source_labels
 from Storage.AccountGuard import load_account_basis
 from Storage.FanoutCommit import FanoutSnapshot, capture_fanout_snapshot
 from Transport.Packet import ClientProfile
@@ -65,7 +66,8 @@ fn session_labels(path :: String,
         value.record.peer_account_id,
         value.record.peer_device_id) end)
     let next = if matches do
-      add(add(labels, value.label), "history/v1/#{Bytes.to_hex(value.record.conversation_id)}")
+      add(add(add(labels, value.label), "sibling-session/v1/#{Bytes.to_hex(value.session_id)}"),
+        "history/v1/#{Bytes.to_hex(value.record.conversation_id)}")
     else
       labels
     end
@@ -102,6 +104,7 @@ pub fn capture_fanout_sources(path :: String,
     "contact-address/v1",
     "presentation/v1/user/#{Bytes.to_hex(local.account_id)}"
   ]
+  let labels = merge_labels(sibling_source_labels(local.account_id), 0, labels)
   let labels = device_labels(targets, 0, labels)
   let labels = merge_labels(extra_labels, 0, labels)
   let labels = session_labels(path, key, load_session_ids(path, key)?, targets, 0, labels)?

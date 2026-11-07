@@ -1,3 +1,4 @@
+from Mobile.SiblingMembership import require_sibling_observation
 from Mobile.SessionPolicy import NativeSessionPolicy, require_current_session_policy
 from Mobile.ReceiveSources import ReceiveSources, require_receive_writes, require_receive_sources
 from Storage.AccountGuard import AccountBasis, load_account_basis
@@ -83,6 +84,7 @@ pub fn commit_initial_admission_with_sources(path :: String,
     removed_labels,
     prekey_labels,
     prekey_blobs,
+    None,
     None)
 end
 
@@ -98,6 +100,34 @@ pub fn commit_initial_admission_at_policy(path :: String,
   removed_labels :: List<String>,
   prekey_labels :: List<String>,
   prekey_blobs :: List<Bytes>) -> Result<(), String> do
+  commit_initial_admission_at_sibling(path,
+    before,
+    sources,
+    policy,
+    label,
+    blob,
+    index_blob,
+    updated_labels,
+    updated_blobs,
+    removed_labels,
+    prekey_labels,
+    prekey_blobs,
+    None)
+end
+
+pub fn commit_initial_admission_at_sibling(path :: String,
+  before :: Option<AccountBasis>,
+  sources :: Option<ReceiveSources>,
+  policy :: NativeSessionPolicy,
+  label :: String,
+  blob :: Bytes,
+  index_blob :: Bytes,
+  updated_labels :: List<String>,
+  updated_blobs :: List<Bytes>,
+  removed_labels :: List<String>,
+  prekey_labels :: List<String>,
+  prekey_blobs :: List<Bytes>,
+  fresh_through :: Option<U64>) -> Result<(), String> do
   if Option.is_none(before) || Option.is_none(sources) do
     return Err("invalid_receive_commit")
   end
@@ -112,7 +142,8 @@ pub fn commit_initial_admission_at_policy(path :: String,
     removed_labels,
     prekey_labels,
     prekey_blobs,
-    Some(policy))
+    Some(policy),
+    fresh_through)
 end
 
 fn commit_initial_admission_policy(path :: String,
@@ -126,7 +157,8 @@ fn commit_initial_admission_policy(path :: String,
   removed_labels :: List<String>,
   prekey_labels :: List<String>,
   prekey_blobs :: List<Bytes>,
-  policy :: Option<NativeSessionPolicy>) -> Result<(), String> do
+  policy :: Option<NativeSessionPolicy>,
+  fresh_through :: Option<U64>) -> Result<(), String> do
   case before do
     None -> do
       if Option.is_some(sources)
@@ -154,7 +186,11 @@ fn commit_initial_admission_policy(path :: String,
             && !List.contains(basis.labels, value) end) do
         return Err("invalid_header_initial_commit")
       end
-      require_receive_writes(basis, sources, updated_labels)?
+      require_receive_writes(basis,
+        sources,
+        updated_labels
+          ++ List.filter(prekey_labels,
+            fn(label) -> String.starts_with(label, "sibling-session/v1/") end))?
       with_record_transaction(path,
         fn(database) do
           require_receive_sources(database, basis, sources)?
@@ -162,6 +198,14 @@ fn commit_initial_admission_policy(path :: String,
             None -> Ok(nil)
             Some(value) -> require_current_session_policy(value)
           end?
+          let observation = case policy do
+            None
+            Some(value) -> case fresh_through do
+              None
+              Some(deadline) -> Some((value, deadline))
+            end
+          end
+          require_sibling_observation(observation)?
           insert_blob(database, label, blob)?
           put_blob(database, "sessions/v1", index_blob)?
           put_blobs(database, updated_labels, updated_blobs, 0)?
@@ -288,6 +332,15 @@ pub fn commit_legacy_receive_with_sources(path :: String,
   sources :: Option<ReceiveSources>,
   labels :: List<String>,
   blobs :: List<Bytes>) -> Result<(), String> do
+  commit_legacy_receive_with_observation(path, before, sources, labels, blobs, None)
+end
+
+pub fn commit_legacy_receive_with_observation(path :: String,
+  before :: AccountBasis,
+  sources :: Option<ReceiveSources>,
+  labels :: List<String>,
+  blobs :: List<Bytes>,
+  observation :: Option<(NativeSessionPolicy, U64)>) -> Result<(), String> do
   if List.length(labels) != List.length(blobs)
     || List.any(blobs, fn(value) -> Bytes.length(value) == 0 end)
     || List.any(labels,
@@ -299,6 +352,7 @@ pub fn commit_legacy_receive_with_sources(path :: String,
   with_record_transaction(path,
     fn(database) do
       require_receive_sources(database, before, sources)?
+      require_sibling_observation(observation)?
       put_blobs(database, labels, blobs, 0)
     end)
 end

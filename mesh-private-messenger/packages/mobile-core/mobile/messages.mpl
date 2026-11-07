@@ -1,4 +1,8 @@
-from Mobile.SessionPolicy import capture_native_session_policy, native_session_minimum
+from Mobile.SessionPolicy import (
+  NativeSessionPolicy,
+  capture_native_session_policy,
+  native_session_minimum
+)
 from Mobile.ReceiveSources import (
   ReceiveSources,
   capture_receive_sources,
@@ -7,20 +11,26 @@ from Mobile.ReceiveSources import (
   receive_captured_peer,
   receive_captured_strongest
 )
+from Mobile.SiblingMembership import (
+  sibling_source_labels,
+  sibling_proof_label,
+  sibling_captured_member,
+  sibling_captured_blob
+)
 from Storage.AccountGuard import AccountBasis
 from Mobile.HeaderAdmission import (
   capture_header_initial,
   capture_legacy_receive,
-  commit_legacy_receive_with_sources,
+  commit_legacy_receive_with_observation,
   capture_header_history,
   capture_header_record,
-  commit_initial_admission_at_policy,
+  commit_initial_admission_at_sibling,
   prepared_header_initial_alias
 )
 from Mobile.HeaderRouting import (
   HeaderRoute,
   route_header_guarded,
-  commit_header_receive_with_sources
+  commit_header_receive_with_observation
 )
 from Mobile.HeaderCapabilities import require_direct_headers, require_new_header_capacity
 from Session.State import RatchetState, DecryptOutcome, RatchetError, RatchetMessage
@@ -98,6 +108,7 @@ from Mobile.Sessions import (
   inner_bytes,
   load_session_ids,
   load_session_record,
+  parse_session_record,
   parse_initial_packet,
   parse_ratchet_packet,
   parse_sealed_initial_packet,
@@ -158,7 +169,7 @@ from Session.Ratchet import (
   ratchet_transport_matches
 )
 from Storage.Blobs import ensure_schema
-from Storage.Keys import one_time_prekey_label, platform_key
+from Storage.Keys import one_time_prekey_label, platform_key, open_local, seal_local, local_context
 from Storage.Records import (
   store_record_changes,
   store_updated_session,
@@ -607,6 +618,115 @@ fn peer_sync_payload(body :: Bytes, local_account_id :: Bytes) -> MobileSyncPayl
   end
 end
 
+fn capture_sibling_basis(path :: String,
+  key :: borrow StorageKey,
+  before :: AccountBasis,
+  account :: Bytes) -> AccountBasis!String do
+  let captured = List.reduce(sibling_source_labels(account),
+    Ok(Some(before)),
+    fn(result, label) do capture_header_record(path, result?, label) end)?
+  let captured = required_receive_basis(captured)?
+  let proof = sibling_proof_label([captured], key, account)?
+  if proof == "" do
+    Ok(captured)
+  else
+    required_receive_basis(capture_header_record(path, Some(captured), proof)?)
+  end
+end
+
+fn sibling_marker_label(id :: Bytes) -> String do
+  "sibling-session/v1/#{Bytes.to_hex(id)}"
+end
+
+fn sibling_marker_plaintext(local :: ClientProfile,
+  peer :: ClientProfile,
+  id :: Bytes,
+  snapshot_blob :: Bytes) -> Bytes!String do
+  case Bytes.concat_many([
+      Bytes.from_utf8("morse/sibling-session/v1\n"),
+      id,
+      local.account_id,
+      local.device_id,
+      local.account.authorization_public_key,
+      local.credential.signing_public_key,
+      local.credential.dh_public_key,
+      peer.device_id,
+      peer.credential.signing_public_key,
+      peer.credential.dh_public_key,
+      Crypto.sha256(snapshot_blob)
+    ],
+    1024) do
+    Err(_) -> Err("sibling_marker_encoding_failed")
+    Ok(value)
+  end
+end
+
+fn sibling_marker_write(key :: borrow StorageKey,
+  local :: ClientProfile,
+  peer :: ClientProfile,
+  id :: Bytes,
+  session_label :: String,
+  session_blob :: Bytes) -> Bytes!String do
+  let record = parse_session_record(open_local(session_blob, key, local_context(session_label)?)?)?
+  seal_local(sibling_marker_plaintext(local, peer, id, record.snapshot)?,
+    key,
+    local_context(sibling_marker_label(id))?)
+end
+
+fn require_sibling_marker(basis :: AccountBasis,
+  key :: borrow StorageKey,
+  local :: ClientProfile,
+  peer :: ClientProfile,
+  loaded :: MobileLoadedSession) -> Unit!String do
+  let label = sibling_marker_label(loaded.session_id)
+  let blob = sibling_captured_blob([basis], label)?
+  if Bytes.length(blob) == 0 do
+    return Err("sibling_session_unproven")
+  end
+  if !Bytes.secure_equals(loaded.record.local_account_id, local.account_id)
+    || !Bytes.secure_equals(loaded.record.local_device_id, local.device_id)
+    || !Bytes.secure_equals(loaded.record.peer_account_id, local.account_id)
+    || !Bytes.secure_equals(loaded.record.peer_device_id, peer.device_id)
+    || !Bytes.secure_equals(loaded.record.peer_transport_key, peer.credential.dh_public_key)
+    || !Bytes.secure_equals(open_local(blob, key, local_context(label)?)?,
+      sibling_marker_plaintext(local, peer, loaded.session_id, loaded.record.snapshot)?) do
+    Err("sibling_session_unproven")
+  else
+    Ok(nil)
+  end
+end
+
+fn sibling_initial_deadline(basis :: AccountBasis,
+  key :: borrow StorageKey,
+  local :: ClientProfile,
+  credential :: DeviceCredential,
+  policy :: NativeSessionPolicy,
+  now :: U64) -> U64!String do
+  let (member, deadline) = sibling_captured_member([basis],
+    key,
+    local,
+    credential.device_id,
+    policy,
+    now)?
+  if !Bytes.secure_equals(member.credential.signing_public_key, credential.signing_public_key)
+    || !Bytes.secure_equals(member.credential.dh_public_key, credential.dh_public_key) do
+    Err("initial_identity_mismatch")
+  else
+    Ok(deadline)
+  end
+end
+
+fn capture_new_sibling_marker(path :: String,
+  before :: Option<AccountBasis>,
+  label :: String) -> Option<AccountBasis>!String do
+  let captured = capture_header_record(path, before, label)?
+  if Bytes.length(sibling_captured_blob([required_receive_basis(captured)?], label)?) != 0 do
+    Err("sibling_session_unproven")
+  else
+    Ok(captured)
+  end
+end
+
 pub fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes!String do
   ensure_schema(request.database_path)?
   let local_encode_client_profile = load_profile(request.database_path)?
@@ -776,10 +896,29 @@ pub fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes!String 
         || !Bytes.secure_equals(inner.sender_account_id, peer.account_id)
         || !Bytes.secure_equals(inner.sender_device_id, peer.device_id)
         || !Bytes.secure_equals(peer.device_id, initiator_credential.device_id)
+        || !Bytes.secure_equals(peer.credential.signing_public_key,
+          initiator_credential.signing_public_key)
+        || !Bytes.secure_equals(peer.credential.dh_public_key, initiator_credential.dh_public_key)
         || !Bytes.secure_equals(inner.recipient_device_id, local.device_id)
       if mismatch do
         Err("initial_identity_mismatch")
       else
+        let (admission_before, sibling_deadline) = if Bytes.secure_equals(peer.account_id,
+          local.account_id) do
+          let basis = capture_sibling_basis(request.database_path,
+            wrapping_key,
+            required_receive_basis(admission_before)?,
+            local.account_id)?
+          let deadline = sibling_initial_deadline(basis,
+            wrapping_key,
+            local,
+            initiator_credential,
+            session_policy,
+            now)?
+          (Some(basis), Some(deadline))
+        else
+          (admission_before, None)
+        end
         let blocked = case previous do
           None -> false
           Some(loaded) -> loaded.record.blocked
@@ -799,9 +938,19 @@ pub fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes!String 
             wrapping_key,
             peer,
             initial.suite)?)?
+        let (admission_before, prekey_labels, prekey_blobs) = if self_sync do
+          let marker = sibling_marker_label(session_id)
+          let before = capture_new_sibling_marker(request.database_path, admission_before, marker)?
+          (before,
+            List.append(prekey_labels, marker),
+            List.append(prekey_blobs,
+              sibling_marker_write(wrapping_key, local, peer, session_id, label, session_blob)?))
+        else
+          (admission_before, prekey_labels, prekey_blobs)
+        end
         if blocked do
           let index_blob = updated_session_index(request.database_path, wrapping_key, session_id)?
-          commit_initial_admission_at_policy(request.database_path,
+          commit_initial_admission_at_sibling(request.database_path,
             admission_before,
             Some(initial_sources),
             session_policy,
@@ -812,7 +961,8 @@ pub fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes!String 
             List.new(),
             removed_labels,
             prekey_labels,
-            prekey_blobs)?
+            prekey_blobs,
+            sibling_deadline)?
           Err("blocked_message")
         else if self_sync do
           let sync = peer_sync_payload(inner.body, local.account_id)?
@@ -865,7 +1015,7 @@ pub fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes!String 
             session_id,
             prepared.duplicate,
             index_blob)?
-          commit_initial_admission_at_policy(request.database_path,
+          commit_initial_admission_at_sibling(request.database_path,
             Some(prepared.basis),
             Some(acceptance_sources),
             session_policy,
@@ -876,7 +1026,8 @@ pub fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes!String 
             history_blobs ++ sync_blobs,
             removed_labels,
             prekey_labels,
-            prekey_blobs)?
+            prekey_blobs,
+            sibling_deadline)?
           Ok(received_history_body(prepared, history_inner.body))
         else if inner.message_type == 3 || inner.message_type == 4 do
           require_control_without_view_once(inner)?
@@ -890,7 +1041,7 @@ pub fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes!String 
             local,
             peer.username,
             inner)?
-          commit_initial_admission_at_policy(request.database_path,
+          commit_initial_admission_at_sibling(request.database_path,
             admission_before,
             Some(initial_sources),
             session_policy,
@@ -901,7 +1052,8 @@ pub fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes!String 
             blobs,
             removed_labels,
             prekey_labels,
-            prekey_blobs)?
+            prekey_blobs,
+            sibling_deadline)?
           Ok(Bytes.empty())
         else
           let index_blob = updated_session_index(request.database_path, wrapping_key, session_id)?
@@ -929,7 +1081,7 @@ pub fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes!String 
             prepared,
             %{inner | conversation_id: conversation_key},
             2)?
-          commit_initial_admission_at_policy(request.database_path,
+          commit_initial_admission_at_sibling(request.database_path,
             Some(prepared.basis),
             Some(initial_sources),
             session_policy,
@@ -940,7 +1092,8 @@ pub fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes!String 
             history_blobs,
             removed_labels,
             prekey_labels,
-            prekey_blobs)?
+            prekey_blobs,
+            sibling_deadline)?
           Ok(received_history_body(prepared, inner.body))
         end
       end
@@ -953,6 +1106,9 @@ pub fn send_message(request :: MobileStartRequest) -> Bytes!String do
   let local_wire = load_profile(request.database_path)?
   let local = decode_client_profile(local_wire)?
   let requested_peer = decode_client_profile(request.peer_profile)?
+  if Bytes.secure_equals(requested_peer.account_id, local.account_id) do
+    return Err("sibling_requires_fanout")
+  end
   let wrapping_key = platform_key()?
   require_direct_headers(request.database_path, wrapping_key, local, requested_peer)?
   let attachment_before = Some(capture_direct_attachment(request.database_path,
@@ -1138,8 +1294,9 @@ fn commit_received(path :: String,
   selected :: Option<HeaderRoute>,
   legacy_before :: Option<AccountBasis>,
   labels :: List<String>,
-  blobs :: List<Bytes>) -> Result<(), String> do
-  commit_received_with_sources(path, selected, legacy_before, None, labels, blobs)
+  blobs :: List<Bytes>,
+  observation :: Option<(NativeSessionPolicy, U64)>) -> Result<(), String> do
+  commit_received_with_sources(path, selected, legacy_before, None, labels, blobs, observation)
 end
 
 fn commit_received_with_sources(path :: String,
@@ -1147,13 +1304,24 @@ fn commit_received_with_sources(path :: String,
   legacy_before :: Option<AccountBasis>,
   sources :: Option<ReceiveSources>,
   labels :: List<String>,
-  blobs :: List<Bytes>) -> Result<(), String> do
+  blobs :: List<Bytes>,
+  observation :: Option<(NativeSessionPolicy, U64)>) -> Result<(), String> do
   case selected do
     None -> case legacy_before do
       None -> Err("invalid_receive_basis")
-      Some(before) -> commit_legacy_receive_with_sources(path, before, sources, labels, blobs)
+      Some(before) -> commit_legacy_receive_with_observation(path,
+        before,
+        sources,
+        labels,
+        blobs,
+        observation)
     end
-    Some(route) -> commit_header_receive_with_sources(path, route, sources, labels, blobs)
+    Some(route) -> commit_header_receive_with_observation(path,
+      route,
+      sources,
+      labels,
+      blobs,
+      observation)
   end
 end
 
@@ -1207,6 +1375,29 @@ pub fn receive_message(request :: MobileReceiveRequest) -> Bytes!String do
       loaded.record.peer_account_id,
       session_ids,
       0)?
+    let (selected, legacy_before, sibling, observation) = if Bytes.secure_equals(loaded.record.peer_account_id,
+      local.account_id) do
+      let before = selected_receive_basis(selected, legacy_before)?
+      let before = capture_sibling_basis(request.database_path,
+        wrapping_key,
+        before,
+        local.account_id)?
+      let before = required_receive_basis(capture_header_record(request.database_path,
+        Some(before),
+        sibling_marker_label(loaded.session_id))?)?
+      let policy = capture_native_session_policy()?
+      let (member, deadline) = sibling_captured_member([before],
+        wrapping_key,
+        local,
+        loaded.record.peer_device_id,
+        policy,
+        current_time()?)?
+      require_sibling_marker(before, wrapping_key, local, member, loaded)?
+      let (selected, legacy_before) = with_received_basis(selected, before)
+      (selected, legacy_before, Some(member), Some((policy, deadline)))
+    else
+      (selected, legacy_before, None, None)
+    end
     let state = restore_session(loaded, wrapping_key)?
     case decrypt(state, message, session_aad(loaded.session_id)?) do
       Rejected(rejected_state, error) -> if is_retryable_ratchet_error(error) do
@@ -1241,12 +1432,26 @@ pub fn receive_message(request :: MobileReceiveRequest) -> Bytes!String do
           reject_message(next_state, "message_rejected")
         else
           let session_blob = seal_updated_session(next_state, loaded, wrapping_key)?
+          let (session_labels, session_blobs) = case sibling do
+            None -> ([loaded.label], [session_blob])
+            Some(member) -> ([loaded.label, sibling_marker_label(loaded.session_id)],
+              [
+                session_blob,
+                sibling_marker_write(wrapping_key,
+                  local,
+                  member,
+                  loaded.session_id,
+                  loaded.label,
+                  session_blob)?
+              ])
+          end
           if peer_policy.record.blocked do
             commit_received(request.database_path,
               selected,
               legacy_before,
-              [loaded.label],
-              [session_blob])?
+              session_labels,
+              session_blobs,
+              observation)?
             Err("blocked_message")
           else if inner.message_type == 5 do
             require_control_without_view_once(inner)?
@@ -1258,8 +1463,9 @@ pub fn receive_message(request :: MobileReceiveRequest) -> Bytes!String do
             commit_received(request.database_path,
               selected,
               legacy_before,
-              [loaded.label],
-              [session_blob])?
+              session_labels,
+              session_blobs,
+              observation)?
             Ok(Bytes.empty())
           else if inner.message_type == 3 || inner.message_type == 4 do
             require_control_without_view_once(inner)?
@@ -1276,8 +1482,9 @@ pub fn receive_message(request :: MobileReceiveRequest) -> Bytes!String do
             commit_received(request.database_path,
               selected,
               legacy_before,
-              List.append(labels, loaded.label),
-              List.append(blobs, session_blob))?
+              labels ++ session_labels,
+              blobs ++ session_blobs,
+              observation)?
             Ok(Bytes.empty())
           else if self_sync do
             let sync = peer_sync_payload(inner.body, local.account_id)?
@@ -1330,8 +1537,9 @@ pub fn receive_message(request :: MobileReceiveRequest) -> Bytes!String do
               selected,
               legacy_before,
               Some(acceptance_sources),
-              [loaded.label] ++ history_keys ++ sync_labels,
-              [session_blob] ++ history_blobs ++ sync_blobs)?
+              session_labels ++ history_keys ++ sync_labels,
+              session_blobs ++ history_blobs ++ sync_blobs,
+              observation)?
             Ok(received_history_body(prepared, history_inner.body))
           else
             let (selected, legacy_before) = capture_received_history(request.database_path,
@@ -1362,8 +1570,9 @@ pub fn receive_message(request :: MobileReceiveRequest) -> Bytes!String do
             commit_received(request.database_path,
               selected,
               legacy_before,
-              [loaded.label] ++ history_keys,
-              [session_blob] ++ history_blobs)?
+              session_labels ++ history_keys,
+              session_blobs ++ history_blobs,
+              observation)?
             Ok(received_history_body(prepared, inner.body))
           end
         end
