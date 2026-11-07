@@ -1,0 +1,54 @@
+{
+  "scope": "Permanent historical control for the rejected public-helper invitation policy; not approved production code and not qualification of the pending authenticated receive redesign",
+  "baseline": "a48963b4918f5fc39981176d4e46069b78dfeebb",
+  "sources": {
+    "mesh-private-messenger/ops/plaintext/prove_invitation_authority.py": "855a2b78b851019283b5eb52a907c103336c3495e69866ab6ae71c48832786c3",
+    "mesh-private-messenger/ops/plaintext/fixtures/decoded-body/invitation-authority.mpl": "a13a57c8ad7586accd94db5f320d576e5c704d6d4ef755cd781ec71137bf0916",
+    "mesh-private-messenger/ops/plaintext/fixtures/decoded-body/held-invitation-policy.patch": "a865e9798b1f06449c678429fe43af0b61ae2d7f1c607416c6a00fa4aecf32d5"
+  },
+  "evidence_path": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/invitation-authority-historical/evidence.json",
+  "evidence_sha256": "dffb8693f9c8f17e5c486eac8e72736ec3ff4c508a29d81ea34dee1494e10f6e",
+  "toolchain": {
+    "bin/meshc": "19ef395b701a3c76ff006956597b6ec176810c78a6d07271a253199911ea4e85",
+    "lib/libmesh_rt.a": "d1e2b001783fe819f03644f5e4dcf42bc362bb1cecd04e475097d80cf9d3a8f8",
+    "lib/libmesh_test_rt.a": "9283206f47c6a52fa075a108773854ad7a12aae437c16b04c4fc747740674c33"
+  },
+  "language_stable": true,
+  "snapshot_restored": true,
+  "runs": [
+    {
+      "name": "original-refuses",
+      "exit_code": 1,
+      "diagnostics": 19,
+      "source_stable": true,
+      "files": {
+        "source-hashes.json": "91cf52cff188420b223c3cb35ca57ab1797337bd254267429ced4976663d13b0",
+        "group_invites_state.mpl.source": "f33ab23ba61a52f18105d204893b4d67792a60f5669460706b41aef6626427be",
+        "main.mpl.source": "a13a57c8ad7586accd94db5f320d576e5c704d6d4ef755cd781ec71137bf0916",
+        "build.log": "9ae3f9520c4c4b17144342dd8e02d61d29b7590028692afd95ed49664796dcda"
+      }
+    },
+    {
+      "name": "held-prototype-admits",
+      "exit_code": 0,
+      "diagnostics": 0,
+      "source_stable": true,
+      "files": {
+        "source-hashes.json": "c83b5bf7f275b1b355a2573388c1992935e7afa3f01be0d78a9c248a33ea446f",
+        "libproof.ts": "65fa91e63c83b2c9db286e92c1c169f3a82dba9799b2de800c8e15b385a61077",
+        "group_invites_state.mpl.source": "f960a2811830f0e22e0ff6dca87ef758f35495dcb711b723fa45cc78be6c67f9",
+        "libproof.swift": "03ba3a09ee1704c7bab33d948bfdc7397a09a3d97e917aa2bc935404ef50f88d",
+        "plaintext.json": "ffe30dfcfe63159c6af1773038f55edb070cee0e03622eeb4906aef26723de2d",
+        "libproof.kt": "3e76df603a60a13a87205934ec088a9797a47ae4228fe3f754d4062f927925d5",
+        "libproof.abi.json": "b663bc8fa7a6dd2cf9e529f2c7456498fc3c86506b22cc2f576a560c16ba7774",
+        "libproof.h": "681ab30353acc22be3971a42890e39b9948aba758405eeacb0732b4dde9f846b",
+        "libproof.a": "7111903286c1d95a0b476451bebed654d052d2a02902c231d0b75a559496ed00",
+        "main.mpl.source": "a13a57c8ad7586accd94db5f320d576e5c704d6d4ef755cd781ec71137bf0916",
+        "libproof.jni.c": "aa3caaff4f233081835e4da2ec90a20ca80baafdbe0d493f525f02eb8d1407f3",
+        "build.log": "8a5a95c85da18d2e368937195c1f1e32abee729250ee8780b87f97ae924006c8"
+      }
+    }
+  ],
+  "authority_failure": "Public received_invitation_writes accepts caller-constructed envelope/local/path; raw private body must not select invitation pruning or renewal-view storage reads. Private caller-PC control alone is insufficient.",
+  "execution": "Compile-only. Neither generated archive executed. No network operation."
+}

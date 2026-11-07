@@ -253,31 +253,48 @@ fn inner_properties(sizes :: List<Int>, index :: Int, timestamp :: U64) -> Bool 
   end
 end
 
+fn inner_fixture_only(value :: Plaintext<Bool>) -> Bool do
+  declassify(value,
+    "test-only inner-envelope codec observations for fixed synthetic golden size and exact-error fixtures; no application disclosure")
+end
+
+fn inner_golden_matches(body :: Bytes, timestamp :: U64, golden :: Bytes) -> Bool do
+  case encode_inner_envelope(inner_value(body, timestamp)) do
+    Err(_) -> false
+    Ok(encoded) -> Bytes.secure_equals(encoded, golden)
+  end
+end
+
+fn inner_limit_refused(body :: Bytes, timestamp :: U64) -> Bool do
+  case encode_inner_envelope(inner_value(body, timestamp)) do
+    Err(OversizedInput) -> true
+    Err(_) -> false
+    Ok(_) -> false
+  end
+end
+
 fn inner_proof() -> Int!String do
   let timestamp = U64.parse("1700000000000")?
-  if inner_properties([0, 1, 255, 4096, 32768], 0, timestamp) do
+  if inner_fixture_only(inner_properties([0, 1, 255, 4096, 32768], 0, timestamp)) do
     println("inner-properties")
   else
     println("inner-property-failed")
   end
-  case Bytes.from_hex("a5") do
-    Err(error) -> println(error)
-    Ok(body) -> case encode_inner_envelope(inner_value(body, timestamp)) do
-      Err(_) -> println("inner-golden-encode-error")
-      Ok(encoded) -> if Bytes.secure_equals(encoded, Bytes.from_hex("__INNER_HEX__")?) do
-        println("inner-golden")
-      else
-        println("inner-golden-mismatch")
-      end
-    end
+  let body = Bytes.from_hex("a5")?
+  let golden = Bytes.from_hex("__INNER_HEX__")?
+  if inner_fixture_only(inner_golden_matches(body, timestamp, golden)) do
+    println("inner-golden")
+  else
+    println("inner-golden-mismatch")
   end
-  case Bytes.repeat(0, 32769) do
-    Err(_) -> println("inner-limit-setup-error")
-    Ok(body) -> case encode_inner_envelope(inner_value(body, timestamp)) do
-      Err(OversizedInput) -> println("inner-limit")
-      Err(_) -> println("inner-limit-wrong-error")
-      Ok(_) -> println("inner-limit-accepted")
-    end
+  let oversized = case Bytes.repeat(0, 32769) do
+    Err(_) -> return Err("inner-limit-setup-error")
+    Ok(value) -> value
+  end
+  if inner_fixture_only(inner_limit_refused(oversized, timestamp)) do
+    println("inner-limit")
+  else
+    println("inner-limit-wrong-error")
   end
   Ok(0)
 end

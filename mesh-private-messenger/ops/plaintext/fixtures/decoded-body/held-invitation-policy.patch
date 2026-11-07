@@ -1,0 +1,92 @@
+--- a/mesh-private-messenger/packages/mobile-core/mobile/group_invites_state.mpl
++++ b/mesh-private-messenger/packages/mobile-core/mobile/group_invites_state.mpl
+@@ -129,14 +129,25 @@
+   end
+ end
+ 
+-pub fn invitation_blob(values :: List<GroupInvitation>, key :: borrow StorageKey) -> Bytes!String do
++fn invitation_plaintext(values :: List<GroupInvitation>) -> Bytes!String do
+   if List.length(values) > 128 do
+     return Err("group_invitation_limit")
+   end
+   let records = for value in values do
+     encode_record(value)?
+   end
+-  seal_local(encode_output_list(records)?, key, local_context("group-invitations/v1")?)
++  encode_output_list(records)
++end
++
++pub fn invitation_blob(values :: List<GroupInvitation>, key :: borrow StorageKey) -> Bytes!String do
++  let encoded = invitation_plaintext(values)
++  let context = local_context("group-invitations/v1")
++  let sealed = seal_local(Result.unwrap_or(encoded, Bytes.empty()),
++    key,
++    Result.unwrap_or(context, Bytes.empty()))
++  let _ = encoded?
++  let _ = context?
++  sealed
+ end
+ 
+ pub fn load_invitations(path :: String, key :: borrow StorageKey) -> List<GroupInvitation>!String do
+@@ -201,6 +212,20 @@
+     end)
+ end
+ 
++fn renewal_view_required(values :: List<GroupInvitation>, inner :: InnerEnvelope) -> Bool!String do
++  if inner.message_type == 3 do
++    return Ok(false)
++  end
++  let p = invitation_parts(inner.body, 3, 401)?
++  let id = List.get(p, 0)
++  decode_group_key_package(List.get(p, 2))?
++  let reference = mobile_append(id, inner.sender_device_id)?
++  case find_invitation(values, reference) do
++    Ok(value) -> Ok(value.state == 3)
++    Err(_) -> Ok(false)
++  end
++end
++
+ fn receive_control(path :: String,
+   key :: borrow StorageKey,
+   local :: ClientProfile,
+@@ -208,6 +233,13 @@
+   inner :: InnerEnvelope) -> List<GroupInvitation>!String do
+   let values = load_invitations(path, key)?
+   let now = current_time()?
++  let renewal = renewal_view_required(values, inner)
++  let renewal_view = if declassify(Result.unwrap_or(renewal, false),
++    "authenticated invitation acceptance releases only whether parsing and reference lookup select an existing state3 invitation requiring the current transparency view; identifiers key package contents and authorization decisions remain private") do
++    load_transparency_view(path, key)
++  else
++    Err("group_transparency_unverified")
++  end
+   if inner.message_type == 3 do
+     let p = invitation_parts(inner.body, 4, 188)?
+     let id = List.get(p, 0)
+@@ -257,7 +289,7 @@
+     if previous.state == 3 do
+       # Only a current native set can replace an already authenticated response;
+       # a delayed old acceptance cannot roll it back after renewal.
+-      let view = load_transparency_view(path, key)?
++      let view = renewal_view?
+       if !Bytes.secure_equals(package.set_id, view.set_id)
+         || package.witness_count != view.witness_threshold do
+         return Ok(values)
+@@ -306,11 +338,14 @@
+     Ok(value) -> value
+     Err(_) -> false
+   end
+-  if !valid do
++  if !declassify(valid,
++    "authenticated invitation receive releases only acceptance of existing bounded invitation or acceptance framing before invitation storage access; body fields identities and parser errors remain private") do
+     return Ok(([], []))
+   end
+-  let values = receive_control(path, key, local, username, inner)?
+-  Ok((["group-invitations/v1"], [invitation_blob(values, key)?]))
++  let received = receive_control(path, key, local, username, inner)
++  let sealed = invitation_blob(Result.unwrap_or(received, []), key)
++  let _ = received?
++  Ok((["group-invitations/v1"], [sealed?]))
+ end
+ 
+ pub fn accepted_invitation_scope(path :: String,

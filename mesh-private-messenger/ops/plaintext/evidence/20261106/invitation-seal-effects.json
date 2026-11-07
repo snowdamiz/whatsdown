@@ -1,0 +1,259 @@
+{
+  "status": "passed",
+  "date": "2026-11-06",
+  "finding": "The held invitation_blob eagerly seals empty fallback plaintext after an encoding error. Exact returned errors are preserved in the exercised cases, but one durable file-key counter reservation occurs where the baseline reserves none. Successful sealing is not pure.",
+  "baseline": "a48963b4918f5fc39981176d4e46069b78dfeebb",
+  "baseline_tree": "b5dd879a1eeac511986bcdbfd162acab6f62ae49",
+  "evidence": {
+    "path": ".morse/decoded-body-labels/invitation-seal-effects/run-02/evidence.json",
+    "sha256": "ad36875a341399e4875f170a15a02a973cb343dcb5fb081f7127d1e83fa618d1"
+  },
+  "runner": {
+    "path": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/mesh-private-messenger/ops/plaintext/prove_invitation_seal_effects.py",
+    "sha256": "2dfa63b079613f4a4a0f16aba2d8a0851754e642d196015e56f64e8529daca84"
+  },
+  "fixture": {
+    "path": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/mesh-private-messenger/ops/plaintext/fixtures/invitation-seal-effects/main.mpl",
+    "sha256": "3d649cee384aa6aeaaf37a7b44187789495255524d0cb66d42ff79ad3678a73a"
+  },
+  "held_patch": {
+    "path": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/mesh-private-messenger/ops/plaintext/fixtures/decoded-body/held-invitation-policy.patch",
+    "sha256": "a865e9798b1f06449c678429fe43af0b61ae2d7f1c607416c6a00fa4aecf32d5"
+  },
+  "toolchain": {
+    "bin/meshc": {
+      "path": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+      "sha256": "19ef395b701a3c76ff006956597b6ec176810c78a6d07271a253199911ea4e85"
+    },
+    "lib/libmesh_rt.a": {
+      "path": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_rt.a",
+      "sha256": "d1e2b001783fe819f03644f5e4dcf42bc362bb1cecd04e475097d80cf9d3a8f8"
+    },
+    "lib/libmesh_test_rt.a": {
+      "path": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_test_rt.a",
+      "sha256": "9283206f47c6a52fa075a108773854ad7a12aae437c16b04c4fc747740674c33"
+    }
+  },
+  "runtime_source_read_only": {
+    "/Users/andreyyurlov/Documents/dev/mesh-lang/compiler/mesh-rt/src/storage_wrapping.rs": "3c775013bc2d9e509d352c30f75fb82d18edb29d791e4bf813e9f13085e371ff",
+    "/Users/andreyyurlov/Documents/dev/mesh-lang/compiler/mesh-rt/src/storage_wrapping/file.rs": "21b0a75eae5acf86e9ff8c2ccfa5a938f7e529271bced41f1ca66c94e374c139",
+    "/Users/andreyyurlov/Documents/dev/mesh-lang/compiler/mesh-rt/src/secret.rs": "f31e412764b42ca733a7d68f6316ca6609e5f1d026a54fb0ecd2a1fba94608fb",
+    "/Users/andreyyurlov/Documents/dev/mesh-lang/compiler/meshc/src/main.rs": "20f1f39ab5847e94ba79d9735dee1aa53a59bb54fd67cb50b4771e83921f9c60"
+  },
+  "runtime_source_limit": "Read-only source hashes characterize inspected source; pinned binaries are executed as provided, without rebuilding or claiming source-to-binary reproducibility",
+  "source_inspection": [
+    {
+      "path": "mesh-private-messenger/packages/mobile-core/storage/keys.mpl",
+      "lines": "130-147",
+      "sha256": "9b7816e127eb3c09ec127431419a845d244826b1129a59aaecce25d62a3f004e",
+      "finding": "seal_local calls StorageKey.seal_bytes and maps refusal to local_state_seal_failed; open_local uses unseal_bytes"
+    },
+    {
+      "path": "compiler/mesh-rt/src/storage_wrapping.rs",
+      "lines": "1177-1211",
+      "finding": "Byte length and context validation precede key preparation and reserve_counter; sealing and final key validation follow reservation"
+    },
+    {
+      "path": "compiler/mesh-rt/src/storage_wrapping.rs",
+      "lines": "1012-1020,1088-1115",
+      "finding": "The platform reservation callback increments the stored counter and calls write_platform_record, which invokes the Host secure-store put callback, before returning the previous counter; source inspection only"
+    },
+    {
+      "path": "compiler/mesh-rt/src/storage_wrapping/file.rs",
+      "lines": "191-237,256-280",
+      "finding": "The file backend locks, validates the record, increments the counter, and durably replaces the record before returning; this proof observes successful persisted increments but does not exercise crashes or concurrency"
+    }
+  ],
+  "snapshots": {
+    "app_files_each": 691,
+    "original_matches_git_objects": true,
+    "held_changed_app_files": [
+      "mesh-private-messenger/packages/mobile-core/mobile/group_invites_state.mpl"
+    ],
+    "language_dependencies_symlinked_files": 29,
+    "full_per_file_hashes": "evidence.json baseline_source_hashes, snapshots, language_dependencies"
+  },
+  "fixture_inputs": {
+    "empty-list": "[]",
+    "over-limit": "129 copies of one state=0 record",
+    "malformed-record": "one state=256 record; all other fields match the synthetic state=0 record",
+    "synthetic_record": {
+      "id_bytes": 16,
+      "group_id_bytes": 32,
+      "inviter_account_bytes": 32,
+      "inviter_device_bytes": 16,
+      "recipient_account_bytes": 32,
+      "recipient_device_bytes": 16,
+      "username": "synthetic",
+      "baseline_bytes": 188,
+      "expires_at": "U64 1",
+      "key_package_bytes": 0,
+      "inviter_signing_key_bytes": 0
+    },
+    "invalid-context": "empty plaintext and empty context passed directly to seal_local",
+    "empty-fallback": "empty plaintext with local_context(group-invitations/v1) passed directly to seal_local"
+  },
+  "cases": [
+    {
+      "family": "original",
+      "case": "empty-list",
+      "observation": "ciphertext length 75; opens to encode_output_list([])",
+      "counter_before": 0,
+      "counter_after": 1,
+      "delta": 1,
+      "expected_delta": 1,
+      "fixed_marker_passed": true
+    },
+    {
+      "family": "original",
+      "case": "over-limit",
+      "observation": "exact Err(group_invitation_limit); 129 encodable records",
+      "counter_before": 0,
+      "counter_after": 0,
+      "delta": 0,
+      "expected_delta": 0,
+      "fixed_marker_passed": true
+    },
+    {
+      "family": "original",
+      "case": "malformed-record",
+      "observation": "exact Err(integer_encoding_failed); one record with state=256",
+      "counter_before": 0,
+      "counter_after": 0,
+      "delta": 0,
+      "expected_delta": 0,
+      "fixed_marker_passed": true
+    },
+    {
+      "family": "original",
+      "case": "invalid-context",
+      "observation": "direct seal_local exact Err(local_state_seal_failed); empty context",
+      "counter_before": 0,
+      "counter_after": 0,
+      "delta": 0,
+      "expected_delta": 0,
+      "fixed_marker_passed": true
+    },
+    {
+      "family": "original",
+      "case": "empty-fallback",
+      "observation": "direct seal_local ciphertext length 67; opens to empty plaintext; valid local context",
+      "counter_before": 0,
+      "counter_after": 1,
+      "delta": 1,
+      "expected_delta": 1,
+      "fixed_marker_passed": true
+    },
+    {
+      "family": "held",
+      "case": "empty-list",
+      "observation": "ciphertext length 75; opens to encode_output_list([])",
+      "counter_before": 0,
+      "counter_after": 1,
+      "delta": 1,
+      "expected_delta": 1,
+      "fixed_marker_passed": true
+    },
+    {
+      "family": "held",
+      "case": "over-limit",
+      "observation": "exact Err(group_invitation_limit); 129 encodable records",
+      "counter_before": 0,
+      "counter_after": 1,
+      "delta": 1,
+      "expected_delta": 1,
+      "fixed_marker_passed": true
+    },
+    {
+      "family": "held",
+      "case": "malformed-record",
+      "observation": "exact Err(integer_encoding_failed); one record with state=256",
+      "counter_before": 0,
+      "counter_after": 1,
+      "delta": 1,
+      "expected_delta": 1,
+      "fixed_marker_passed": true
+    },
+    {
+      "family": "held",
+      "case": "invalid-context",
+      "observation": "direct seal_local exact Err(local_state_seal_failed); empty context",
+      "counter_before": 0,
+      "counter_after": 0,
+      "delta": 0,
+      "expected_delta": 0,
+      "fixed_marker_passed": true
+    },
+    {
+      "family": "held",
+      "case": "empty-fallback",
+      "observation": "direct seal_local ciphertext length 67; opens to empty plaintext; valid local context",
+      "counter_before": 0,
+      "counter_after": 1,
+      "delta": 1,
+      "expected_delta": 1,
+      "fixed_marker_passed": true
+    }
+  ],
+  "error_order": {
+    "original_source": "list limit -> record encoding -> output list encoding -> local context -> seal_local; each prior error returns immediately",
+    "held_source": "encoded result -> context result -> eager seal_local(encoded-or-empty, context-or-empty) -> encoded? -> context? -> sealed",
+    "exercised": "Encoding errors retain their exact returned string while held fallback sealing succeeds and consumes one counter; invalid context is tested only as an independent direct seal control",
+    "not_exercised": [
+      "encoding failure plus context-construction failure",
+      "encoding failure plus seal/key/counter reservation failure",
+      "context-construction failure plus seal failure",
+      "list-limit plus malformed-record competing failures",
+      "Host callback failure, counter exhaustion, crash durability or concurrent reservations"
+    ]
+  },
+  "sandbox": {
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/invitation-seal-effects/run-02/build.sb": "2c03ec471d5764351d941d7f03dc223778c32abc9a90c7c126a185272e8b815b",
+    "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/invitation-seal-effects/run-02/runtime.sb": "81e2c56d98a165360c85a7a611cfa085f193319de4898bb932cf53b0c5b87dee"
+  },
+  "build_env_overrides": {
+    "TMPDIR": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/invitation-seal-effects/run-02/tmp",
+    "MESH_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_rt.a",
+    "MESH_TEST_RT_LIB_PATH": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_test_rt.a"
+  },
+  "command_count": 718,
+  "commands": "Full exact argv, cwd, exit codes, durations and build/runtime log paths are retained in evidence.json commands",
+  "artifacts": {
+    "original": {
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/invitation-seal-effects/run-02/original/proof": "1f79d4a58a3e5a71071e188110c9654e96c8bada07267ea66de234b6b293b53c",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/invitation-seal-effects/run-02/original/plaintext.json": "e110e2472582e4895f3d0cd6b846cc432f8c497c08b4563efa838cc8ea7df55c",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/invitation-seal-effects/run-02/original/build.log": "db425e8de7b3e62735c93bc527c240abdda146e563281bec7d75b4c96b3e7730"
+    },
+    "held": {
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/invitation-seal-effects/run-02/held/proof": "8a5b27142d9561d29ac1be903b9c2f17b58c374d6d2f4667c6251e162e18a300",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/invitation-seal-effects/run-02/held/plaintext.json": "f7d5ecbc9bafa9b2cf473fa7bd1ba1a58e5945d784a11770de2cfd46f59ef62c",
+      "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/invitation-seal-effects/run-02/held/build.log": "b0af7dbaf37feaf37aff19aaf66487f6a7da0b3b3c2c44d4dd042de54e6a5108"
+    }
+  },
+  "key_inspection": "os.pread(fd, 8, 36) only, after stat verifies a private 44-byte regular single-link synthetic key file; no material read, hash or copy",
+  "integrity": {
+    "toolchain_stable": true,
+    "language_dependencies_stable": true,
+    "inspected_runtime_sources_stable": true,
+    "snapshots_stable": true,
+    "fixture_stable": true,
+    "held_patch_stable": true,
+    "runner_stable": true,
+    "artifact_hashes_verified": true,
+    "all_20_init_and_case_logs_exact_fixed_marker": true
+  },
+  "earlier_attempt": {
+    "path": ".morse/decoded-body-labels/invitation-seal-effects/run-01/evidence.json",
+    "status": "failed before runtime",
+    "reason": "Fixture used Bytes.repeat typed errors with ? in a String-error result. Only fixture input construction changed to infallible synthetic UTF-8 bytes. No production change."
+  },
+  "scope": "Actual pinned native runtime via app-only executables and StorageKey.file; not held-policy approval, Host platform callback dynamic qualification, or full receive adoption",
+  "limits": [
+    "No native or language source builds, edits, or copies; no source-to-binary reproducibility claim",
+    "No platform keychain, account, network operation, or generated network probe",
+    "No Host platform callback dynamic test",
+    "No held-policy approval or full receive adoption qualification",
+    "Competing failure combinations and fault injection are listed in error_order.not_exercised"
+  ],
+  "rerun": "python3 -B mesh-private-messenger/ops/plaintext/prove_invitation_seal_effects.py --output .morse/decoded-body-labels/invitation-seal-effects/<new-run-name>"
+}

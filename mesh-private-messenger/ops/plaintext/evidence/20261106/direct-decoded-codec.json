@@ -1,0 +1,155 @@
+{
+  "status": "passed",
+  "baseline": "a48963b4918f5fc39981176d4e46069b78dfeebb",
+  "evidence": {
+    "path": ".morse/decoded-body-labels/direct-codec/qualified-r2/evidence.json",
+    "sha256": "2ea75de21d255d4d8aa907357497ebbfe32917743e25c1b759090408ce2e97ab"
+  },
+  "runner": {
+    "path": "mesh-private-messenger/ops/plaintext/prove_direct_decoded_codec.py",
+    "sha256": "08762161e4f5b3b36bcc864b4cd72abdab6b335127a08c67f34d02b44b5696f5"
+  },
+  "helper_sha256": "bd02340d6e073e38bdd8f884d4a95c64b30e4fa99e6abfc29430c578d831102c",
+  "source": {
+    "path": "mesh-private-messenger/tests/direct-security/protocol_m5.mpl",
+    "sha256": "0d9112086e13aa42c4660a6e5a7e0c54fbd2c7be5560d99424663ce34787a152"
+  },
+  "toolchain": {
+    "bin/meshc": "19ef395b701a3c76ff006956597b6ec176810c78a6d07271a253199911ea4e85",
+    "lib/libmesh_rt.a": "d1e2b001783fe819f03644f5e4dcf42bc362bb1cecd04e475097d80cf9d3a8f8",
+    "lib/libmesh_test_rt.a": "9283206f47c6a52fa075a108773854ad7a12aae437c16b04c4fc747740674c33"
+  },
+  "runs": [
+    {
+      "name": "original-baseline",
+      "command": [
+        "/usr/bin/sandbox-exec",
+        "-f",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/direct-codec/qualified-r2/offline.sb",
+        "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+        "build",
+        "--json",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/direct-codec/qualified-r2/original-baseline/probe",
+        "--plaintext-report",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/direct-codec/qualified-r2/original-baseline/plaintext.json",
+        "-o",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/direct-codec/qualified-r2/original-baseline/proof"
+      ],
+      "build_exit": 0,
+      "source_sha256": "9d02a29c2e19d7b8866d5308ed148e30daca7fdc43e2c4123bfc6f9a8cf7cb53",
+      "seconds": 13.52,
+      "run_command": [
+        "/usr/bin/sandbox-exec",
+        "-f",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/direct-codec/qualified-r2/offline.sb",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/direct-codec/qualified-r2/original-baseline/proof"
+      ],
+      "run_exit": 0,
+      "stdout_matches": true,
+      "empty_stderr": true,
+      "binary_sha256": "c34fd02c9f90465d48a1c171f8f3caa53f0540cc7420ec333ca4be43a7922a81",
+      "source_stable": true,
+      "refusal_count": 0
+    },
+    {
+      "name": "labeled-original-fixture",
+      "command": [
+        "/usr/bin/sandbox-exec",
+        "-f",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/direct-codec/qualified-r2/offline.sb",
+        "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+        "build",
+        "--json",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/direct-codec/qualified-r2/labeled-original-fixture/probe",
+        "--plaintext-report",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/direct-codec/qualified-r2/labeled-original-fixture/plaintext.json",
+        "-o",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/direct-codec/qualified-r2/labeled-original-fixture/proof"
+      ],
+      "build_exit": 1,
+      "source_sha256": "9d02a29c2e19d7b8866d5308ed148e30daca7fdc43e2c4123bfc6f9a8cf7cb53",
+      "seconds": 9.929,
+      "source_stable": true,
+      "refusal_count": 10
+    },
+    {
+      "name": "labeled-current-fixture",
+      "command": [
+        "/usr/bin/sandbox-exec",
+        "-f",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/direct-codec/qualified-r2/offline.sb",
+        "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+        "build",
+        "--json",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/direct-codec/qualified-r2/labeled-current-fixture/probe",
+        "--plaintext-report",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/direct-codec/qualified-r2/labeled-current-fixture/plaintext.json",
+        "-o",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/direct-codec/qualified-r2/labeled-current-fixture/proof"
+      ],
+      "build_exit": 0,
+      "source_sha256": "93c2ed3f4d2ca267ead3a198b1167ded87573e1c0ad880d64519746c08f15662",
+      "seconds": 11.611,
+      "run_command": [
+        "/usr/bin/sandbox-exec",
+        "-f",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/direct-codec/qualified-r2/offline.sb",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/direct-codec/qualified-r2/labeled-current-fixture/proof"
+      ],
+      "run_exit": 0,
+      "stdout_matches": true,
+      "empty_stderr": true,
+      "binary_sha256": "985b4cfab1c977aa6aef1cb0fa201b37e895eb49915d47d7a3501b2efbf2e1b8",
+      "source_stable": true,
+      "refusal_count": 0
+    },
+    {
+      "name": "wrong-error-control",
+      "command": [
+        "/usr/bin/sandbox-exec",
+        "-f",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/direct-codec/qualified-r2/offline.sb",
+        "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+        "build",
+        "--json",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/direct-codec/qualified-r2/wrong-error-control/probe",
+        "--plaintext-report",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/direct-codec/qualified-r2/wrong-error-control/plaintext.json",
+        "-o",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/direct-codec/qualified-r2/wrong-error-control/proof"
+      ],
+      "build_exit": 0,
+      "source_sha256": "a70675d5e867b7e93ba6ea8e8a30f65b3e9d89b675a6f9d9ed0ef33b9a9874b9",
+      "seconds": 12.94,
+      "run_command": [
+        "/usr/bin/sandbox-exec",
+        "-f",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/direct-codec/qualified-r2/offline.sb",
+        "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/direct-codec/qualified-r2/wrong-error-control/proof"
+      ],
+      "run_exit": 0,
+      "stdout_matches": true,
+      "empty_stderr": true,
+      "binary_sha256": "e91b9858aae0de9787cb812bad89141709da182e8153d13c811e815f4dee8659",
+      "source_stable": true,
+      "refusal_count": 0
+    }
+  ],
+  "checks": {
+    "original_baseline_stdout_lines": 16,
+    "current_stdout_exactly_equal": true,
+    "original_fixture_e0093": 10,
+    "original_refusal_locations": "eight observations and two callers; exact source spans in evidence",
+    "wrong_error_control": "Only OversizedInput pattern becomes InvalidFieldLength; exact inner-limit-wrong-error marker replaces inner-limit",
+    "test_disclosure": "One private fixture-only Plaintext<Bool> helper, three observations; no body/result/error disclosure",
+    "inputs_stable": true,
+    "toolchain_stable": true
+  },
+  "scope": "Existing protocol_m5 golden/hostile contract only; no full Main, receive, native or release claim.",
+  "network": "Denied for compilation and execution by sandbox-exec.",
+  "rerun": "python3 -B mesh-private-messenger/ops/plaintext/prove_direct_decoded_codec.py --output .morse/decoded-body-labels/direct-codec/<new-run-name>",
+  "earlier_attempts": [
+    "after-r2 stdout mismatch came from omitted CREDENTIAL_HEX substitution, fixed in runner",
+    "qualified stopped on transitive inner_proof println effect diagnostic; corrected assertion checks all exact eight observations and two callers"
+  ]
+}
