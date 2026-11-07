@@ -1,0 +1,6 @@
+{
+  "head": "3fc654fba83cc405e79572f9a76cc7a58affa8c4",
+  "archive_sha256": "408418c1b2e4c07fa32712b8fb8378db7204d62b39274d72c4751abbf44797ac",
+  "test_sha256": "644a73798f79d9c6fdb97ee0e1e145ca13beff230f1f45ea5d41e301381a58b2",
+  "scope": "Genuine linked fixture prefix; then remove outbound marker, reserve fresh sibling prekey, actual public fanout/initial receive, new session ID and both markers, reverse ratchet and exact histories. No frozen source/test edits."
+}

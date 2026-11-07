@@ -1,0 +1,11 @@
+Error: Parse error
+     ╭─[ /Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f897514f/.morse/sibling-authority/extra-controls-r1/mesh-private-messenger/packages/mobile-core/tests/sibling_extra.test.mpl:168:7 ]
+     │
+ 168 │   let after = load_account_basis(fixture.linked_path, labels)?
+     │       ──┬──  
+     │         ╰──── expected identifier or pattern after `let`
+─────╯
+COMPILE ERROR: tests/sibling_extra.test.mpl
+  Compilation failed due to errors above.
+
+1 test file failed, 0 passed in 0.22s

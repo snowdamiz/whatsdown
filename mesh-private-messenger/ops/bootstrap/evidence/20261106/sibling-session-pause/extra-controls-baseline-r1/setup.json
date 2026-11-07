@@ -1,0 +1,6 @@
+{
+  "head": "b49347edde13fc3bad29f2c697e2983271e276ae",
+  "archive_sha256": "94fc88938261af9cc666548a0ce98dd462ca46abf9127029a2a8679c61417b04",
+  "test_sha256": "6e0edde8bf66f4b60db7aa94f21b6710bc56c8467ca8932e95326f5f4fc398d6",
+  "test_difference": "none; exact same two-case fixture from candidate scratch"
+}

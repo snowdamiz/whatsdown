@@ -1,0 +1,24 @@
+{
+  "status": "PAUSED_BY_USER_CANDIDATE_UNADOPTED",
+  "source_head": "3fc654fba83cc405e79572f9a76cc7a58affa8c4",
+  "credential_controls": "Exact two-case scratch fixture: candidate2pass; immutableb49347e matchingcontrolpasses, key-mismatchcasefails. No source/tool drift. These were not added to frozen production/test tree.",
+  "recovery_control": "Interrupted with SIGINT at user pause. No result/qualification claimed; source and partial log retained.",
+  "review": "Independent sibling review interrupted. Partial finding: fanout validates one loaded snapshot then re-reads before encryption, allowing transient older-session-row replay to evade the check. Smaller freshness/capacity concerns not yet documented. Do not adopt until full review/correction/qualification.",
+  "local_retained": "All original snapshots, binaries, fixture databases and historical logs remain in .morse/sibling-authority.",
+  "files": {
+    "execute-copy.py": "752c2246e111aa0ec48cc54da62c656a1a8b915d49c84f635e456b1ccca44969",
+    "extra-controls-baseline-r1/mesh-private-messenger/packages/mobile-core/tests/sibling_extra.test.mpl": "6e0edde8bf66f4b60db7aa94f21b6710bc56c8467ca8932e95326f5f4fc398d6",
+    "extra-controls-baseline-r1/result.json": "e6394def871bd001c176a630fff815d706f42a23d4a52c69418ecbccbf9dd220",
+    "extra-controls-baseline-r1/setup.json": "2470318ea8bd9a939c5f750772b1dcc99b0e50d1b11ab9c27c26920c06b4249e",
+    "extra-controls-baseline-r1/test.log": "ef86dca54c6ffb2a9f9c20bc57b8e49fad9cdd403a4b28bcdf1315190120246c",
+    "extra-controls-r1/mesh-private-messenger/packages/mobile-core/tests/sibling_extra.test.mpl": "6e0edde8bf66f4b60db7aa94f21b6710bc56c8467ca8932e95326f5f4fc398d6",
+    "extra-controls-r1/parse-error.json": "6dfad1d2f3fa2bac180adb7a54cff81a88e64c4cdf7e48d3a4d93f9472f3007a",
+    "extra-controls-r1/parse-error.log": "fc8c2f8af982e421de3ffcd5360a078daaed536bceadc4e57613ba2a1168ebf8",
+    "extra-controls-r1/result.json": "e8091874938c4e52b96eb84279855307dd9d1c0eb0ed7094841a7348db97162d",
+    "extra-controls-r1/setup.json": "aa1e9bc1072cc94f9a7f60fa87170fa8698a446297dd6417ba6e6cf52d47e39d",
+    "extra-controls-r1/test.log": "22d9927a6aeb85bfafdd138f2118e4a3e35737434fa6d99ee0cd5722b7ce4061",
+    "recovery-controls-r1/mesh-private-messenger/packages/mobile-core/tests/sibling_recovery.test.mpl": "644a73798f79d9c6fdb97ee0e1e145ca13beff230f1f45ea5d41e301381a58b2",
+    "recovery-controls-r1/setup.json": "a95465de5490ab38be57ff25dd89355398ae64e192330563c6777aa45884c641",
+    "recovery-controls-r1/test.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+}

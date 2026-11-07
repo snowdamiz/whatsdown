@@ -1,0 +1,14 @@
+[mesh-codegen] warning: call to 'assert' could not be resolved as a trait method for type 'Bool'. This may indicate a type checker bug.
+[mesh-codegen] warning: call to 'assert' could not be resolved as a trait method for type 'Bool'. This may indicate a type checker bug.
+  ✓ matching actual credential and decrypted profile admit sibling initial
+actual handshake credential/profile key mismatch not refused exactly
+  ✗ valid same-root same-device credential with different actual keys refuses
+    assert failed: false
+
+Failures:
+  ✗ valid same-root same-device credential with different actual keys refuses
+    assert failed: false
+
+1 failed, 1 passed in 0.18s
+
+1 test file failed, 0 passed in 41.90s

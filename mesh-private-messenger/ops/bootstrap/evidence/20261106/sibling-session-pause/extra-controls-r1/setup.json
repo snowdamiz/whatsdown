@@ -1,0 +1,6 @@
+{
+  "head": "3fc654fba83cc405e79572f9a76cc7a58affa8c4",
+  "archive_sha256": "408418c1b2e4c07fa32712b8fb8378db7204d62b39274d72c4751abbf44797ac",
+  "scratch_test_sha256": "2d93db42bf5d49cb6d00b19a0fd7fe517fbbab56bb4f31fe165f04d935f0ebcf",
+  "scope": "Two actual initial API cases: matching credential/profile vs valid same-root same-device credential with different signing/DH keys. Frozen candidate unchanged."
+}
