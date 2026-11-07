@@ -1,0 +1,81 @@
+{
+  "status": "REPRODUCED_RUNTIME_GAP",
+  "scope": "Generated ABI and public runtime with synthetic native epoch; no real product lifecycle or wallet qualification",
+  "source_base": "f2e872a51457ec5963132ec9cbf4303c31e453ea",
+  "evidence_root": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-45960604/.morse/native-effect-runtime-red",
+  "source_artifact_pins": {
+    "mesh/main.mpl": "2f584f4a5e8bcda1403f512e2ad32a7b498faa8f328dc9e370f0ec0a6eb93352",
+    "native/driver.m": "ee2eb420ea9f1770ec690633b3dbeecd76baf5b566439eed5cceac427b97459c",
+    "build/libnative_effect_runtime.dylib": "5ab3f5a1b83b0c5b9f0ded5d80261ed96d5e0337029b09990c545c954227e501",
+    "build/native_effect_driver": "9d74e9f53e1349411e7f6f0c653dd5dd50a8bb3094efb5f9922801166a7a153f",
+    "build/libnative_effect_runtime.h": "bc700d112adada666e9b71639c773e0601ad96a3779724256a1bfe35f61d69bb"
+  },
+  "source_artifact_drift": [],
+  "parent_verification": "Inspected real Mesh/ObjC source and ordering, checked all listed hashes, read retained SQLite immutably, verified log barriers and exit records. Freshly reran control and red-success using the hash-verified owner binaries. HTTP500/reset retained evidence only.",
+  "limits": [
+    "HTTP500/reset cases skip mutation by fixture policy; they do not prove runtime retirement enforcement.",
+    "Raw post-refusal probe is deliberate and would not be dispatched by the wrapper.",
+    "BUSY is observed during suspension; recorded nanoseconds are not a performance measurement.",
+    "No iOS/Android/macOS app owner, nonce/secure-store or proposed scoped API execution."
+  ],
+  "report_sha256": "67062a64884ab518acd621f1f835683b4e7d01898fdb24dada615d04bd29d721",
+  "runs": {
+    "control": {
+      "exit": 0,
+      "busy_during_hold": true,
+      "rows": [
+        [
+          "commit",
+          "control",
+          "effect-ok"
+        ],
+        [
+          "descendant",
+          "control",
+          "after-export-return"
+        ]
+      ],
+      "published_bytes": 94,
+      "path": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/native-effect-runtime-red/fresh-parent/control"
+    },
+    "red-success": {
+      "exit": 0,
+      "busy_during_hold": true,
+      "rows": [
+        [
+          "commit",
+          "red-success",
+          "effect-ok"
+        ],
+        [
+          "descendant",
+          "red-success",
+          "after-export-return"
+        ]
+      ],
+      "published_bytes": 0,
+      "path": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/native-effect-runtime-red/fresh-parent/red-success"
+    },
+    "red-status": {
+      "exit": 0,
+      "busy_during_hold": true,
+      "rows": [],
+      "published_bytes": 0,
+      "path": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-45960604/.morse/native-effect-runtime-red/evidence/runs/red-status"
+    },
+    "red-reset": {
+      "exit": 0,
+      "busy_during_hold": true,
+      "rows": [],
+      "published_bytes": 0,
+      "path": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-45960604/.morse/native-effect-runtime-red/evidence/runs/red-reset"
+    }
+  },
+  "audit": {
+    "path": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/native-effect-runtime-red/audit.json",
+    "sha256": "b9a8e6a278f35bad5f01faf70b3e6772b58b510a95582fb7e75c601b1ce9dad6",
+    "script_sha256": "e9b387ce1506f7543ab63cdbb59d343f912b53c242f84bf982957caca436d3dd",
+    "parent_runs_sha256": "641698d2b74439d7027ab6907d78f43f2381c43d2e661e7431c6178b7a359a47"
+  },
+  "cleanup": "Fresh parent driver processes exited zero; no open driver handles. Small SQLite traces and exact current artifacts retained for runtime regression."
+}
