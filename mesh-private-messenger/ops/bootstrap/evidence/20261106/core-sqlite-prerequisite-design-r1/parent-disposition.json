@@ -1,0 +1,9 @@
+{
+  "status": "REQUEST_CHANGES_PROPOSAL_UNAPPLIED",
+  "proposal_sha256": "44ffe912c31e299392abad1aecf9431e619fafd15833b73508a2c1dcb94eae12",
+  "review_sha256": "a04c94309bdc2050634efacd03b7e0f6b9956afbfa1193978d6209ec07daa1ee",
+  "verification_sha256": "8fc311a0067d5394828ab5a3a1e458ae6e2635a8c056929d564009da22d89e68",
+  "parent_action": "Read full design review, preserve frozen proposal, request separately pinned D1/D2 amendment from sole language owner. No implementation or activation approval.",
+  "scope": "Frozen source inspection only; recorded concurrent live R2 drift does not alter frozen review. No runtime/probe execution by reviewer.",
+  "runtime_status": "R2 implementation independently REQUEST_CHANGES for heap-loan cycle and never-sent HTTP registry ownership; correction and new review pending."
+}

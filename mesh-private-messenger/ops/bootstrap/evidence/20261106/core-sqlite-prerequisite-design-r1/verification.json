@@ -1,0 +1,613 @@
+{
+  "review_kind": "read-only design/effect review of unapplied SQLite prerequisite",
+  "verdict": "REQUEST_CHANGES",
+  "completed_utc": "2026-11-07T02:45:27.159851+00:00",
+  "review_path": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/core-sqlite-design-review-r1/review.md",
+  "review_sha256": "a04c94309bdc2050634efacd03b7e0f6b9956afbfa1193978d6209ec07daa1ee",
+  "findings": [
+    {
+      "id": "D1",
+      "priority": "high",
+      "status": "design_amendment_required",
+      "title": "Busy-handler recovery must cover prepare failure after timeout mutation"
+    },
+    {
+      "id": "D2",
+      "priority": "medium",
+      "status": "design_amendment_required",
+      "title": "Restore stable authorizer state without expiring the prepared statement"
+    }
+  ],
+  "verification": {
+    "method": "filesystem reads, source inspection and SHA256 only; helper scripts do not execute project code",
+    "inputs_hashed": 31,
+    "all_inputs_unchanged": false,
+    "all_checked_pins_match": false,
+    "proposal_all_pins_match": false,
+    "reviewed_proposal_source_pins_match": true,
+    "explicit_brief_pins_match": true,
+    "frozen_inputs_unchanged": true,
+    "cited_inputs_changed": [],
+    "review_basis_intact": true,
+    "live_source_drift_observed": [
+      {
+        "path": "/Users/andreyyurlov/Documents/dev/mesh-lang/compiler/mesh-rt/src/authority.rs",
+        "sha256_before": "d80426feeec87bf5337624608dc822036132ebfff7554fb7a4e9e07f7ec8344d",
+        "sha256_after": "1aecea93cdd5bc36c19011c21031318d898c9595039398f428aa0c7941467a0b",
+        "bytes_before": 14239,
+        "bytes_after": 14913,
+        "first_read_utc": "2026-11-07T02:37:56.478999+00:00",
+        "unchanged": false
+      },
+      {
+        "path": "/Users/andreyyurlov/Documents/dev/mesh-lang/compiler/mesh-rt/src/actor/scheduler.rs",
+        "sha256_before": "4ed8703c70b77fa60b9b08f9e650fc240a72b068585ba7147379e8b4723eea89",
+        "sha256_after": "f1c26abc052c2d39104f1552b300dfce1a326a81abe46c8a70f0bcb718ddbf26",
+        "bytes_before": 75667,
+        "bytes_after": 75871,
+        "first_read_utc": "2026-11-07T02:37:56.480441+00:00",
+        "unchanged": false
+      },
+      {
+        "path": "/Users/andreyyurlov/Documents/dev/mesh-lang/compiler/mesh-rt/src/library/invocation.rs",
+        "sha256_before": "7fefc1322889fc3129496b9fa73c8232021343815bdef32cb66ed67816326abd",
+        "sha256_after": "589a1fc019af0e67b92c099864842dc68538f0951c63d5007b43d4c9c27a4689",
+        "bytes_before": 47886,
+        "bytes_after": 52572,
+        "first_read_utc": "2026-11-07T02:38:27.243571+00:00",
+        "unchanged": false
+      }
+    ],
+    "drift_handling": "Live authority.rs, scheduler.rs and invocation.rs changed concurrently; all runtime citations use unchanged pinned snapshots. No review of newer live revisions. Live pin matches and reviewed frozen pin matches are reported separately.",
+    "source_citation_links_checked": 40,
+    "invalid_source_citation_links": [],
+    "proposal_pins": [
+      {
+        "path": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-owned-invocations/core-sqlite-prerequisite/PROPOSAL.md",
+        "expected": "44ffe912c31e299392abad1aecf9431e619fafd15833b73508a2c1dcb94eae12",
+        "actual": "44ffe912c31e299392abad1aecf9431e619fafd15833b73508a2c1dcb94eae12",
+        "matches": true,
+        "reviewed_source_path": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-owned-invocations/core-sqlite-prerequisite/PROPOSAL.md",
+        "reviewed_source_matches_pin": true
+      },
+      {
+        "path": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-owned-invocations/core-sqlite-prerequisite/prepare_probe.py",
+        "expected": "e886d2de9bde0ba972e56664f69462d2c0e1812164de96c2387d11a511e85d1f",
+        "actual": "e886d2de9bde0ba972e56664f69462d2c0e1812164de96c2387d11a511e85d1f",
+        "matches": true,
+        "reviewed_source_path": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-owned-invocations/core-sqlite-prerequisite/prepare_probe.py",
+        "reviewed_source_matches_pin": true
+      },
+      {
+        "path": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-owned-invocations/core-sqlite-prerequisite/prepare-probe.json",
+        "expected": "6567d284844d10b5af93776939e37f9730f944a9814b996bd2aaa8e0de7bad91",
+        "actual": "6567d284844d10b5af93776939e37f9730f944a9814b996bd2aaa8e0de7bad91",
+        "matches": true,
+        "reviewed_source_path": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-owned-invocations/core-sqlite-prerequisite/prepare-probe.json",
+        "reviewed_source_matches_pin": true
+      },
+      {
+        "path": "/Users/andreyyurlov/Documents/dev/mesh-lang/compiler/mesh-rt/src/db/sqlite.rs",
+        "expected": "d443bf83725d3ea824dbfee7ae86b4ae69eac2012d82f30e14593690ec116dde",
+        "actual": "d443bf83725d3ea824dbfee7ae86b4ae69eac2012d82f30e14593690ec116dde",
+        "matches": true,
+        "reviewed_source_path": "/Users/andreyyurlov/Documents/dev/mesh-lang/compiler/mesh-rt/src/db/sqlite.rs",
+        "reviewed_source_matches_pin": true
+      },
+      {
+        "path": "/Users/andreyyurlov/Documents/dev/mesh-lang/compiler/mesh-rt/src/authority.rs",
+        "expected": "d80426feeec87bf5337624608dc822036132ebfff7554fb7a4e9e07f7ec8344d",
+        "actual": "1aecea93cdd5bc36c19011c21031318d898c9595039398f428aa0c7941467a0b",
+        "matches": false,
+        "reviewed_source_path": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-owned-invocations/review-input-r2/source/compiler/mesh-rt/src/authority.rs",
+        "reviewed_source_matches_pin": true
+      },
+      {
+        "path": "/Users/andreyyurlov/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libsqlite3-sys-0.36.0/sqlite3/sqlite3.c",
+        "expected": "ff57e8d0a1572b35c17cab9a7dea34616bc12b6fb8b29acf5cb00b6ecf025149",
+        "actual": "ff57e8d0a1572b35c17cab9a7dea34616bc12b6fb8b29acf5cb00b6ecf025149",
+        "matches": true,
+        "reviewed_source_path": "/Users/andreyyurlov/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libsqlite3-sys-0.36.0/sqlite3/sqlite3.c",
+        "reviewed_source_matches_pin": true
+      },
+      {
+        "path": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-owned-invocations/core-bootstrap/mobile-core/storage/blobs.mpl",
+        "expected": "1f0ee7e205bb5dc6b686c6a448989d7db19224b1728002c6aeac8351ed12a054",
+        "actual": "1f0ee7e205bb5dc6b686c6a448989d7db19224b1728002c6aeac8351ed12a054",
+        "matches": true,
+        "reviewed_source_path": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-owned-invocations/core-bootstrap/mobile-core/storage/blobs.mpl",
+        "reviewed_source_matches_pin": true
+      }
+    ],
+    "explicit_brief_pins": [
+      {
+        "path": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-owned-invocations/core-sqlite-prerequisite/PROPOSAL.md",
+        "expected": "44ffe912c31e299392abad1aecf9431e619fafd15833b73508a2c1dcb94eae12",
+        "actual": "44ffe912c31e299392abad1aecf9431e619fafd15833b73508a2c1dcb94eae12",
+        "matches": true
+      },
+      {
+        "path": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-owned-invocations/API_PROPOSAL.md",
+        "expected": "544325a5eb2c656741e40da7524edc1ed645a1b7aeaea7219814e2a7bfbe79dc",
+        "actual": "544325a5eb2c656741e40da7524edc1ed645a1b7aeaea7219814e2a7bfbe79dc",
+        "matches": true
+      },
+      {
+        "path": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-owned-invocations/review-input-r2/source-pin.json",
+        "expected": "48fd7392c87319a97aed03489f1016525476209398ff27468ea4b0afde1cbee6",
+        "actual": "48fd7392c87319a97aed03489f1016525476209398ff27468ea4b0afde1cbee6",
+        "matches": true
+      }
+    ],
+    "r2_manifest_file_count": 33,
+    "r2_inspected_subset_only": [
+      {
+        "path": "/Users/andreyyurlov/Documents/dev/mesh-lang/compiler/mesh-rt/src/actor/process.rs",
+        "expected": "7067c9b152282b3c70f932b9511213c9991769284cfb22360fa29373433adc4d",
+        "actual": "7067c9b152282b3c70f932b9511213c9991769284cfb22360fa29373433adc4d",
+        "matches": true,
+        "snapshot_path": null,
+        "snapshot_matches": null
+      },
+      {
+        "path": "/Users/andreyyurlov/Documents/dev/mesh-lang/compiler/mesh-rt/src/actor/scheduler.rs",
+        "expected": "4ed8703c70b77fa60b9b08f9e650fc240a72b068585ba7147379e8b4723eea89",
+        "actual": "f1c26abc052c2d39104f1552b300dfce1a326a81abe46c8a70f0bcb718ddbf26",
+        "matches": false,
+        "snapshot_path": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-owned-invocations/review-input-r2/source/compiler/mesh-rt/src/actor/scheduler.rs",
+        "snapshot_matches": true
+      },
+      {
+        "path": "/Users/andreyyurlov/Documents/dev/mesh-lang/compiler/mesh-rt/src/actor/stack.rs",
+        "expected": "5c82bd7e2a86b4a9aed9fdbe327fafb35174de4bd28f6a0b898514599bf91b78",
+        "actual": "5c82bd7e2a86b4a9aed9fdbe327fafb35174de4bd28f6a0b898514599bf91b78",
+        "matches": true,
+        "snapshot_path": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-owned-invocations/review-input-r2/source/compiler/mesh-rt/src/actor/stack.rs",
+        "snapshot_matches": true
+      },
+      {
+        "path": "/Users/andreyyurlov/Documents/dev/mesh-lang/compiler/mesh-rt/src/authority.rs",
+        "expected": "d80426feeec87bf5337624608dc822036132ebfff7554fb7a4e9e07f7ec8344d",
+        "actual": "1aecea93cdd5bc36c19011c21031318d898c9595039398f428aa0c7941467a0b",
+        "matches": false,
+        "snapshot_path": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-owned-invocations/review-input-r2/source/compiler/mesh-rt/src/authority.rs",
+        "snapshot_matches": true
+      },
+      {
+        "path": "/Users/andreyyurlov/Documents/dev/mesh-lang/compiler/mesh-rt/src/library/invocation.rs",
+        "expected": "7fefc1322889fc3129496b9fa73c8232021343815bdef32cb66ed67816326abd",
+        "actual": "589a1fc019af0e67b92c099864842dc68538f0951c63d5007b43d4c9c27a4689",
+        "matches": false,
+        "snapshot_path": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-owned-invocations/review-input-r2/source/compiler/mesh-rt/src/library/invocation.rs",
+        "snapshot_matches": true
+      },
+      {
+        "path": "/Users/andreyyurlov/Documents/dev/mesh-lang/compiler/mesh-rt/src/storage_wrapping.rs",
+        "expected": "3029fbd46c0dd43e47db66f353aa9d85549d5e04f0ad39f8806875445b21bcfa",
+        "actual": "3029fbd46c0dd43e47db66f353aa9d85549d5e04f0ad39f8806875445b21bcfa",
+        "matches": true,
+        "snapshot_path": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-owned-invocations/review-input-r2/source/compiler/mesh-rt/src/storage_wrapping.rs",
+        "snapshot_matches": true
+      },
+      {
+        "path": "/Users/andreyyurlov/Documents/dev/mesh-lang/docs/native-library/owned-invocations.md",
+        "expected": "c4a5d9cfe1151cdad92d7a2bb9913cae64c112fe8000b9a21d00f2327821de6e",
+        "actual": "c4a5d9cfe1151cdad92d7a2bb9913cae64c112fe8000b9a21d00f2327821de6e",
+        "matches": true,
+        "snapshot_path": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-owned-invocations/review-input-r2/source/docs/native-library/owned-invocations.md",
+        "snapshot_matches": true
+      }
+    ],
+    "r2_full_implementation_certified": false,
+    "frozen_r1_sqlite_matches_current": true
+  },
+  "scope": {
+    "authorized_write_directory": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-f9098070/.morse/continuation-20261106/core-sqlite-design-review-r1",
+    "runtime_execution": false,
+    "probe_executed": false,
+    "builds": false,
+    "tests": false,
+    "network": false,
+    "children_created": false,
+    "git_commands_or_mutations": false,
+    "source_proposal_plan_inventory_or_production_edits": false,
+    "binary_or_toolchain_copies": false,
+    "binary_loaded_or_library_hash_recomputed": false,
+    "source_snapshots_copied": false
+  },
+  "reported_evidence_not_reexecuted": {
+    "prepare_probe": {
+      "build_defaults": {
+        "busy_timeout": 0,
+        "secure_delete": 0
+      },
+      "reopened_secure_delete": 0,
+      "scope": "direct embedded SQLite only; Mesh policy unchanged",
+      "sqlite_version_number": 3051001,
+      "library": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-owned-invocations/generated-abi-1794018547245341000/libprogress.dylib",
+      "library_sha256": "47e70c745ba233e2a62b0d2f5d8c707a14540824db872149e0cd6be79a278856",
+      "cases": [
+        {
+          "pragma": "busy_timeout",
+          "before": 0,
+          "prepare_without_step": 1000,
+          "authorizer_denied_status": 23,
+          "after_denied_prepare": 0,
+          "authorizer_arguments": [
+            [
+              "busy_timeout",
+              "1000"
+            ]
+          ]
+        },
+        {
+          "pragma": "secure_delete",
+          "before": 0,
+          "prepare_without_step": 1,
+          "authorizer_denied_status": 23,
+          "after_denied_prepare": 0,
+          "authorizer_arguments": [
+            [
+              "secure_delete",
+              "ON"
+            ]
+          ]
+        }
+      ]
+    },
+    "core_red_result": {
+      "path": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-owned-invocations/core-bootstrap/red2/local-result.json",
+      "status": "FAIL",
+      "error": "AssertionError(('mesh_messenger_create_account', 10, 0, []))",
+      "rpc_http_requests": 0
+    },
+    "parent_reported_runtime_tests": {
+      "passed": 1673,
+      "ignored": 20,
+      "certified_by_this_review": false
+    },
+    "parent_reported_r1_legacy_scheduled_cases": {
+      "cases": 62,
+      "certified_by_this_review": false
+    }
+  },
+  "remaining_tests_all_unrun": [
+    "D1 post-setter failure recovery, repeated configuration and safe connection reuse",
+    "D2 stable authorizer restoration, nested preparation and automatic reprepare",
+    "Retirement/ready-step ordering, last-check race, settlement and callback/close lifetimes",
+    "All six execute/query routes: exact grammar, parameters, NUL, tails, quota, owner and capability refusals before settings",
+    "Real contention, aggregate per-effect deadline, multiple query steps, immediate BUSY and single-lane liveness",
+    "Raw transactions/savepoints, other-connection resources, rollback and no local-settlement self-block",
+    "Secure-delete ON main-file/overflow/freelist effects and rollback/crash/WAL/journal/new-connection controls",
+    "Unchanged actual Core RPC and held-RPC/new-load composition, fresh R1/ABI/capability compatibility and independent review"
+  ],
+  "inputs": [
+    {
+      "path": "/Users/andreyyurlov/Documents/dev/mesh-lang/AGENTS.md",
+      "sha256_before": "cd8a2cf5ea59a1cb4190be97343124f4c984d136a297a73396780246009559b9",
+      "sha256_after": "cd8a2cf5ea59a1cb4190be97343124f4c984d136a297a73396780246009559b9",
+      "bytes_before": 829,
+      "bytes_after": 829,
+      "first_read_utc": "2026-11-07T02:37:46.292736+00:00",
+      "unchanged": true
+    },
+    {
+      "path": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-owned-invocations/core-sqlite-prerequisite/PROPOSAL.md",
+      "sha256_before": "44ffe912c31e299392abad1aecf9431e619fafd15833b73508a2c1dcb94eae12",
+      "sha256_after": "44ffe912c31e299392abad1aecf9431e619fafd15833b73508a2c1dcb94eae12",
+      "bytes_before": 9398,
+      "bytes_after": 9398,
+      "first_read_utc": "2026-11-07T02:37:46.293735+00:00",
+      "unchanged": true
+    },
+    {
+      "path": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-owned-invocations/core-sqlite-prerequisite/pins.json",
+      "sha256_before": "8bbaa6b124b9028a5cd0848bab692bf551464278a146ceff20a48fb372a4eb7c",
+      "sha256_after": "8bbaa6b124b9028a5cd0848bab692bf551464278a146ceff20a48fb372a4eb7c",
+      "bytes_before": 1247,
+      "bytes_after": 1247,
+      "first_read_utc": "2026-11-07T02:37:46.295406+00:00",
+      "unchanged": true
+    },
+    {
+      "path": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-owned-invocations/core-sqlite-prerequisite/prepare_probe.py",
+      "sha256_before": "e886d2de9bde0ba972e56664f69462d2c0e1812164de96c2387d11a511e85d1f",
+      "sha256_after": "e886d2de9bde0ba972e56664f69462d2c0e1812164de96c2387d11a511e85d1f",
+      "bytes_before": 3245,
+      "bytes_after": 3245,
+      "first_read_utc": "2026-11-07T02:37:46.295868+00:00",
+      "unchanged": true
+    },
+    {
+      "path": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-owned-invocations/core-sqlite-prerequisite/prepare-probe.json",
+      "sha256_before": "6567d284844d10b5af93776939e37f9730f944a9814b996bd2aaa8e0de7bad91",
+      "sha256_after": "6567d284844d10b5af93776939e37f9730f944a9814b996bd2aaa8e0de7bad91",
+      "bytes_before": 1000,
+      "bytes_after": 1000,
+      "first_read_utc": "2026-11-07T02:37:46.297242+00:00",
+      "unchanged": true
+    },
+    {
+      "path": "/Users/andreyyurlov/Documents/dev/mesh-lang/compiler/mesh-rt/src/db/sqlite.rs",
+      "sha256_before": "d443bf83725d3ea824dbfee7ae86b4ae69eac2012d82f30e14593690ec116dde",
+      "sha256_after": "d443bf83725d3ea824dbfee7ae86b4ae69eac2012d82f30e14593690ec116dde",
+      "bytes_before": 42628,
+      "bytes_after": 42628,
+      "first_read_utc": "2026-11-07T02:37:56.477742+00:00",
+      "unchanged": true
+    },
+    {
+      "path": "/Users/andreyyurlov/Documents/dev/mesh-lang/compiler/mesh-rt/src/authority.rs",
+      "sha256_before": "d80426feeec87bf5337624608dc822036132ebfff7554fb7a4e9e07f7ec8344d",
+      "sha256_after": "1aecea93cdd5bc36c19011c21031318d898c9595039398f428aa0c7941467a0b",
+      "bytes_before": 14239,
+      "bytes_after": 14913,
+      "first_read_utc": "2026-11-07T02:37:56.478999+00:00",
+      "unchanged": false
+    },
+    {
+      "path": "/Users/andreyyurlov/Documents/dev/mesh-lang/compiler/mesh-rt/src/actor/scheduler.rs",
+      "sha256_before": "4ed8703c70b77fa60b9b08f9e650fc240a72b068585ba7147379e8b4723eea89",
+      "sha256_after": "f1c26abc052c2d39104f1552b300dfce1a326a81abe46c8a70f0bcb718ddbf26",
+      "bytes_before": 75667,
+      "bytes_after": 75871,
+      "first_read_utc": "2026-11-07T02:37:56.480441+00:00",
+      "unchanged": false
+    },
+    {
+      "path": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-owned-invocations/core-bootstrap/mobile-core/storage/blobs.mpl",
+      "sha256_before": "1f0ee7e205bb5dc6b686c6a448989d7db19224b1728002c6aeac8351ed12a054",
+      "sha256_after": "1f0ee7e205bb5dc6b686c6a448989d7db19224b1728002c6aeac8351ed12a054",
+      "bytes_before": 21493,
+      "bytes_after": 21493,
+      "first_read_utc": "2026-11-07T02:37:56.482962+00:00",
+      "unchanged": true
+    },
+    {
+      "path": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-owned-invocations/review-input-r2/source/compiler/mesh-rt/src/authority.rs",
+      "sha256_before": "d80426feeec87bf5337624608dc822036132ebfff7554fb7a4e9e07f7ec8344d",
+      "sha256_after": "d80426feeec87bf5337624608dc822036132ebfff7554fb7a4e9e07f7ec8344d",
+      "bytes_before": 14239,
+      "bytes_after": 14239,
+      "first_read_utc": "2026-11-07T02:37:56.484225+00:00",
+      "unchanged": true
+    },
+    {
+      "path": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-owned-invocations/review-input-r2/source-pin.json",
+      "sha256_before": "48fd7392c87319a97aed03489f1016525476209398ff27468ea4b0afde1cbee6",
+      "sha256_after": "48fd7392c87319a97aed03489f1016525476209398ff27468ea4b0afde1cbee6",
+      "bytes_before": 3878,
+      "bytes_after": 3878,
+      "first_read_utc": "2026-11-07T02:38:02.068286+00:00",
+      "unchanged": true
+    },
+    {
+      "path": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-owned-invocations/review-input-r2/STATUS.md",
+      "sha256_before": "8f50bac6160c30ed4fdd746e6b06d0fdb4b1e84f63963be43e75e2293dccee2d",
+      "sha256_after": "8f50bac6160c30ed4fdd746e6b06d0fdb4b1e84f63963be43e75e2293dccee2d",
+      "bytes_before": 3028,
+      "bytes_after": 3028,
+      "first_read_utc": "2026-11-07T02:38:02.068956+00:00",
+      "unchanged": true
+    },
+    {
+      "path": "/Users/andreyyurlov/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libsqlite3-sys-0.36.0/sqlite3/sqlite3.c",
+      "sha256_before": "ff57e8d0a1572b35c17cab9a7dea34616bc12b6fb8b29acf5cb00b6ecf025149",
+      "sha256_after": "ff57e8d0a1572b35c17cab9a7dea34616bc12b6fb8b29acf5cb00b6ecf025149",
+      "bytes_before": 9386637,
+      "bytes_after": 9386637,
+      "first_read_utc": "2026-11-07T02:38:02.073228+00:00",
+      "unchanged": true
+    },
+    {
+      "path": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-owned-invocations/core-bootstrap/red2/local-result.json",
+      "sha256_before": "0e7ffc51a5b52b568a71b5c6a9070641dff7447ba745993cb35fa8b1db904bb8",
+      "sha256_after": "0e7ffc51a5b52b568a71b5c6a9070641dff7447ba745993cb35fa8b1db904bb8",
+      "bytes_before": 3628,
+      "bytes_after": 3628,
+      "first_read_utc": "2026-11-07T02:38:02.073742+00:00",
+      "unchanged": true
+    },
+    {
+      "path": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-owned-invocations/API_PROPOSAL.md",
+      "sha256_before": "544325a5eb2c656741e40da7524edc1ed645a1b7aeaea7219814e2a7bfbe79dc",
+      "sha256_after": "544325a5eb2c656741e40da7524edc1ed645a1b7aeaea7219814e2a7bfbe79dc",
+      "bytes_before": 16171,
+      "bytes_after": 16171,
+      "first_read_utc": "2026-11-07T02:38:27.231759+00:00",
+      "unchanged": true
+    },
+    {
+      "path": "/Users/andreyyurlov/Documents/dev/mesh-lang/docs/native-library/effect-authority.md",
+      "sha256_before": "9b93825a4c7bcc17309feafee15d979f3eea43e07f3a7bd35e3db1c8b6a624e1",
+      "sha256_after": "9b93825a4c7bcc17309feafee15d979f3eea43e07f3a7bd35e3db1c8b6a624e1",
+      "bytes_before": 9907,
+      "bytes_after": 9907,
+      "first_read_utc": "2026-11-07T02:38:27.232673+00:00",
+      "unchanged": true
+    },
+    {
+      "path": "/Users/andreyyurlov/Documents/dev/mesh-lang/docs/native-library/owned-invocations.md",
+      "sha256_before": "c4a5d9cfe1151cdad92d7a2bb9913cae64c112fe8000b9a21d00f2327821de6e",
+      "sha256_after": "c4a5d9cfe1151cdad92d7a2bb9913cae64c112fe8000b9a21d00f2327821de6e",
+      "bytes_before": 16007,
+      "bytes_after": 16007,
+      "first_read_utc": "2026-11-07T02:38:27.235698+00:00",
+      "unchanged": true
+    },
+    {
+      "path": "/Users/andreyyurlov/Documents/dev/mesh-lang/compiler/mesh-rt/src/actor/stack.rs",
+      "sha256_before": "5c82bd7e2a86b4a9aed9fdbe327fafb35174de4bd28f6a0b898514599bf91b78",
+      "sha256_after": "5c82bd7e2a86b4a9aed9fdbe327fafb35174de4bd28f6a0b898514599bf91b78",
+      "bytes_before": 15984,
+      "bytes_after": 15984,
+      "first_read_utc": "2026-11-07T02:38:27.239688+00:00",
+      "unchanged": true
+    },
+    {
+      "path": "/Users/andreyyurlov/Documents/dev/mesh-lang/compiler/mesh-rt/src/library/invocation.rs",
+      "sha256_before": "7fefc1322889fc3129496b9fa73c8232021343815bdef32cb66ed67816326abd",
+      "sha256_after": "589a1fc019af0e67b92c099864842dc68538f0951c63d5007b43d4c9c27a4689",
+      "bytes_before": 47886,
+      "bytes_after": 52572,
+      "first_read_utc": "2026-11-07T02:38:27.243571+00:00",
+      "unchanged": false
+    },
+    {
+      "path": "/Users/andreyyurlov/Documents/dev/mesh-lang/compiler/mesh-rt/src/actor/process.rs",
+      "sha256_before": "7067c9b152282b3c70f932b9511213c9991769284cfb22360fa29373433adc4d",
+      "sha256_after": "7067c9b152282b3c70f932b9511213c9991769284cfb22360fa29373433adc4d",
+      "bytes_before": 24401,
+      "bytes_after": 24401,
+      "first_read_utc": "2026-11-07T02:38:27.246554+00:00",
+      "unchanged": true
+    },
+    {
+      "path": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-owned-invocations/core-bootstrap/mobile-core/mobile/profile.mpl",
+      "sha256_before": "4831de86664f761f7a10c24baa6783a7bcfc1350a9892dcd5497cd33a6c58f44",
+      "sha256_after": "4831de86664f761f7a10c24baa6783a7bcfc1350a9892dcd5497cd33a6c58f44",
+      "bytes_before": 6417,
+      "bytes_after": 6417,
+      "first_read_utc": "2026-11-07T02:39:24.342438+00:00",
+      "unchanged": true
+    },
+    {
+      "path": "/Users/andreyyurlov/Documents/dev/mesh-lang/compiler/mesh-rt/src/storage_wrapping.rs",
+      "sha256_before": "3029fbd46c0dd43e47db66f353aa9d85549d5e04f0ad39f8806875445b21bcfa",
+      "sha256_after": "3029fbd46c0dd43e47db66f353aa9d85549d5e04f0ad39f8806875445b21bcfa",
+      "bytes_before": 92933,
+      "bytes_after": 92933,
+      "first_read_utc": "2026-11-07T02:39:51.667860+00:00",
+      "unchanged": true
+    },
+    {
+      "path": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-owned-invocations/audit-r1/snapshot/compiler/mesh-rt/src/db/sqlite.rs",
+      "sha256_before": "d443bf83725d3ea824dbfee7ae86b4ae69eac2012d82f30e14593690ec116dde",
+      "sha256_after": "d443bf83725d3ea824dbfee7ae86b4ae69eac2012d82f30e14593690ec116dde",
+      "bytes_before": 42628,
+      "bytes_after": 42628,
+      "first_read_utc": "2026-11-07T02:40:14.370334+00:00",
+      "unchanged": true
+    },
+    {
+      "path": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-owned-invocations/audit-r1/snapshot/compiler/mesh-rt/src/authority.rs",
+      "sha256_before": "89e3311c9066d805083c5043e57bc9ab5a8a90c537c7006e18e4df0eb7541640",
+      "sha256_after": "89e3311c9066d805083c5043e57bc9ab5a8a90c537c7006e18e4df0eb7541640",
+      "bytes_before": 12924,
+      "bytes_after": 12924,
+      "first_read_utc": "2026-11-07T02:40:14.370943+00:00",
+      "unchanged": true
+    },
+    {
+      "path": "/Users/andreyyurlov/Documents/dev/mesh-lang/compiler/mesh-rt/Cargo.toml",
+      "sha256_before": "12463b90e373323e4ba9d0d65b0d1c352cfddfdf7f6b51839ffe9ce7b77cd67f",
+      "sha256_after": "12463b90e373323e4ba9d0d65b0d1c352cfddfdf7f6b51839ffe9ce7b77cd67f",
+      "bytes_before": 3558,
+      "bytes_after": 3558,
+      "first_read_utc": "2026-11-07T02:40:14.371086+00:00",
+      "unchanged": true
+    },
+    {
+      "path": "/Users/andreyyurlov/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libsqlite3-sys-0.36.0/build.rs",
+      "sha256_before": "d1cc8d34dc74238ff2f179705933c4022ef05db60101d9dc65ff4409dab608c2",
+      "sha256_after": "d1cc8d34dc74238ff2f179705933c4022ef05db60101d9dc65ff4409dab608c2",
+      "bytes_before": 33831,
+      "bytes_after": 33831,
+      "first_read_utc": "2026-11-07T02:40:14.371240+00:00",
+      "unchanged": true
+    },
+    {
+      "path": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-owned-invocations/review-input-r2/source/compiler/mesh-rt/src/actor/scheduler.rs",
+      "sha256_before": "4ed8703c70b77fa60b9b08f9e650fc240a72b068585ba7147379e8b4723eea89",
+      "sha256_after": "4ed8703c70b77fa60b9b08f9e650fc240a72b068585ba7147379e8b4723eea89",
+      "bytes_before": 75667,
+      "bytes_after": 75667,
+      "first_read_utc": "2026-11-07T02:40:55.652485+00:00",
+      "unchanged": true
+    },
+    {
+      "path": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-owned-invocations/review-input-r2/source/compiler/mesh-rt/src/actor/stack.rs",
+      "sha256_before": "5c82bd7e2a86b4a9aed9fdbe327fafb35174de4bd28f6a0b898514599bf91b78",
+      "sha256_after": "5c82bd7e2a86b4a9aed9fdbe327fafb35174de4bd28f6a0b898514599bf91b78",
+      "bytes_before": 15984,
+      "bytes_after": 15984,
+      "first_read_utc": "2026-11-07T02:40:55.652933+00:00",
+      "unchanged": true
+    },
+    {
+      "path": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-owned-invocations/review-input-r2/source/compiler/mesh-rt/src/library/invocation.rs",
+      "sha256_before": "7fefc1322889fc3129496b9fa73c8232021343815bdef32cb66ed67816326abd",
+      "sha256_after": "7fefc1322889fc3129496b9fa73c8232021343815bdef32cb66ed67816326abd",
+      "bytes_before": 47886,
+      "bytes_after": 47886,
+      "first_read_utc": "2026-11-07T02:40:55.653316+00:00",
+      "unchanged": true
+    },
+    {
+      "path": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-owned-invocations/review-input-r2/source/compiler/mesh-rt/src/storage_wrapping.rs",
+      "sha256_before": "3029fbd46c0dd43e47db66f353aa9d85549d5e04f0ad39f8806875445b21bcfa",
+      "sha256_after": "3029fbd46c0dd43e47db66f353aa9d85549d5e04f0ad39f8806875445b21bcfa",
+      "bytes_before": 92933,
+      "bytes_after": 92933,
+      "first_read_utc": "2026-11-07T02:40:55.653599+00:00",
+      "unchanged": true
+    },
+    {
+      "path": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/native-owned-invocations/review-input-r2/source/docs/native-library/owned-invocations.md",
+      "sha256_before": "c4a5d9cfe1151cdad92d7a2bb9913cae64c112fe8000b9a21d00f2327821de6e",
+      "sha256_after": "c4a5d9cfe1151cdad92d7a2bb9913cae64c112fe8000b9a21d00f2327821de6e",
+      "bytes_before": 16007,
+      "bytes_after": 16007,
+      "first_read_utc": "2026-11-07T02:45:12.941212+00:00",
+      "unchanged": true
+    }
+  ],
+  "prior_closing_audits": [
+    {
+      "completed_utc": "2026-11-07T02:44:01.349720+00:00",
+      "changed_inputs": [
+        {
+          "path": "/Users/andreyyurlov/Documents/dev/mesh-lang/compiler/mesh-rt/src/library/invocation.rs",
+          "sha256_before": "7fefc1322889fc3129496b9fa73c8232021343815bdef32cb66ed67816326abd",
+          "sha256_after": "f6a551cbe48a6c4405e64432f9d41dbfcd809bc017a035741c42a63f434a87f3",
+          "bytes_before": 47886,
+          "bytes_after": 52500,
+          "first_read_utc": "2026-11-07T02:38:27.243571+00:00",
+          "unchanged": false
+        }
+      ]
+    },
+    {
+      "completed_utc": "2026-11-07T02:44:50.887754+00:00",
+      "changed_inputs": [
+        {
+          "path": "/Users/andreyyurlov/Documents/dev/mesh-lang/compiler/mesh-rt/src/authority.rs",
+          "sha256_before": "d80426feeec87bf5337624608dc822036132ebfff7554fb7a4e9e07f7ec8344d",
+          "sha256_after": "1aecea93cdd5bc36c19011c21031318d898c9595039398f428aa0c7941467a0b",
+          "bytes_before": 14239,
+          "bytes_after": 14913,
+          "first_read_utc": "2026-11-07T02:37:56.478999+00:00",
+          "unchanged": false
+        },
+        {
+          "path": "/Users/andreyyurlov/Documents/dev/mesh-lang/compiler/mesh-rt/src/actor/scheduler.rs",
+          "sha256_before": "4ed8703c70b77fa60b9b08f9e650fc240a72b068585ba7147379e8b4723eea89",
+          "sha256_after": "f1c26abc052c2d39104f1552b300dfce1a326a81abe46c8a70f0bcb718ddbf26",
+          "bytes_before": 75667,
+          "bytes_after": 75871,
+          "first_read_utc": "2026-11-07T02:37:56.480441+00:00",
+          "unchanged": false
+        },
+        {
+          "path": "/Users/andreyyurlov/Documents/dev/mesh-lang/compiler/mesh-rt/src/library/invocation.rs",
+          "sha256_before": "7fefc1322889fc3129496b9fa73c8232021343815bdef32cb66ed67816326abd",
+          "sha256_after": "589a1fc019af0e67b92c099864842dc68538f0951c63d5007b43d4c9c27a4689",
+          "bytes_before": 47886,
+          "bytes_after": 52572,
+          "first_read_utc": "2026-11-07T02:38:27.243571+00:00",
+          "unchanged": false
+        }
+      ]
+    }
+  ]
+}

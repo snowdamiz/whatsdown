@@ -436,6 +436,34 @@ refusal; refusal alone does not qualify real Core mailbox/filing operations.
 Only mask 1 is advertised. No app activation, native serializer removal,
 publication or scheduler pass is claimed.
 
+The implementation's second independent review requires two further ownership
+corrections: a child reply can retain a cycle through its root's borrowed heap,
+and an HTTP builder cancelled before send can remain in the pending registry.
+Both have retained failing tests; fixes and a fresh review are in progress.
+The R2 family is retained but unqualified. Actual protected Core progress is
+also blocked by its schema configuration: R1 denies all SQLite PRAGMAs. The
+separate finite-configuration proposal remains unapplied. Its first design
+review requires busy-handler cleanup even after a setter's prepare fails, and
+stable authorizer state restoration that does not expire prepared statements.
+Neither proposal nor intermediate runtime test counts close activation gates.
+
+Sibling authority candidate `3fc654fba83cc405e79572f9a76cc7a58affa8c4` is pushed
+to `t3/f897514f` for independent review, and is **not adopted**. It binds the
+actual initial credential to the local account root and decrypted profile,
+checks captured witnessed membership, and validates an encrypted marker over
+the exact sealed sibling ratchet snapshot. Receive, fanout and sibling gossip
+refresh that marker with the snapshot under existing captured-source commits.
+Six authority cases and the linked conversation/control case pass on the
+frozen source. An immutable earlier baseline fails the missing-marker,
+old-snapshot/current-marker and revoked-member controls. The Main library has
+176 exports and unchanged bindings in all five languages. The disclosure
+inventory gate still refuses; review, additional race/recovery controls and
+decoded-body composition remain open. The candidate's source and evidence
+pins are recorded in
+`mesh-private-messenger/ops/bootstrap/evidence/20261106/sibling-session-provenance/`
+on that branch. No authentication/VO ownership handoff is inferred from this
+checkpoint.
+
 ### Decoded content ingress continuation — 2026-11-06
 
 The [frozen audit](mesh-private-messenger/ops/plaintext/evidence/20261106/decoded-content-ingress-audit.json)
