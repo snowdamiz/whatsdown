@@ -61,7 +61,7 @@ pub struct InteropSession do
 end
 
 pub type InteropOpenOutcome do
-  ReplyOpened(state :: RatchetState, session :: InteropSession, body :: Bytes)
+  ReplyOpened(state :: RatchetState, session :: InteropSession, body :: Plaintext<Bytes>)
   ReplyRejected(state :: RatchetState, session :: InteropSession, error :: String)
 end
 
@@ -73,7 +73,7 @@ fn discard_state(state :: consume RatchetState) do
   nil
 end
 
-pub fn opened_body(outcome :: InteropOpenOutcome) -> Bytes!String do
+pub fn opened_body(outcome :: InteropOpenOutcome) -> Plaintext<Bytes>!String do
   case outcome do
     ReplyRejected(state, _, error) -> do
       discard_state(state)

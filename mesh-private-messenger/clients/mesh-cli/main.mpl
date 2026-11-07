@@ -539,13 +539,29 @@ fn run_device_a() -> Int!String do
   Ok(0)
 end
 
-fn display(value :: Bytes) do
+fn console_display_value(value :: Bytes) -> (Int, String) do
   case decode_inner_envelope(value) do
-    Err(_) -> println("device-b:invalid-inner")
+    Err(_) -> (1, "")
     Ok(inner_value) -> case Bytes.to_utf8(inner_value.body) do
-      Err(_) -> println("device-b:invalid-body")
-      Ok(body) -> println("display:#{body}")
+      Err(_) -> (2, "")
+      Ok(body) -> (0, body)
     end
+  end
+end
+
+fn display(value :: Bytes) do
+  let (status, body) = console_display_value(value)
+  let published = declassify(status,
+    "CLI device-b display releases only status0 (UTF-8 body),1 (invalid inner envelope), or2 (invalid UTF-8 body); decoder and UTF-8 error payloads remain private")
+  case published do
+    1 -> println("device-b:invalid-inner")
+    2 -> println("device-b:invalid-body")
+    0 -> do
+      let text = declassify(body,
+        "CLI device-b fixture receive intentionally writes the successfully decoded UTF-8 message body to stdout as display:<body>, including caller-directed capture; no envelope metadata or error payload is released")
+      println("display:#{text}")
+    end
+    _ -> println("device-b:invalid-inner")
   end
 end
 

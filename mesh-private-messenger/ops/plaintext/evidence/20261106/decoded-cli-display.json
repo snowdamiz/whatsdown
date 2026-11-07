@@ -1,0 +1,136 @@
+{
+  "scope": "Bounded CLI fixture stdout policy checkpoint; combined semantic-body adoption remains UNADOPTED",
+  "source_base": "a48963b4918f5fc39981176d4e46069b78dfeebb",
+  "protocol_checkpoint": "2246b9462d41b2573d20befc540eac15d58c4b98",
+  "production_patch_sha256": "a0296bf0476908cd128aa07eac4db675893fd5b5ea913707fbf8d7d6b4e52106",
+  "production_sources": {
+    "mesh-private-messenger/clients/mesh-cli/main.mpl": "63702ac9b9b9a91d6452730895a7814fea8c769d96a61acdcf917c082023bdb1",
+    "mesh-private-messenger/clients/mesh-cli/interop/client.mpl": "6786928a587512e7c94884aec4dbb48beb3169369f6ea97bdd41eff7f67518aa"
+  },
+  "authority": "Private device-b CLI fixture receive intentionally displays UTF-8 body to stdout including caller-directed capture; parent reviewed exactly these two sites, explicit0 body-release arm and fixed unknown-status refusal. No generic logging or public body getter authority.",
+  "new_sites": [
+    {
+      "kind": "declassify",
+      "reason": "CLI device-b display releases only status0 (UTF-8 body),1 (invalid inner envelope), or2 (invalid UTF-8 body); decoder and UTF-8 error payloads remain private",
+      "start": 17206,
+      "end": 17389,
+      "line": 554,
+      "column": 19
+    },
+    {
+      "kind": "declassify",
+      "reason": "CLI device-b fixture receive intentionally writes the successfully decoded UTF-8 message body to stdout as display:<body>, including caller-directed capture; no envelope metadata or error payload is released",
+      "start": 17524,
+      "end": 17759,
+      "line": 560,
+      "column": 18
+    }
+  ],
+  "main_source_sha256": "63702ac9b9b9a91d6452730895a7814fea8c769d96a61acdcf917c082023bdb1",
+  "production_report": {
+    "file": "decoded-cli-display-report.json",
+    "sha256": "ef0ef6b74e4bdc52cf565c3fbc941f4680d4fe9d6af14f54ad9c1eff73e6b6c2",
+    "modules": 191,
+    "total_sites": 27,
+    "prior_dependency_site_kind_and_reasons_unchanged": true
+  },
+  "production_executable": {
+    "local_path": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/cli-reviewed/mesh-cli",
+    "sha256": "45564da636c02749f3d59b1578eec03200e0eeb911e554d726fa242d5fe54c22"
+  },
+  "qualification": {
+    "status": "passed",
+    "baseline_commit": "a48963b4918f5fc39981176d4e46069b78dfeebb",
+    "working_head": "2246b9462d41b2573d20befc540eac15d58c4b98",
+    "original_main_sha256": {
+      "current": "63702ac9b9b9a91d6452730895a7814fea8c769d96a61acdcf917c082023bdb1",
+      "baseline": "2895d55448865c9b6593f41cb5f6a1fa56d21de6a503aa04c81e983902a85d71"
+    },
+    "runner_sha256": "bd02340d6e073e38bdd8f884d4a95c64b30e4fa99e6abfc29430c578d831102c",
+    "evidence_sha256": "d8bac7fc77742f9a46f9f003584240d7596d10579acf81a4b6d694f66a4d2e94",
+    "stdout_sha256": "416f6f964c0be9b2bbe268a9e128cafbe2226082348288e757eba65d86df0369",
+    "stdout_lines": 25,
+    "binary_sha256": {
+      "baseline": "8281f7e4e807ebedb91b5becc4bb2e9ad726529e299ccf5c6730163e6cb6464f",
+      "current": "bd82588c38d9d528da296fd25697db2381c22a9eb0edb6799ac9d465a7485165"
+    },
+    "ack_counts": {
+      "baseline": [
+        5,
+        7,
+        7
+      ],
+      "current": [
+        5,
+        7,
+        7
+      ]
+    },
+    "privacy_refusals": [
+      {
+        "function": "proof_private_text",
+        "subject": "println",
+        "line": 772,
+        "offset": 24891
+      },
+      {
+        "function": "proof_private_metadata",
+        "subject": "println",
+        "line": 778,
+        "offset": 25040
+      },
+      {
+        "function": "proof_private_decode_error",
+        "subject": "println",
+        "line": 784,
+        "offset": 25215
+      },
+      {
+        "function": "proof_private_utf8_error",
+        "subject": "println",
+        "line": 793,
+        "offset": 25474
+      },
+      {
+        "function": "proof_private_caller",
+        "subject": "println",
+        "line": 801,
+        "offset": 25596
+      }
+    ],
+    "toolchain": {
+      "bin/meshc": {
+        "path": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/bin/meshc",
+        "sha256": "19ef395b701a3c76ff006956597b6ec176810c78a6d07271a253199911ea4e85"
+      },
+      "lib/libmesh_rt.a": {
+        "path": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_rt.a",
+        "sha256": "d1e2b001783fe819f03644f5e4dcf42bc362bb1cecd04e475097d80cf9d3a8f8"
+      },
+      "lib/libmesh_test_rt.a": {
+        "path": "/Users/andreyyurlov/Documents/dev/mesh-lang/.tmp/builtin-try-from/release-artifacts/lib/libmesh_test_rt.a",
+        "sha256": "9283206f47c6a52fa075a108773854ad7a12aae437c16b04c4fc747740674c33"
+      }
+    },
+    "language_stable": true,
+    "source_changes": [],
+    "files": {
+      "mesh-private-messenger/ops/plaintext/prove_cli_decoded_display.py": "bd02340d6e073e38bdd8f884d4a95c64b30e4fa99e6abfc29430c578d831102c",
+      "mesh-private-messenger/ops/plaintext/fixtures/cli-decoded-display/README.md": "c7e3fe5ec6f1452c06a259a384ca72a9713c56413c0adc7145c8af9954ba571b",
+      "mesh-private-messenger/ops/plaintext/fixtures/cli-decoded-display/driver.mpl": "2131b43807e133b032159fb8993cd947929617f3a96176fcab003c9d6bfa8c93",
+      "mesh-private-messenger/ops/plaintext/fixtures/cli-decoded-display/privacy.mpl": "ee35971a69c00bc1319052e18177da05077f51f28a1d47c15a2d497abea4493f"
+    }
+  },
+  "retained_evidence": {
+    "local_path": "/Users/andreyyurlov/.t3/worktrees/whatsdown/t3-b6c32635/.morse/decoded-body-labels/cli-proof-child/qualified/evidence.json",
+    "sha256": "d8bac7fc77742f9a46f9f003584240d7596d10579acf81a4b6d694f66a4d2e94"
+  },
+  "limits": [
+    "CLI-specific compiler evidence, not a mobile disclosure inventory or inventory adoption",
+    "All5 negative probes are compiled only, never executed",
+    "Loopback ACK collector does not prove production server authorization or mailbox persistence",
+    "Unknown status arm inspected statically; actual helper returns only0/1/2",
+    "Full Main caller closure, coordinated VO adoption, independent combined review and production receive/history suites remain pending",
+    "No native UI/release/deployment/live RPC qualification"
+  ]
+}

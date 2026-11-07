@@ -1,0 +1,1380 @@
+{
+  "schema_version": 1,
+  "policy": "plaintext-v1",
+  "compiler_version": "0.1.8",
+  "modules": [
+    {
+      "module": "Attachments.Layout",
+      "file": "dependency/Attachments.Layout/layout.mpl",
+      "source_sha256": "650c5957b93cde00f2b69eb1792ce0dd08d789dab238f16ff777ddfd4f11a532",
+      "sites": []
+    },
+    {
+      "module": "Attachments.Protocol",
+      "file": "dependency/Attachments.Protocol/protocol.mpl",
+      "source_sha256": "70c33115773ab6b4282a7b2e2a6bd815c655ac060527bb9c50d64302730ecb1b",
+      "sites": [
+        {
+          "kind": "declassify",
+          "reason": "attachment manifest admission discloses only whether filename length is at most 255 bytes and MIME length is 1..127 bytes; metadata bytes and unrelated private control remain private",
+          "start": 5411,
+          "end": 5743,
+          "line": 190,
+          "column": 14
+        },
+        {
+          "kind": "declassify_discriminant",
+          "reason": "attachment encryption exposes only success or failure; encrypted content, error payloads, and unrelated private control remain private",
+          "start": 9243,
+          "end": 9475,
+          "line": 314,
+          "column": 8
+        },
+        {
+          "kind": "declassify",
+          "reason": "attachment manifest framing exposes only whether bounded encoding succeeded; filename and MIME bytes, lengths, error payloads, and unrelated private control remain private",
+          "start": 14326,
+          "end": 14538,
+          "line": 466,
+          "column": 23
+        }
+      ]
+    },
+    {
+      "module": "Attachments.ViewOnce",
+      "file": "dependency/Attachments.ViewOnce/view_once.mpl",
+      "source_sha256": "9c84626bfceb23f2274d0b70482defeb892ec4cb3df4de390a9d16e474bb8920",
+      "sites": []
+    },
+    {
+      "module": "Backups.ContentArchive",
+      "file": "dependency/Backups.ContentArchive/content_archive.mpl",
+      "source_sha256": "fed2958296c18068f774c17c6b3b179201b1b792cc557fc7f324de73fd54b7d5",
+      "sites": []
+    },
+    {
+      "module": "Backups.FileBundle",
+      "file": "dependency/Backups.FileBundle/file_bundle.mpl",
+      "source_sha256": "de2143cba44a8f6b3f7a1c82732738671f396d5e5bc6763ac4d7fec13d9041d0",
+      "sites": []
+    },
+    {
+      "module": "Backups.PortableV2",
+      "file": "dependency/Backups.PortableV2/portable_v2.mpl",
+      "source_sha256": "8b42a39675e08e4f10763ecb66197b9496f5733f9d399b273aa72517a99d0121",
+      "sites": [
+        {
+          "kind": "declassify_discriminant",
+          "reason": "portable backup reviews only bounded AEAD seal admission for fixed manifest or disclosed-size chunk bodies; ciphertext alone crosses encryption and plaintext, error payloads and prior private control remain private",
+          "start": 7046,
+          "end": 7296,
+          "line": 257,
+          "column": 8
+        },
+        {
+          "kind": "declassify_discriminant",
+          "reason": "portable backup reviews only bounded chunk slice admission at public offsets and lengths derived from the disclosed extent; chunk bytes and error payload remain private",
+          "start": 10352,
+          "end": 10556,
+          "line": 355,
+          "column": 8
+        },
+        {
+          "kind": "declassify",
+          "reason": "portable backup explicitly discloses only zero refusal or a bounded payload byte extent already derivable from its unpadded encrypted framing; payload records and hashes remain private",
+          "start": 12332,
+          "end": 12551,
+          "line": 409,
+          "column": 16
+        },
+        {
+          "kind": "declassify",
+          "reason": "portable backup exposes only complete restore validity after all authenticated chunks and snapshot hash checks; no plaintext, hash, stage, error payload or partial archive is disclosed",
+          "start": 22786,
+          "end": 22996,
+          "line": 688,
+          "column": 17
+        }
+      ]
+    },
+    {
+      "module": "Backups.Protocol",
+      "file": "dependency/Backups.Protocol/protocol.mpl",
+      "source_sha256": "f3c999e62ce1c7c3d90744c696a5bb9e0f4b98411919f9dcf348aefedf157dbf",
+      "sites": []
+    },
+    {
+      "module": "Backups.Recovery",
+      "file": "dependency/Backups.Recovery/recovery.mpl",
+      "source_sha256": "b1133a19107a76c7fada5481a9d1f38fa901b9f6839a10030e8e3fe1ccc2bca5",
+      "sites": []
+    },
+    {
+      "module": "Backups.TextArchive",
+      "file": "dependency/Backups.TextArchive/text_archive.mpl",
+      "source_sha256": "b61923d946511d786fbdfc54928a1187aef0fa6fa68fea5b697aee36bd297cae",
+      "sites": []
+    },
+    {
+      "module": "Binary.Erasure",
+      "file": "dependency/Binary.Erasure/erasure.mpl",
+      "source_sha256": "ce3a472af27f2f071ce6a7883bd320cb00ca70a8667f66ac1ddba07ffbcacab4",
+      "sites": []
+    },
+    {
+      "module": "Binary.Reader",
+      "file": "dependency/Binary.Reader/reader.mpl",
+      "source_sha256": "42bbc8a9431aa1da5e8fd27b3d2db04f0fd2cf40929c16c8003ab62557be1776",
+      "sites": []
+    },
+    {
+      "module": "Bounty.Settlement",
+      "file": "dependency/Bounty.Settlement/settlement.mpl",
+      "source_sha256": "ee8f7cad59385e5052174886c019a716bcf617fcfd1fb3eb3962bc802d1277a5",
+      "sites": []
+    },
+    {
+      "module": "Bounty.Transfer",
+      "file": "dependency/Bounty.Transfer/transfer.mpl",
+      "source_sha256": "222c52c68ecda5c2c35c5d670ba67feaf787fd7ad685a01318099446da8578fe",
+      "sites": []
+    },
+    {
+      "module": "Client.Attendance",
+      "file": "client/attendance.mpl",
+      "source_sha256": "657eb70e7ce8adc130a6b617443ddf9c061467742212afe20d88fcf7938b7123",
+      "sites": []
+    },
+    {
+      "module": "Client.Bonds",
+      "file": "client/bonds.mpl",
+      "source_sha256": "24af69949c31ec878108884c2bbb83d69918f4f3f1262164f1792a40271724e0",
+      "sites": []
+    },
+    {
+      "module": "Client.BondsV2",
+      "file": "client/bonds_v2.mpl",
+      "source_sha256": "4a7efa099279b643f13aa59da17d3b7371947ef4b6a03fcddabc007bcab40b4b",
+      "sites": []
+    },
+    {
+      "module": "Client.BondsV2Pins",
+      "file": "client/bonds_v2_pins.mpl",
+      "source_sha256": "6d7f4b6a4209f4a2c25770d9d881a4411a88ccdef4da378488b85c384d6eca4e",
+      "sites": []
+    },
+    {
+      "module": "Client.ChainRead",
+      "file": "client/chain_read.mpl",
+      "source_sha256": "8e3ed8888e27c211dbe9eb46b9dd6f6819fa2f6af24318307c37658cef16c088",
+      "sites": []
+    },
+    {
+      "module": "Client.Receipt",
+      "file": "client/receipt.mpl",
+      "source_sha256": "d71ffb722d8c9aa3076997aa52759526caed85b4a955a6bc08d742a572775f40",
+      "sites": []
+    },
+    {
+      "module": "Client.Rewards",
+      "file": "client/rewards.mpl",
+      "source_sha256": "0c25e1860b4cbd751e72ef1902e782c366fefa959db4dc2ddcf7c38ad5857cb5",
+      "sites": []
+    },
+    {
+      "module": "Client.Security",
+      "file": "client/security.mpl",
+      "source_sha256": "b06d2bea4cca835c52ffa211ec3371c9e1e5f74253e6de5f3bc0fd0b8787f479",
+      "sites": []
+    },
+    {
+      "module": "Client.Session",
+      "file": "client/session.mpl",
+      "source_sha256": "dd1e8ca2c252384ee045f566eb944dc9afe17f60378ca9e9a661a78da7c20d42",
+      "sites": []
+    },
+    {
+      "module": "Credits.Action",
+      "file": "dependency/Credits.Action/action.mpl",
+      "source_sha256": "2b286c32b18ad691f8867590d5b9566a064008a98d590bd0dff1f246d04c7879",
+      "sites": []
+    },
+    {
+      "module": "Credits.ActionWire",
+      "file": "dependency/Credits.ActionWire/action_wire.mpl",
+      "source_sha256": "d0bea6e25aeb08b4ac6e8ffb64ade1dc06f9ec37d0cf4321eac73e3bc9f5fd20",
+      "sites": []
+    },
+    {
+      "module": "Credits.Attachment",
+      "file": "dependency/Credits.Attachment/attachment.mpl",
+      "source_sha256": "0d0b6387ec3e0d4fcf578c4b53c50494b5c55fd0f989e17f21d304f11d05d23f",
+      "sites": []
+    },
+    {
+      "module": "Credits.Cancellation",
+      "file": "dependency/Credits.Cancellation/cancellation.mpl",
+      "source_sha256": "99979565a22b218cfaf08c61072d0d564dcc3bd910f007778b018983ffa5e607",
+      "sites": []
+    },
+    {
+      "module": "Credits.Discovery",
+      "file": "dependency/Credits.Discovery/discovery.mpl",
+      "source_sha256": "5fe16152d662b976303012df6dc9e0d18d0fcc8d9cdb8398e878e02114619cbd",
+      "sites": []
+    },
+    {
+      "module": "Credits.Issuance",
+      "file": "dependency/Credits.Issuance/issuance.mpl",
+      "source_sha256": "038349595cda452fe7607b722308a73771f5105b48cae562cf913149cec4accb",
+      "sites": []
+    },
+    {
+      "module": "Credits.Issuer",
+      "file": "dependency/Credits.Issuer/issuer.mpl",
+      "source_sha256": "1172cdb2a2a9b9126fec829ae021a6ccd54cdcb6e4614cfad8cac0995e1512d6",
+      "sites": []
+    },
+    {
+      "module": "Credits.Lightning",
+      "file": "dependency/Credits.Lightning/lightning.mpl",
+      "source_sha256": "39e6e0200087ab27c2398290325d4ba5fd81aaaaefe09ea8422b27b96282b722",
+      "sites": []
+    },
+    {
+      "module": "Credits.LightningCancellation",
+      "file": "dependency/Credits.LightningCancellation/lightning_cancellation.mpl",
+      "source_sha256": "0a347cb3f44542b89bd384fb2bf3151ab0f3e9d62069ef9eef01552b2f6625cf",
+      "sites": []
+    },
+    {
+      "module": "Credits.Payment",
+      "file": "dependency/Credits.Payment/payment.mpl",
+      "source_sha256": "931e6f134ca1f8b72d6744ce7bc79fdea58c9a1b3ee93652012e033eeeffc448",
+      "sites": []
+    },
+    {
+      "module": "Credits.Policy",
+      "file": "dependency/Credits.Policy/policy.mpl",
+      "source_sha256": "b650983e59842605a2384482488c308cdd8051ba5d0d5350a22388a5c67313d4",
+      "sites": []
+    },
+    {
+      "module": "Credits.Postage",
+      "file": "dependency/Credits.Postage/postage.mpl",
+      "source_sha256": "1c1a31e14d61bec69aab625fa5221fc88bffa0da3279bc8027f6765d5175b6f3",
+      "sites": []
+    },
+    {
+      "module": "Credits.PostageBox",
+      "file": "dependency/Credits.PostageBox/postage_box.mpl",
+      "source_sha256": "750995e90443ad7ecc6d495c72aca8397ca832b00f4608a5d5bcf790f55cdac4",
+      "sites": []
+    },
+    {
+      "module": "Credits.PostagePolicy",
+      "file": "dependency/Credits.PostagePolicy/postage_policy.mpl",
+      "source_sha256": "4aed74f52589e4eab762dcded62ca7b8a1cc083af40fed6ac6776ab5b9d506c1",
+      "sites": []
+    },
+    {
+      "module": "Credits.PostageReply",
+      "file": "dependency/Credits.PostageReply/postage_reply.mpl",
+      "source_sha256": "c4d70e3230f7627f80edb9b1ceb9aee5bbe52fbe5ea8b52c7c408790017fbb99",
+      "sites": []
+    },
+    {
+      "module": "Credits.QuoteAuth",
+      "file": "dependency/Credits.QuoteAuth/quote_auth.mpl",
+      "source_sha256": "ab4ef26052629aef424830fb0c2630097d54faf724b03e80455b925de2bb8b17",
+      "sites": []
+    },
+    {
+      "module": "Credits.Retention",
+      "file": "dependency/Credits.Retention/retention.mpl",
+      "source_sha256": "fed617a366d8880bbe960edb2f22a0dc28dd1969ef045a4c7fe332141503786f",
+      "sites": []
+    },
+    {
+      "module": "Credits.Signup",
+      "file": "dependency/Credits.Signup/signup.mpl",
+      "source_sha256": "9643d3fa9ab9ae084622c4c9732b2b844b226be4654e967606fe0aba9f8c1500",
+      "sites": []
+    },
+    {
+      "module": "Credits.SignupPolicy",
+      "file": "dependency/Credits.SignupPolicy/signup_policy.mpl",
+      "source_sha256": "af6edb6e5aa8021062b8bbb9c4309ff9cd90320708e0b35a8def5077952bee8a",
+      "sites": []
+    },
+    {
+      "module": "Credits.Storage",
+      "file": "dependency/Credits.Storage/storage.mpl",
+      "source_sha256": "3110b089ec0eb7938ec482d42519554add1ef804e3263ec69b5141168aef2a4e",
+      "sites": []
+    },
+    {
+      "module": "Credits.Token",
+      "file": "dependency/Credits.Token/token.mpl",
+      "source_sha256": "90284c800fee312b4039d5c9482242da6d2688ebb3e3f9591bded0be0901a652",
+      "sites": []
+    },
+    {
+      "module": "Credits.WalletPayment",
+      "file": "dependency/Credits.WalletPayment/wallet_payment.mpl",
+      "source_sha256": "2f14cc0580942eb664a71d935299911cefda975dfa58f0c6552a8ceba004480a",
+      "sites": []
+    },
+    {
+      "module": "Credits.Wire",
+      "file": "dependency/Credits.Wire/wire.mpl",
+      "source_sha256": "7987736b0105dae5cd9a28b8276cc96bef9ee95dc706d7e5f958666b6d0f0cfb",
+      "sites": []
+    },
+    {
+      "module": "Groups.CommitWire",
+      "file": "dependency/Groups.CommitWire/commit_wire.mpl",
+      "source_sha256": "80f28ef1ac0929653d2c8650b7321c0829ab8537c62b1cd855dae34e459af85f",
+      "sites": []
+    },
+    {
+      "module": "Groups.Expiry",
+      "file": "dependency/Groups.Expiry/expiry.mpl",
+      "source_sha256": "068fcafcbf11c4b7bd4078b328b33af4c37c4b2fb6e58013fa9804c8041cdf77",
+      "sites": [
+        {
+          "kind": "declassify",
+          "reason": "timed group payload framing releases only bounded encoding success or refusal before encryption; body timestamp duration hints exact sizes and error payloads remain private",
+          "start": 2466,
+          "end": 2680,
+          "line": 82,
+          "column": 6
+        }
+      ]
+    },
+    {
+      "module": "Groups.GroupCodec",
+      "file": "dependency/Groups.GroupCodec/group_codec.mpl",
+      "source_sha256": "914ce65a94adfd5c184cbca0528d6edde0fdf72615b9b7da17969528b81d8d01",
+      "sites": []
+    },
+    {
+      "module": "Groups.GroupMessages",
+      "file": "dependency/Groups.GroupMessages/group_messages.mpl",
+      "source_sha256": "5183121843a2c87fdb2c4052b4e1a435e33084ed7a82458948396c38ac68a35a",
+      "sites": [
+        {
+          "kind": "declassify_discriminant",
+          "reason": "group body encryption releases only success or failure before signing ciphertext; plaintext error payloads and unrelated private control remain private",
+          "start": 5457,
+          "end": 5689,
+          "line": 192,
+          "column": 16
+        },
+        {
+          "kind": "declassify",
+          "reason": "group encryption admission releases only whether plaintext exceeds the selected fixed transport capacity; content and exact sizes remain private",
+          "start": 6718,
+          "end": 6915,
+          "line": 229,
+          "column": 19
+        },
+        {
+          "kind": "declassify",
+          "reason": "legacy group padding releases only bounded padding success or refusal; content padding bytes exact sizes and error payloads remain private",
+          "start": 7985,
+          "end": 8165,
+          "line": 265,
+          "column": 10
+        }
+      ]
+    },
+    {
+      "module": "Groups.GroupPayload",
+      "file": "dependency/Groups.GroupPayload/group_payload.mpl",
+      "source_sha256": "bcad3c6f5af9d0aed1f5adbc32ccf8e011463d91f51d52510f7a8ecdbfa2f207",
+      "sites": [
+        {
+          "kind": "declassify",
+          "reason": "group payload framing releases only bounded encoding success or refusal before encryption; body hints recipient identifiers exact sizes and error payloads remain private",
+          "start": 2504,
+          "end": 2715,
+          "line": 90,
+          "column": 6
+        }
+      ]
+    },
+    {
+      "module": "Groups.GroupSnapshot",
+      "file": "dependency/Groups.GroupSnapshot/group_snapshot.mpl",
+      "source_sha256": "c6e419a9def31cbbf10f316222c0e95dda7686655d69552088c9baa9d5f200c7",
+      "sites": []
+    },
+    {
+      "module": "Groups.KeySchedule",
+      "file": "dependency/Groups.KeySchedule/key_schedule.mpl",
+      "source_sha256": "70621384ad4b6af619c6272755ff7176702e3aef85da15c9604373c8b222e645",
+      "sites": []
+    },
+    {
+      "module": "Groups.Membership",
+      "file": "dependency/Groups.Membership/membership.mpl",
+      "source_sha256": "e2af67ba76aae24dae80e00997c02efe32ab7d6ea0ac778c53c9ca33be115b3f",
+      "sites": []
+    },
+    {
+      "module": "Groups.Mls",
+      "file": "dependency/Groups.Mls/mls.mpl",
+      "source_sha256": "53d32d7d0d1057664e1f4a02a42c6ddf9b21bde1cc70a77e5dcce7bf9f454c4e",
+      "sites": []
+    },
+    {
+      "module": "Groups.SenderKeys",
+      "file": "dependency/Groups.SenderKeys/sender_keys.mpl",
+      "source_sha256": "3cb70db3b4eb16808ce58fceb3e026386f0800b726f4b5cf6ccbf81ea1221fef",
+      "sites": []
+    },
+    {
+      "module": "Groups.Tree",
+      "file": "dependency/Groups.Tree/tree.mpl",
+      "source_sha256": "64ea65a800ff53fc1dc46550605e46ec4a4d11e4f47a9a12d37eadf0fba1bb6e",
+      "sites": []
+    },
+    {
+      "module": "Groups.WelcomeWire",
+      "file": "dependency/Groups.WelcomeWire/welcome_wire.mpl",
+      "source_sha256": "cd65e56744209c3d73c2348d54ac0a0b5906dce75e9d747d22f4e4ffb92330d6",
+      "sites": []
+    },
+    {
+      "module": "Identity.Device",
+      "file": "dependency/Identity.Device/device.mpl",
+      "source_sha256": "4a85d0e55b449b32dc17b38e4f8f3c034738072cf5b9a8d8847d49397e9315dc",
+      "sites": []
+    },
+    {
+      "module": "Interop.Client",
+      "file": "interop/client.mpl",
+      "source_sha256": "6786928a587512e7c94884aec4dbb48beb3169369f6ea97bdd41eff7f67518aa",
+      "sites": []
+    },
+    {
+      "module": "Lightning.Invoice",
+      "file": "dependency/Lightning.Invoice/invoice.mpl",
+      "source_sha256": "9cc5ffa251d474921ec1db9b0c046d9e998a850e95094fabfcfe59fcf93e422f",
+      "sites": []
+    },
+    {
+      "module": "Main",
+      "file": "main.mpl",
+      "source_sha256": "63702ac9b9b9a91d6452730895a7814fea8c769d96a61acdcf917c082023bdb1",
+      "sites": [
+        {
+          "kind": "declassify",
+          "reason": "CLI device-b display releases only status0 (UTF-8 body),1 (invalid inner envelope), or2 (invalid UTF-8 body); decoder and UTF-8 error payloads remain private",
+          "start": 17206,
+          "end": 17389,
+          "line": 554,
+          "column": 19
+        },
+        {
+          "kind": "declassify",
+          "reason": "CLI device-b fixture receive intentionally writes the successfully decoded UTF-8 message body to stdout as display:<body>, including caller-directed capture; no envelope metadata or error payload is released",
+          "start": 17524,
+          "end": 17759,
+          "line": 560,
+          "column": 18
+        }
+      ]
+    },
+    {
+      "module": "Monitor.Command",
+      "file": "monitor/command.mpl",
+      "source_sha256": "ade4edd5d86e97c2d0ecbf0cf5d86b7857c4cb2e6e3258fc4ccc902a7c8dfc8a",
+      "sites": []
+    },
+    {
+      "module": "Monitor.Config",
+      "file": "monitor/config.mpl",
+      "source_sha256": "94619736fe3c39c7673778b58d9eb898d18043160e4c577a034384ef142f98b5",
+      "sites": []
+    },
+    {
+      "module": "Monitor.Policy",
+      "file": "monitor/policy.mpl",
+      "source_sha256": "194e6c4eb3f86cb853a0cd91f03731b2631cb44173edbf430ae5afbfedd420cb",
+      "sites": []
+    },
+    {
+      "module": "Monitor.Registry",
+      "file": "monitor/registry.mpl",
+      "source_sha256": "76ba5aeac22e0f9dcc11e1b5f89a6510aac94e0ee5e3f10d493c01bc7e27f59c",
+      "sites": []
+    },
+    {
+      "module": "Monitor.Run",
+      "file": "monitor/run.mpl",
+      "source_sha256": "6775f227899b0c5a9e84bca41c63ecf9119b6b23e95ef266a06e6c0d97d7c4d8",
+      "sites": []
+    },
+    {
+      "module": "Monitor.Service",
+      "file": "monitor/service.mpl",
+      "source_sha256": "ae46a2dfdf7cf6a2768fe26702feff98418804d78d05284299ea1c68f69f832c",
+      "sites": []
+    },
+    {
+      "module": "Monitor.State",
+      "file": "monitor/state.mpl",
+      "source_sha256": "2bd9c2532a7e38fb558bfd48114dda0d388c00efc8c66c7eb9e54df8443b7b81",
+      "sites": []
+    },
+    {
+      "module": "Monitor.Status",
+      "file": "monitor/status.mpl",
+      "source_sha256": "3b82d392de8564b20a606eb7ee03e8841b7d0ae40187440669f97b7b07d358bd",
+      "sites": []
+    },
+    {
+      "module": "Objects.Grant",
+      "file": "dependency/Objects.Grant/grant.mpl",
+      "source_sha256": "15da510b636763678cae8ed4b815cd98092621e7cc8a2b1838e35c4477367f7a",
+      "sites": []
+    },
+    {
+      "module": "Ohttp.BinaryHttp",
+      "file": "dependency/Ohttp.BinaryHttp/binary_http.mpl",
+      "source_sha256": "aa96b5639c5233a39a1cb679bab989cc2b5084890375ab88285463924c8d9dfd",
+      "sites": []
+    },
+    {
+      "module": "Ohttp.Keys",
+      "file": "dependency/Ohttp.Keys/keys.mpl",
+      "source_sha256": "b355dfd71b290d7552be050d93450e887f91b1e9c42f560554f777ea31e6c5f6",
+      "sites": []
+    },
+    {
+      "module": "Ohttp.LookupPolicy",
+      "file": "dependency/Ohttp.LookupPolicy/lookup_policy.mpl",
+      "source_sha256": "cd5664c002be95f36c2dd8025a23d7366267e926d0ecf3e5b7b71eda1ae11bb9",
+      "sites": []
+    },
+    {
+      "module": "Ohttp.Policy",
+      "file": "dependency/Ohttp.Policy/policy.mpl",
+      "source_sha256": "4ecda6fffa54485c4023ff38ae3f2f87320ca08cb6ecfac6ff9759bcd93ee9b0",
+      "sites": []
+    },
+    {
+      "module": "Ohttp.Types",
+      "file": "dependency/Ohttp.Types/types.mpl",
+      "source_sha256": "0744dc51f6e83ac596c7e6950c967da47ad4001a8f39fe9b4e81f3aae390cdb3",
+      "sites": []
+    },
+    {
+      "module": "Prekeys.Bundle",
+      "file": "dependency/Prekeys.Bundle/bundle.mpl",
+      "source_sha256": "ad12f24f399968879a2939bf0aa3aef59dd030df496e6655d2d7be201775c338",
+      "sites": []
+    },
+    {
+      "module": "Prekeys.Pool",
+      "file": "dependency/Prekeys.Pool/pool.mpl",
+      "source_sha256": "e9c38f02f7dc65dc863d9ca4fa39af07fce39fc51a72844ad0b9118228ee897c",
+      "sites": []
+    },
+    {
+      "module": "Prekeys.Renewal",
+      "file": "dependency/Prekeys.Renewal/renewal.mpl",
+      "source_sha256": "fd2a3e5fd85995fb6d014696c869c45f0760404ad5a75c74edbb87f42362175a",
+      "sites": []
+    },
+    {
+      "module": "Privacy.Edge",
+      "file": "dependency/Privacy.Edge/edge.mpl",
+      "source_sha256": "55a23c7306c09dca17dfc1a9ff828fd2bcd525b4d62d6aae06e4ded6c9579a61",
+      "sites": []
+    },
+    {
+      "module": "Protocol.Capabilities",
+      "file": "dependency/Protocol.Capabilities/capabilities.mpl",
+      "source_sha256": "5c0beb1f9880cefcad3f72a118e658b94b5094fdf0398dd12c2f186b30535a67",
+      "sites": []
+    },
+    {
+      "module": "Protocol.DirectoryWire",
+      "file": "dependency/Protocol.DirectoryWire/directory_wire.mpl",
+      "source_sha256": "a7dcb40bacde5524f22c42541f3d5c2eda935b923e8351806e1a6700c18d09c2",
+      "sites": []
+    },
+    {
+      "module": "Protocol.EnvelopeWire",
+      "file": "dependency/Protocol.EnvelopeWire/envelope_wire.mpl",
+      "source_sha256": "bf14d113ec359ae12d2ff0f0092af1fd347c4e09597509d8da7b0c688d7f1b88",
+      "sites": [
+        {
+          "kind": "declassify",
+          "reason": "inner envelope admission discloses only its reviewed fixed0..17 status classifier, including bounds and policy failures; no ProtocolError payload is released",
+          "start": 8926,
+          "end": 9109,
+          "line": 265,
+          "column": 19
+        },
+        {
+          "kind": "declassify",
+          "reason": "inner envelope encoding discloses only its reviewed fixed0..17 status classifier; encoded bytes and ProtocolError payloads remain private",
+          "start": 9468,
+          "end": 9631,
+          "line": 280,
+          "column": 19
+        }
+      ]
+    },
+    {
+      "module": "Protocol.ExtensionWire",
+      "file": "dependency/Protocol.ExtensionWire/extension_wire.mpl",
+      "source_sha256": "68a66205fdf0ade24c1a89e384aee3f00f792d6edf482d009545afcb688ec198",
+      "sites": []
+    },
+    {
+      "module": "Protocol.HandshakeWire",
+      "file": "dependency/Protocol.HandshakeWire/handshake_wire.mpl",
+      "source_sha256": "a9002d6bc7f0f815c328cf083ea99c284cf798908adb6cd05c05e1d759afdac9",
+      "sites": []
+    },
+    {
+      "module": "Protocol.IdentityWire",
+      "file": "dependency/Protocol.IdentityWire/identity_wire.mpl",
+      "source_sha256": "6720da89e669b46cc9643e6636442a2c023d47e47e5d410a976abcce26081366",
+      "sites": []
+    },
+    {
+      "module": "Protocol.MailboxWire",
+      "file": "dependency/Protocol.MailboxWire/mailbox_wire.mpl",
+      "source_sha256": "414db5bb762d245aeec91868c202c79b5f11edbcc070ed8e28c52d820f50e645",
+      "sites": []
+    },
+    {
+      "module": "Protocol.PrekeyWire",
+      "file": "dependency/Protocol.PrekeyWire/prekey_wire.mpl",
+      "source_sha256": "e3d0bca0c3f483d69675839ac15420979e54c30e1e6c1449dc1170422be3eef6",
+      "sites": []
+    },
+    {
+      "module": "Protocol.V1",
+      "file": "dependency/Protocol.V1/v1.mpl",
+      "source_sha256": "cee984a2aad68100c548f54db1551419e8abab313e349711cd20011179cabe94",
+      "sites": []
+    },
+    {
+      "module": "Protocol.WirePrimitives",
+      "file": "dependency/Protocol.WirePrimitives/wire_primitives.mpl",
+      "source_sha256": "10b7e4e8b353a0572a79a9c6895c76c7929b393ade53cbd8ed5c352e5ffb4444",
+      "sites": []
+    },
+    {
+      "module": "Push.Binding",
+      "file": "dependency/Push.Binding/binding.mpl",
+      "source_sha256": "fb687ea29f489ed8d7b1ee7bdfac365776064ca46df1999e9149104d73fec50c",
+      "sites": []
+    },
+    {
+      "module": "Push.Token",
+      "file": "dependency/Push.Token/token.mpl",
+      "source_sha256": "70c7d8a887a7ffa049141484e9c14a3731afc53e0da8ac353f17d67da4807cef",
+      "sites": []
+    },
+    {
+      "module": "Session.BraidBilateralStore",
+      "file": "dependency/Session.BraidBilateralStore/braid_bilateral_store.mpl",
+      "source_sha256": "032e19f7d3413091988c8baeedcb39d229d1805047cb355ab6bc7949666b54df",
+      "sites": []
+    },
+    {
+      "module": "Session.BraidComplete",
+      "file": "dependency/Session.BraidComplete/braid_complete.mpl",
+      "source_sha256": "b29a999134846cba6a6c816eec44c7d404243a4082ba872bddc97fa9156b61ad",
+      "sites": []
+    },
+    {
+      "module": "Session.BraidFragment",
+      "file": "dependency/Session.BraidFragment/braid_fragment.mpl",
+      "source_sha256": "c6263a46441e2e961c4af8df01cea8a68c7713e42516580f99aee1a637c2d4aa",
+      "sites": []
+    },
+    {
+      "module": "Session.BraidFragmentWords",
+      "file": "dependency/Session.BraidFragmentWords/braid_fragment_words.mpl",
+      "source_sha256": "65615302c6c88a405649674c7cfae673adda4f02f3452ca30eaaf8a15c61fdda",
+      "sites": []
+    },
+    {
+      "module": "Session.BraidInitiator",
+      "file": "dependency/Session.BraidInitiator/braid_initiator.mpl",
+      "source_sha256": "9c44b5e99914b35155cc8b43c7d181efd5499c6d65b9db0fb3d737809fe6ab21",
+      "sites": []
+    },
+    {
+      "module": "Session.BraidResponder",
+      "file": "dependency/Session.BraidResponder/braid_responder.mpl",
+      "source_sha256": "0d989b8c54ad7df9131d40a99b73e4c3ac64f699e89f19ed02c82fca04502e67",
+      "sites": []
+    },
+    {
+      "module": "Session.BraidStore",
+      "file": "dependency/Session.BraidStore/braid_store.mpl",
+      "source_sha256": "095401fbefac8fefd0efd3283d2b82787c9a0b846eaba5e5b27a0816b866d926",
+      "sites": []
+    },
+    {
+      "module": "Session.Handshake",
+      "file": "dependency/Session.Handshake/handshake.mpl",
+      "source_sha256": "e3d00ceccbd210232c2cf62feb092c225fb1b4b7ce5ba88c50ab2a232e417d6e",
+      "sites": [
+        {
+          "kind": "declassify",
+          "reason": "initial handshake admission discloses only whether plaintext exceeds the public credential and suite dependent transport bound; plaintext content remains private",
+          "start": 9838,
+          "end": 10062,
+          "line": 312,
+          "column": 19
+        },
+        {
+          "kind": "declassify_discriminant",
+          "reason": "initial handshake encryption exposes only success or failure; message bytes, error payloads, and unrelated private control remain private",
+          "start": 14131,
+          "end": 14388,
+          "line": 411,
+          "column": 29
+        }
+      ]
+    },
+    {
+      "module": "Session.HeaderRatchet",
+      "file": "dependency/Session.HeaderRatchet/header_ratchet.mpl",
+      "source_sha256": "89b588c39e9a45a9a50493845d47bf8353861915155ba4ec66983c2aa42bca82",
+      "sites": [
+        {
+          "kind": "declassify",
+          "reason": "HE ratchet admission exposes only whether plaintext exceeds the fixed recipient transport bound; content remains private",
+          "start": 6158,
+          "end": 6329,
+          "line": 224,
+          "column": 19
+        },
+        {
+          "kind": "declassify_discriminant",
+          "reason": "HE body encryption discloses only success or failure; plaintext, error payloads and unrelated private control remain private",
+          "start": 7811,
+          "end": 8064,
+          "line": 273,
+          "column": 16
+        },
+        {
+          "kind": "declassify",
+          "reason": "Hybrid HE ratchet admission exposes only whether plaintext exceeds the fixed recipient transport bound; content remains private",
+          "start": 28932,
+          "end": 29110,
+          "line": 939,
+          "column": 19
+        },
+        {
+          "kind": "declassify_discriminant",
+          "reason": "Hybrid HE body encryption discloses only success or failure; plaintext, error payloads and unrelated private control remain private",
+          "start": 32579,
+          "end": 32792,
+          "line": 1045,
+          "column": 16
+        }
+      ]
+    },
+    {
+      "module": "Session.HeaderStore",
+      "file": "dependency/Session.HeaderStore/header_store.mpl",
+      "source_sha256": "d9b598d83c8cf331a61cb4a13b78e14c56b20803319e2150752241b9a6a47fab",
+      "sites": []
+    },
+    {
+      "module": "Session.HeaderWire",
+      "file": "dependency/Session.HeaderWire/header_wire.mpl",
+      "source_sha256": "0570a0a67aa95eda3c69c049a377ee36bc9b3af15f3fb867ce98a50e385f9d21",
+      "sites": []
+    },
+    {
+      "module": "Session.Ratchet",
+      "file": "dependency/Session.Ratchet/ratchet.mpl",
+      "source_sha256": "7f506450361899b2066a6a68729c35ed5cf82a528fbfa646a555cffc61eaff24",
+      "sites": [
+        {
+          "kind": "declassify_discriminant",
+          "reason": "legacy ratchet body encryption releases only success or failure; plaintext error payloads and unrelated private control remain private",
+          "start": 15244,
+          "end": 15462,
+          "line": 486,
+          "column": 16
+        },
+        {
+          "kind": "declassify",
+          "reason": "ratchet admission discloses only whether the plaintext exceeds this transport's documented message bound",
+          "start": 17251,
+          "end": 17408,
+          "line": 544,
+          "column": 19
+        },
+        {
+          "kind": "declassify",
+          "reason": "ratchet padding discloses only its one-bit InvalidMessage status; plaintext and padding bytes remain private",
+          "start": 31959,
+          "end": 32095,
+          "line": 974,
+          "column": 6
+        }
+      ]
+    },
+    {
+      "module": "Session.Snapshot",
+      "file": "dependency/Session.Snapshot/snapshot.mpl",
+      "source_sha256": "ec9b7ff145ec811b03875ad0f6ead8e77a94ed297575054aab4037ffe812b849",
+      "sites": []
+    },
+    {
+      "module": "Session.Spqr",
+      "file": "dependency/Session.Spqr/spqr.mpl",
+      "source_sha256": "b5f4eb426f860fc62e9c75425fe62cf768eafd1cb4743f6095998c69578c6c29",
+      "sites": []
+    },
+    {
+      "module": "Session.SpqrKdf",
+      "file": "dependency/Session.SpqrKdf/spqr_kdf.mpl",
+      "source_sha256": "c6ba88b321b363bcf073e3d88832299e153873945164381bc9b0a8fe85318c85",
+      "sites": []
+    },
+    {
+      "module": "Session.SpqrStore",
+      "file": "dependency/Session.SpqrStore/spqr_store.mpl",
+      "source_sha256": "24d371ecc008ba89ffef101794df5ce4d3f53172777818e2fc5b9693299d68d0",
+      "sites": []
+    },
+    {
+      "module": "Session.State",
+      "file": "dependency/Session.State/state.mpl",
+      "source_sha256": "73aa5c28c63e167096570edd2183b3690f868d0ac788ecfb963ab71de444bb6b",
+      "sites": []
+    },
+    {
+      "module": "Session.TripleKdf",
+      "file": "dependency/Session.TripleKdf/triple_kdf.mpl",
+      "source_sha256": "532684b5cdd239302df1db3c68dc694636650799eedc0a7cd39e433d858b04d1",
+      "sites": []
+    },
+    {
+      "module": "Session.TripleWire",
+      "file": "dependency/Session.TripleWire/triple_wire.mpl",
+      "source_sha256": "2c8149cffcc5ca9b3c23c39cfded22792fe20f2c0901373a9ba19563768dee87",
+      "sites": []
+    },
+    {
+      "module": "Solana.Address",
+      "file": "dependency/Solana.Address/address.mpl",
+      "source_sha256": "a9258d6743a25f16d3df8e621943c6061af909c24d0311d77297697833f55cfc",
+      "sites": []
+    },
+    {
+      "module": "Solana.LookupTable",
+      "file": "dependency/Solana.LookupTable/lookup_table.mpl",
+      "source_sha256": "cb5fdf3302e4c1c31bd082f885924d6979eb34588fd524074eafa36f002752a8",
+      "sites": []
+    },
+    {
+      "module": "Solana.Nonce",
+      "file": "dependency/Solana.Nonce/nonce.mpl",
+      "source_sha256": "00bdcbe4e3dfbf29104c76484d9d84b29d297b17916d10837dd914d1ed28198b",
+      "sites": []
+    },
+    {
+      "module": "Solana.Read",
+      "file": "dependency/Solana.Read/read.mpl",
+      "source_sha256": "f3c171e85196f1d881cf8be5257f6d29e51219a45dbfbf038a532d1eedb9cdcd",
+      "sites": []
+    },
+    {
+      "module": "Solana.SlotHashes",
+      "file": "dependency/Solana.SlotHashes/slot_hashes.mpl",
+      "source_sha256": "56ffd988002f881e32d833855fccf083c3be1b05eaed9e830deac512f94dcee8",
+      "sites": []
+    },
+    {
+      "module": "Solana.TransactionRead",
+      "file": "dependency/Solana.TransactionRead/transaction_read.mpl",
+      "source_sha256": "85c55be3ac70c0c80d6ff184c4c7f38a1b3bb7e99fd4627280fce47b934afabf",
+      "sites": []
+    },
+    {
+      "module": "Solana.TransactionSend",
+      "file": "dependency/Solana.TransactionSend/transaction_send.mpl",
+      "source_sha256": "2ea1414e1b2bb83ebabe6e6b4880323ce2553823162475998da9149663b7afbc",
+      "sites": []
+    },
+    {
+      "module": "Solana.TransactionWrite",
+      "file": "dependency/Solana.TransactionWrite/transaction_write.mpl",
+      "source_sha256": "e6904f5d392632fae24d7535ea42d511eb478ded4a2ff7cb2d9ce8a1b27e666d",
+      "sites": []
+    },
+    {
+      "module": "Solana.Tx",
+      "file": "dependency/Solana.Tx/tx.mpl",
+      "source_sha256": "9d6ae5a7c8defc904ad7e30d80c79f56ba6775400cebc52869efc08ce7c35d44",
+      "sites": []
+    },
+    {
+      "module": "Transparency.AnchorBatch",
+      "file": "dependency/Transparency.AnchorBatch/anchor_batch.mpl",
+      "source_sha256": "42c4c2c3da51ea5b337fdc2e9601dcc3d0e1a0237b38976ce76d96d3a17d74b1",
+      "sites": []
+    },
+    {
+      "module": "Transparency.AnchorBond",
+      "file": "dependency/Transparency.AnchorBond/anchor_bond.mpl",
+      "source_sha256": "e69e036e5d1a8f5943ae1c785b1cb8be484fb3a174f692566dc28828ab141404",
+      "sites": []
+    },
+    {
+      "module": "Transparency.AnchorChain",
+      "file": "dependency/Transparency.AnchorChain/anchor_chain.mpl",
+      "source_sha256": "ab8bca0426a178b761cf7b1a5e9068ca25d843b8745546222002bd1ffadea2d2",
+      "sites": []
+    },
+    {
+      "module": "Transparency.AnchorConsistency",
+      "file": "dependency/Transparency.AnchorConsistency/anchor_consistency.mpl",
+      "source_sha256": "ec228907e0184aea9f29f4c51ea1cbd92b6d8a24467f575dc3d7aedd5b2d5656",
+      "sites": []
+    },
+    {
+      "module": "Transparency.AnchorContext",
+      "file": "dependency/Transparency.AnchorContext/anchor_context.mpl",
+      "source_sha256": "e3b11453defabe9a29a1bbbaac317e7d3af585c576a2dc852ff82b3aea518da2",
+      "sites": []
+    },
+    {
+      "module": "Transparency.AnchorContinuity",
+      "file": "dependency/Transparency.AnchorContinuity/anchor_continuity.mpl",
+      "source_sha256": "30dbd9826469f6e871f73e1dcd55dd3a54ca4104203d6c9f76a66bdff2518f03",
+      "sites": []
+    },
+    {
+      "module": "Transparency.AnchorContradiction",
+      "file": "dependency/Transparency.AnchorContradiction/anchor_contradiction.mpl",
+      "source_sha256": "fa3f18052bd66a0c89beb091ea7ececedcf4173380c8f4d1e726fe4da3d2d83e",
+      "sites": []
+    },
+    {
+      "module": "Transparency.AnchorCustody",
+      "file": "dependency/Transparency.AnchorCustody/anchor_custody.mpl",
+      "source_sha256": "abba12ec440248e37f799a2de92ed457a27762238ae6cd5dfc5e4db01759ce5b",
+      "sites": []
+    },
+    {
+      "module": "Transparency.AnchorCustodyReport",
+      "file": "dependency/Transparency.AnchorCustodyReport/anchor_custody_report.mpl",
+      "source_sha256": "65631d88ba0564da20fd4fcf6d78284f1f03b89bf8d8dad7d0e788f620c4e493",
+      "sites": []
+    },
+    {
+      "module": "Transparency.AnchorEvidence",
+      "file": "dependency/Transparency.AnchorEvidence/anchor_evidence.mpl",
+      "source_sha256": "e0c47db912fa2d26d5a4420c41fba15ad69cbc1c64c6faa98f4c14fe0526202c",
+      "sites": []
+    },
+    {
+      "module": "Transparency.AnchorHttp",
+      "file": "dependency/Transparency.AnchorHttp/anchor_http.mpl",
+      "source_sha256": "4878b882ca5cea1a3692df787663fcaba5be75f3dec513d4459b1b9c557ddd5c",
+      "sites": []
+    },
+    {
+      "module": "Transparency.AnchorLog",
+      "file": "dependency/Transparency.AnchorLog/anchor_log.mpl",
+      "source_sha256": "53efe528c1933bf22d5a3b2845a004b7d69e6a8ee590525c0ae63ba478fd5271",
+      "sites": []
+    },
+    {
+      "module": "Transparency.AnchorReceipt",
+      "file": "dependency/Transparency.AnchorReceipt/anchor_receipt.mpl",
+      "source_sha256": "fde4cb85dee8988a2fda41722af6f9851e3f86b3f4ba0a780842a68765ba9a4b",
+      "sites": []
+    },
+    {
+      "module": "Transparency.AnchorRegistry",
+      "file": "dependency/Transparency.AnchorRegistry/anchor_registry.mpl",
+      "source_sha256": "2dbf6d3860717ebb246be75a97549dc381eadce301b05be08998da83ca00f73f",
+      "sites": []
+    },
+    {
+      "module": "Transparency.AnchorRing",
+      "file": "dependency/Transparency.AnchorRing/anchor_ring.mpl",
+      "source_sha256": "26d22ea140ab536ed04fac8422571ffadaa7b8f0f8a75fab2ed761a87531f67b",
+      "sites": []
+    },
+    {
+      "module": "Transparency.AnchorRpc",
+      "file": "dependency/Transparency.AnchorRpc/anchor_rpc.mpl",
+      "source_sha256": "1e829ca5dbc6a22c2ed19803d5b7c6eaeb0f0b0b49ffb8db284d7b6c562796b5",
+      "sites": []
+    },
+    {
+      "module": "Transparency.AnchorWitnessSet",
+      "file": "dependency/Transparency.AnchorWitnessSet/anchor_witness_set.mpl",
+      "source_sha256": "2d4bcd1996fe6e0044814513ff6350ab3eb0825e208ed14925e89ef93d0bafb6",
+      "sites": []
+    },
+    {
+      "module": "Transparency.AnchorWrite",
+      "file": "dependency/Transparency.AnchorWrite/anchor_write.mpl",
+      "source_sha256": "791fc68e0c962e4da8cf39a1ab9e424bca103ce0c66003ab98fa20b4d066bab0",
+      "sites": []
+    },
+    {
+      "module": "Transparency.Attendance",
+      "file": "dependency/Transparency.Attendance/attendance.mpl",
+      "source_sha256": "79653fad0da49191eb0184212cec8867c12bb81418e4b3bdb968c91c8bb5076d",
+      "sites": []
+    },
+    {
+      "module": "Transparency.AttendanceRead",
+      "file": "dependency/Transparency.AttendanceRead/attendance_read.mpl",
+      "source_sha256": "2a40b2dd02a00092cffee422556f68ac2d7fa3a8f37448c72aa77c865be871dc",
+      "sites": []
+    },
+    {
+      "module": "Transparency.C2sp",
+      "file": "dependency/Transparency.C2sp/c2sp.mpl",
+      "source_sha256": "2b655f4940c0b9877a4e9e4b4b60767930934ef97388598a2d802b35c996067f",
+      "sites": []
+    },
+    {
+      "module": "Transparency.C2spText",
+      "file": "dependency/Transparency.C2spText/c2sp_text.mpl",
+      "source_sha256": "6ea935d8fd19fcdc6158b0a72bfb924afd352ce438b018a43d99c0901232d53b",
+      "sites": []
+    },
+    {
+      "module": "Transparency.Client",
+      "file": "dependency/Transparency.Client/client.mpl",
+      "source_sha256": "0920793e1c8eca50bc3ed2cc24a7f8343ee97801eb5ade5da824fe288d985ff2",
+      "sites": []
+    },
+    {
+      "module": "Transparency.Config",
+      "file": "dependency/Transparency.Config/config.mpl",
+      "source_sha256": "6429186ec67a5411bf65b15c4083d40fdb89fdc8ef9f6392671cb0945a9c4ecd",
+      "sites": []
+    },
+    {
+      "module": "Transparency.Fork",
+      "file": "dependency/Transparency.Fork/fork.mpl",
+      "source_sha256": "8ebb797ce8c100575734ca5e3a46cd193a5426db1eb4d9aa41f5ae438b06bba0",
+      "sites": []
+    },
+    {
+      "module": "Transparency.Gossip",
+      "file": "dependency/Transparency.Gossip/gossip.mpl",
+      "source_sha256": "75632ebd0d4a482993198acf456c94d0a70ad9470df4142ad96aa41db90271df",
+      "sites": []
+    },
+    {
+      "module": "Transparency.LeafProof",
+      "file": "dependency/Transparency.LeafProof/leaf_proof.mpl",
+      "source_sha256": "58a7013f66d48c3b2168850cb25ad78feaa95b911c0a134ccabc191232c31e0f",
+      "sites": []
+    },
+    {
+      "module": "Transparency.Merkle",
+      "file": "dependency/Transparency.Merkle/merkle.mpl",
+      "source_sha256": "0d3fef58a3283e422997e01b39e00f327c63d96f78f7d9b51eb26cc1af574a3a",
+      "sites": []
+    },
+    {
+      "module": "Transparency.Migration",
+      "file": "dependency/Transparency.Migration/migration.mpl",
+      "source_sha256": "c6ce7e6685d019b05169a52ab57807b53b105b5673df5862b4168126d9a076b9",
+      "sites": []
+    },
+    {
+      "module": "Transparency.NetworkCollateralAccounts",
+      "file": "dependency/Transparency.NetworkCollateralAccounts/network_collateral_accounts.mpl",
+      "source_sha256": "ab56dc9eb180c06d8df09fb3d27c9f7f163de67e6bd5e5f8e7a32765ac75f660",
+      "sites": []
+    },
+    {
+      "module": "Transparency.NetworkCollateralPins",
+      "file": "dependency/Transparency.NetworkCollateralPins/network_collateral_pins.mpl",
+      "source_sha256": "f6176693b725c762a2f4deda4e69e98b77916dbb35d10e1b569c6566c334eca0",
+      "sites": []
+    },
+    {
+      "module": "Transparency.NetworkCollateralState",
+      "file": "dependency/Transparency.NetworkCollateralState/network_collateral_state.mpl",
+      "source_sha256": "9e857c900980e60d563d2de5bb8776dd1e3eab861f01472f080da0dacb89fe86",
+      "sites": []
+    },
+    {
+      "module": "Transparency.NetworkLegacyContext",
+      "file": "dependency/Transparency.NetworkLegacyContext/network_legacy_context.mpl",
+      "source_sha256": "02b57599d1d776b92b11b8db9f72e08aa6b54c1c8c84ce5a8493b5197c335ba4",
+      "sites": []
+    },
+    {
+      "module": "Transparency.NetworkLegacyPins",
+      "file": "dependency/Transparency.NetworkLegacyPins/network_legacy_pins.mpl",
+      "source_sha256": "ecc2cd3c58652b85f761914d10d2fd9a4253331cb37d89a023b46675b115559c",
+      "sites": []
+    },
+    {
+      "module": "Transparency.PermanentReceipt",
+      "file": "dependency/Transparency.PermanentReceipt/permanent_receipt.mpl",
+      "source_sha256": "31a9051db62c10655f86ed265e3417d6da435efac36033e12f7c72ee11045500",
+      "sites": []
+    },
+    {
+      "module": "Transparency.Relay",
+      "file": "dependency/Transparency.Relay/relay.mpl",
+      "source_sha256": "db77da146f9496e9ec8e355ff2b6534d642958ec6ac59f6331b31ed9d933caf8",
+      "sites": []
+    },
+    {
+      "module": "Transparency.RelayAdmission",
+      "file": "dependency/Transparency.RelayAdmission/relay_admission.mpl",
+      "source_sha256": "7d4a37b1038551cf4a0efd0b8835efa773130bc9f11fa801ab4f6e1ced180571",
+      "sites": []
+    },
+    {
+      "module": "Transparency.RelayClock",
+      "file": "dependency/Transparency.RelayClock/relay_clock.mpl",
+      "source_sha256": "4b7e05ef70668414239e65c80f0a13a346913d6063dd7525d946805a99cf8146",
+      "sites": []
+    },
+    {
+      "module": "Transparency.RelayDestinations",
+      "file": "dependency/Transparency.RelayDestinations/relay_destinations.mpl",
+      "source_sha256": "3cc2d5defc06b16e35f369dcf891925364d5f0356efc03c80cfcd0bc8c1fec6e",
+      "sites": []
+    },
+    {
+      "module": "Transparency.RelayLookup",
+      "file": "dependency/Transparency.RelayLookup/relay_lookup.mpl",
+      "source_sha256": "10263a292442e097775256206cdac75933455ad353cd5cfc2a5c16f16f2d255c",
+      "sites": []
+    },
+    {
+      "module": "Transparency.RelayLookupRead",
+      "file": "dependency/Transparency.RelayLookupRead/relay_lookup_read.mpl",
+      "source_sha256": "57f5aa0eecc9b40c5433db6f1464c0c916929adaa0fe545c9e816ec23f2a2e35",
+      "sites": []
+    },
+    {
+      "module": "Transparency.RelayReport",
+      "file": "dependency/Transparency.RelayReport/relay_report.mpl",
+      "source_sha256": "27713823ce30dd67396cab7bcec2756c3e6f3060ee3a75389cf3b9466b626040",
+      "sites": []
+    },
+    {
+      "module": "Transparency.RelayStage",
+      "file": "dependency/Transparency.RelayStage/relay_stage.mpl",
+      "source_sha256": "dced3f18ea5d081a0b005335dd2486ed15b377307e26a339e7c27327b82fe64e",
+      "sites": []
+    },
+    {
+      "module": "Transparency.RelayStageRead",
+      "file": "dependency/Transparency.RelayStageRead/relay_stage_read.mpl",
+      "source_sha256": "d64f8f1967531de7d79f3e549a9eb903de74a8356052f0c146130367ac25247f",
+      "sites": []
+    },
+    {
+      "module": "Transparency.Rewards",
+      "file": "dependency/Transparency.Rewards/rewards.mpl",
+      "source_sha256": "707020a9a7dcb31ae7807ee4b78ec2f85ca94a204da296ed47d59f7ad3369396",
+      "sites": []
+    },
+    {
+      "module": "Transparency.RewardsChain",
+      "file": "dependency/Transparency.RewardsChain/rewards_chain.mpl",
+      "source_sha256": "15a2fe4ccfc0fa94ac8fb8dc6ff659d9553b226e89d1cb2b35f57dc10030ced8",
+      "sites": []
+    },
+    {
+      "module": "Transparency.RewardsOperator",
+      "file": "dependency/Transparency.RewardsOperator/rewards_operator.mpl",
+      "source_sha256": "11f139cd54cc83b4572db9df29b0a763c7018143cf9e550c747be0d91e90803d",
+      "sites": []
+    },
+    {
+      "module": "Transparency.RewardsRead",
+      "file": "dependency/Transparency.RewardsRead/rewards_read.mpl",
+      "source_sha256": "ad4455bbd24e05847e0463593cafcaa1408a728828268d769ed922ebb2d46a4a",
+      "sites": []
+    },
+    {
+      "module": "Transparency.RewardsWrite",
+      "file": "dependency/Transparency.RewardsWrite/rewards_write.mpl",
+      "source_sha256": "f9db9c40e72c4881c1ed70bced955f7845e97d8e38ee4ad8a3a201fc62da4425",
+      "sites": []
+    },
+    {
+      "module": "Transparency.RpcTransport",
+      "file": "dependency/Transparency.RpcTransport/rpc_transport.mpl",
+      "source_sha256": "3c9bb5d5cf517fe2a03ecaf5776cb65945c702a070703ea5562e9df6a5310a23",
+      "sites": []
+    },
+    {
+      "module": "Transparency.SlashReceipt",
+      "file": "dependency/Transparency.SlashReceipt/slash_receipt.mpl",
+      "source_sha256": "ebcdbc7ae5f5eb65255f18d07f8babf90fb7317a0c7fc11fa600d930bb4653d2",
+      "sites": []
+    },
+    {
+      "module": "Transparency.SlashReceiptRead",
+      "file": "dependency/Transparency.SlashReceiptRead/slash_receipt_read.mpl",
+      "source_sha256": "6af1598f44e5160da99e875caa84d98563c70610e2b26ea953edd33fb834cc8d",
+      "sites": []
+    },
+    {
+      "module": "Transparency.TokenBurn",
+      "file": "dependency/Transparency.TokenBurn/token_burn.mpl",
+      "source_sha256": "acede7e4e991b389bb57405f14521dbcd15841311ba3432feb3752347ef9a129",
+      "sites": []
+    },
+    {
+      "module": "Transparency.TokenBurnCarry",
+      "file": "dependency/Transparency.TokenBurnCarry/token_burn_carry.mpl",
+      "source_sha256": "e70fe237ef698ff69e93cccabba70aaabe0e1f868341518f7583be2d8f63c128",
+      "sites": []
+    },
+    {
+      "module": "Transparency.TokenBurnCarryRead",
+      "file": "dependency/Transparency.TokenBurnCarryRead/token_burn_carry_read.mpl",
+      "source_sha256": "cc8abf2962babb089edeab21280397b7220695754d0fe6bb624517352b0138b0",
+      "sites": []
+    },
+    {
+      "module": "Transparency.TokenBurnCarryWrite",
+      "file": "dependency/Transparency.TokenBurnCarryWrite/token_burn_carry_write.mpl",
+      "source_sha256": "27079aa4dda5783d2e8d953a24d7e13b9152e61e7f9f5b43fa13d7b2cfee7461",
+      "sites": []
+    },
+    {
+      "module": "Transparency.TokenBurnExpiry",
+      "file": "dependency/Transparency.TokenBurnExpiry/token_burn_expiry.mpl",
+      "source_sha256": "e78bfd74dcc0e61162bc938235834d16cc691d83b4816c89a7010d8c3e6af7c1",
+      "sites": []
+    },
+    {
+      "module": "Transparency.TokenBurnExpiryRead",
+      "file": "dependency/Transparency.TokenBurnExpiryRead/token_burn_expiry_read.mpl",
+      "source_sha256": "6354bdb6f70b5f02ecd4c160bac95787e3e965dcec1f5a5040e4961d01a6a122",
+      "sites": []
+    },
+    {
+      "module": "Transparency.TokenBurnRead",
+      "file": "dependency/Transparency.TokenBurnRead/token_burn_read.mpl",
+      "source_sha256": "0e9ac01f956c4d200337b6a7a9636e56a6d6d848e35af1be2a58e3746de34c99",
+      "sites": []
+    },
+    {
+      "module": "Transparency.TokenBurnWrite",
+      "file": "dependency/Transparency.TokenBurnWrite/token_burn_write.mpl",
+      "source_sha256": "15f66c0f6a6cf5a60033f686bd99f46db027b91a18fda60e66114ed2abb91643",
+      "sites": []
+    },
+    {
+      "module": "Transparency.TokenChain",
+      "file": "dependency/Transparency.TokenChain/token_chain.mpl",
+      "source_sha256": "02ab93e90f01d10327a96cc131d0851261ee50a80ff333c56faaec4abdbe801d",
+      "sites": []
+    },
+    {
+      "module": "Transparency.TokenCollateralWrite",
+      "file": "dependency/Transparency.TokenCollateralWrite/token_collateral_write.mpl",
+      "source_sha256": "9088bc24e7e8e2da6ab6d858ca75fb3e11b126501e0b6b048e645d92fca63edc",
+      "sites": []
+    },
+    {
+      "module": "Transparency.TokenCustody",
+      "file": "dependency/Transparency.TokenCustody/token_custody.mpl",
+      "source_sha256": "809e5a19d1afe3d5811c90306ca3c0f1182d804d0c2156d206e1448d5e0536bb",
+      "sites": []
+    },
+    {
+      "module": "Transparency.TokenPolicy",
+      "file": "dependency/Transparency.TokenPolicy/token_policy.mpl",
+      "source_sha256": "7b679b8c3f5ea1e66567223dda0f9734d1d1b5895fccdaeac153f2c9602250de",
+      "sites": []
+    },
+    {
+      "module": "Transparency.TokenProofWrite",
+      "file": "dependency/Transparency.TokenProofWrite/token_proof_write.mpl",
+      "source_sha256": "2a36be96a6ca056d6689b0c4455df54054f6a17aa5f2b7e9452d672a64175a37",
+      "sites": []
+    },
+    {
+      "module": "Transparency.TokenRewards",
+      "file": "dependency/Transparency.TokenRewards/token_rewards.mpl",
+      "source_sha256": "6ba0ac0b5c411117a01bc31e4f66981b72294e222b934dd74fb3c82f9b50aecd",
+      "sites": []
+    },
+    {
+      "module": "Transparency.TokenWrite",
+      "file": "dependency/Transparency.TokenWrite/token_write.mpl",
+      "source_sha256": "799820acf3b3e6fe58954c454ebfc9a96df131bab2536bd70c68e6685d44f0d4",
+      "sites": []
+    },
+    {
+      "module": "Transparency.Wire",
+      "file": "dependency/Transparency.Wire/wire.mpl",
+      "source_sha256": "8bf85479c3af923a8ed5455e30cac029c0a777387cde3954959d7443285b9b44",
+      "sites": []
+    },
+    {
+      "module": "Transport.GroupRecipient",
+      "file": "dependency/Transport.GroupRecipient/group_recipient.mpl",
+      "source_sha256": "b2db8bef5033572dc76da526c231184869ca20a287db8c4839a1e6c52b833e79",
+      "sites": []
+    },
+    {
+      "module": "Transport.Packet",
+      "file": "dependency/Transport.Packet/packet.mpl",
+      "source_sha256": "5e03f9fbc7883b0cecc77c40c35a8605c382608b722ad66e98a9d4641c5ca641",
+      "sites": [
+        {
+          "kind": "declassify",
+          "reason": "client transport framing discloses only its one-bit concatenation failure status; framed content stays private",
+          "start": 2091,
+          "end": 2242,
+          "line": 76,
+          "column": 6
+        },
+        {
+          "kind": "declassify",
+          "reason": "client vector framing discloses only success, invalid length integer, or integer encoding failure; encoded length bytes stay private",
+          "start": 12763,
+          "end": 12921,
+          "line": 402,
+          "column": 19
+        }
+      ]
+    },
+    {
+      "module": "Transport.Padding",
+      "file": "dependency/Transport.Padding/padding.mpl",
+      "source_sha256": "19007c1ae3c3dfbb45ae2b658a1586388222e3761ffd54e170deff303b9d1f03",
+      "sites": []
+    },
+    {
+      "module": "Transport.Recipient",
+      "file": "dependency/Transport.Recipient/recipient.mpl",
+      "source_sha256": "11e442ed6dd640d6b0b62599a818f67cdd3a7dca31cad680fa9e06d0f91c7a17",
+      "sites": []
+    }
+  ]
+}
