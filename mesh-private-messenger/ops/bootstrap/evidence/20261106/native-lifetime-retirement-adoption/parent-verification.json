@@ -1,0 +1,18 @@
+{
+  "status": "PASS_WITH_GATES",
+  "owner_commit": "58a05d5cbe1aa7ddcf455f98b48e587cf410e182",
+  "fresh_parent_replay": ".morse/continuation-20261106/n1b-parent-green/receipt.json",
+  "receipt_sha256": "7b7c6ee6c54040a1c3357fd2ef5a92d882fab64ce7ac3b2dd77cbd61e4e06dfc",
+  "verified_runs": 26,
+  "owner_evidence_files_rehashed": 53,
+  "production_sources": {
+    "mesh-private-messenger/apps/mobile/modules/mesh-messenger/ios/MeshMessengerDataProtection.swift": "cd5410f2f3c58bb6338c8048a068bb2bb06de515696b121ea54e95a54918ed9a",
+    "mesh-private-messenger/apps/mobile/modules/mesh-messenger/ios/MeshMessengerNativeRetirement.swift": "79004e1e8938d3bc922164f64da65ac7bd0af3dd36135423567b3f134833c237"
+  },
+  "review_r2_sha256": "3b0c05311fe8fcae53a40fd63c2c2ccb84d55218fdb43887da58bcabb55042ee",
+  "review_r3_sha256": "e47e1e960398e297eeeee9d56c5bcb6cbf0145925010602e656b793150e509d7",
+  "limits": [
+    "Foundation/macOS runtime behavior and support-only iOS simulator typecheck; UIKit/Expo actual lifecycle remains unqualified.",
+    "Application remains unbound; mask1; no scheduler/policy/framework/publication/product activation."
+  ]
+}
