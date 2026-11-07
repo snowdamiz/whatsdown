@@ -70,7 +70,7 @@ fn encode_history_fields(values :: List<MobileHistoryEntry>) -> Bytes!String do
   end
 end
 
-pub fn encode_history(values :: List<MobileHistoryEntry>) -> Bytes!String do
+pub fn encode_history(values :: List<MobileHistoryEntry>) -> Plaintext<Bytes>!String do
   let encoded = encode_history_fields(values)
   let code = case encoded do
     Ok(_) -> 0

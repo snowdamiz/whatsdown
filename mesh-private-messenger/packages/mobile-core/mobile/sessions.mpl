@@ -1,5 +1,5 @@
 from Session.State import RatchetState, RatchetError, RatchetMessage
-from Binary.Reader import BinaryReader, finish, reader
+from Binary.Reader import BinaryReader, finish, reader, read_vector
 from Mobile.Codec import (
   mobile_append,
   mobile_byte,
@@ -14,8 +14,7 @@ from Mobile.Codec import (
   mobile_write_u64,
   mobile_zeroes,
   take_vector,
-  take_optional_vector,
-  take_vector_error
+  take_optional_vector
 )
 from Mobile.Types import (
   MobileLoadedSession,
@@ -43,7 +42,7 @@ from Transport.Packet import ClientProfile, TransportPacket, decode_packet, open
 
 ##! Mobile.Sessions implementation.
 
-pub fn inner_bytes(value :: InnerEnvelope) -> Bytes!String do
+pub fn inner_bytes(value :: InnerEnvelope) -> Plaintext<Bytes>!String do
   case encode_inner_envelope(value) do
     Err(_) -> Err("inner_encoding_failed")
     Ok(encoded)
@@ -52,7 +51,7 @@ end
 
 pub fn encode_sync_payload(local :: ClientProfile,
   peer :: ClientProfile,
-  inner :: InnerEnvelope) -> Bytes!String do
+  inner :: InnerEnvelope) -> Plaintext<Bytes>!String do
   mobile_join([
       mobile_vector(Bytes.from_utf8(peer.username))?,
       mobile_vector(peer.account_id)?,
@@ -67,36 +66,67 @@ pub fn encode_sync_payload(local :: ClientProfile,
     Bytes.empty())
 end
 
+pub type SyncPayloadError do
+  SyncInvalidPayload
+  SyncInvalidStoreRequest
+  SyncInvalidSafetyNumber
+end deriving(Eq, Debug)
+
+fn sync_payload_error_text(error :: SyncPayloadError) -> String do
+  case error do
+    SyncInvalidPayload -> "invalid_sync_payload"
+    SyncInvalidStoreRequest -> "invalid_store_request"
+    SyncInvalidSafetyNumber -> "invalid_safety_number"
+  end
+end
+
+fn sync_vector(state :: BinaryReader, maximum :: Int) -> MobileReadBytes!SyncPayloadError do
+  case read_vector(state, maximum) do
+    Err(_) -> Err(SyncInvalidPayload)
+    Ok((next, value)) -> Ok(MobileReadBytes { state: next, value: value })
+  end
+end
+
 pub fn parse_sync_payload(input :: Bytes) -> MobileSyncPayload!String do
+  case parse_sync_payload_typed(input) do
+    Err(error) -> Err(sync_payload_error_text(error))
+    Ok(value)
+  end
+end
+
+pub fn parse_sync_payload_typed(input :: Bytes) -> MobileSyncPayload!SyncPayloadError do
   case reader(input, 32500) do
-    Err(_) -> Err("invalid_sync_payload")
+    Err(_) -> Err(SyncInvalidPayload)
     Ok(state) -> do
-      let peer_username = take_vector_error(state, 64, "invalid_sync_payload")?
-      let peer_account_id = take_vector_error(peer_username.state, 32, "invalid_sync_payload")?
-      let conversation_id = take_vector_error(peer_account_id.state, 16, "invalid_sync_payload")?
-      let client_message_id = take_vector_error(conversation_id.state, 16, "invalid_sync_payload")?
-      let client_timestamp = take_vector_error(client_message_id.state, 8, "invalid_sync_payload")?
-      let body = take_vector_error(client_timestamp.state, 32000, "invalid_sync_payload")?
-      let disappearing_seconds = take_vector_error(body.state, 4, "invalid_sync_payload")?
-      let safety = optional_safety_number(disappearing_seconds.state)?
+      let peer_username = sync_vector(state, 64)?
+      let peer_account_id = sync_vector(peer_username.state, 32)?
+      let conversation_id = sync_vector(peer_account_id.state, 16)?
+      let client_message_id = sync_vector(conversation_id.state, 16)?
+      let client_timestamp = sync_vector(client_message_id.state, 8)?
+      let body = sync_vector(client_timestamp.state, 32000)?
+      let disappearing_seconds = sync_vector(body.state, 4)?
+      let safety = optional_safety_number_typed(disappearing_seconds.state)?
       case finish(safety.state) do
-        Err(_) -> Err("invalid_sync_payload")
+        Err(_) -> Err(SyncInvalidPayload)
         Ok(_) -> do
-          let username = mobile_utf8(peer_username.value, "invalid_sync_payload")?
+          let username = case Bytes.to_utf8(peer_username.value) do
+            Err(_) -> Err(SyncInvalidPayload)
+            Ok(value)
+          end?
           if String.length(username) == 0
             || Bytes.length(peer_account_id.value) != 32
             || Bytes.length(conversation_id.value) != 16
             || Bytes.length(client_message_id.value) != 16
             || Bytes.length(client_timestamp.value) != 8
             || Bytes.length(disappearing_seconds.value) != 4 do
-            Err("invalid_sync_payload")
+            Err(SyncInvalidPayload)
           else
             let timestamp = case mobile_read_u64(client_timestamp.value) do
-              Err(_) -> Err("invalid_sync_payload")
+              Err(_) -> Err(SyncInvalidPayload)
               Ok(value)
             end?
             let disappearing = case mobile_read_u32(disappearing_seconds.value) do
-              Err(_) -> Err("invalid_sync_payload")
+              Err(_) -> Err(SyncInvalidPayload)
               Ok(value)
             end?
             Ok(MobileSyncPayload {
@@ -196,16 +226,26 @@ fn encode_session_record(snapshot_blob :: Bytes,
     Bytes.empty())
 end
 
-fn optional_safety_number(state :: BinaryReader) -> MobileReadBytes!String do
+fn optional_safety_number_typed(state :: BinaryReader) -> MobileReadBytes!SyncPayloadError do
   if state.offset == Bytes.length(state.input) do
     Ok(MobileReadBytes { state: state, value: Bytes.empty() })
   else
-    let value = take_vector(state, 64)?
+    let value = case read_vector(state, 64) do
+      Err(_) -> Err(SyncInvalidStoreRequest)
+      Ok((next, bytes)) -> Ok(MobileReadBytes { state: next, value: bytes })
+    end?
     if Bytes.length(value.value) != 0 && Bytes.length(value.value) != 64 do
-      Err("invalid_safety_number")
+      Err(SyncInvalidSafetyNumber)
     else
       Ok(value)
     end
+  end
+end
+
+fn optional_safety_number(state :: BinaryReader) -> MobileReadBytes!String do
+  case optional_safety_number_typed(state) do
+    Err(error) -> Err(sync_payload_error_text(error))
+    Ok(value)
   end
 end
 
