@@ -1,5 +1,14 @@
 import Foundation
 
+enum MeshMessengerNativeRetirement {
+  static func onMain(_ retire: @escaping () -> Void) {
+    // Main teardown must retire before returning to its caller. Off-Main
+    // teardown still queues exact-identity cleanup without waiting for Main.
+    if Thread.isMainThread { retire() }
+    else { DispatchQueue.main.async(execute: retire) }
+  }
+}
+
 protocol MeshMessengerNativeMountObservation: AnyObject {
   func isCurrent() -> Bool
 }
@@ -759,7 +768,7 @@ private final class MeshMessengerRootSentinel: UIView {
   }
   deinit {
     let rootID = rootID, sentinelID = id
-    DispatchQueue.main.async { MeshMessengerDataProtection.retireSentinel(rootID, sentinelID: sentinelID) }
+    MeshMessengerNativeRetirement.onMain { MeshMessengerDataProtection.retireSentinel(rootID, sentinelID: sentinelID) }
   }
 }
 
@@ -789,7 +798,7 @@ final class MeshMessengerAppLockOwnerView: ExpoView {
     else if window != nil { onOwnerAttached([:]) } // Empty attach wake, never an auth result.
   }
   deinit {
-    if let owned = lease { DispatchQueue.main.async { MeshMessengerDataProtection.retireOwner(owned) } }
+    if let owned = lease { MeshMessengerNativeRetirement.onMain { MeshMessengerDataProtection.retireOwner(owned) } }
   }
 }
 // Called only by the existing native wallet authorize callback on its worker.
