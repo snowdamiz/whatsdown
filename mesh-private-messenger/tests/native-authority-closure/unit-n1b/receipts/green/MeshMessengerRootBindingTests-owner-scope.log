@@ -1,0 +1,5 @@
+PASS owner-bound private data refuses a newer public epoch rather than refreshing its lease
+PASS canonical native mount replacement refuses a still-current epoch before private entry
+PASS native owner loss during actual private body suppresses the completed data
+PASS auth metadata identity survives its own epoch rotation but cannot survive a native successor or release
+RESULT 4/4 native-owner-scope groups passed

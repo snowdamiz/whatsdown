@@ -1,0 +1,4 @@
+PASS actual native registry membership survives a refused competing UI owner registration for disabled headless data
+PASS foreign or absent native registry snapshots cannot establish an alive Module
+PASS native disposal prevents a delayed old registry callback from reviving private entry
+RESULT 3/3 native-headless-admission groups passed

@@ -1,0 +1,6 @@
+{"event": "same-epoch-old-capture-refused-after-sentinel-replacement"}
+{"event": "real-http-held-main-undrained", "case": "same-root-stale-capture", "before_sha256": "cd0fe56b6243429cb7c8eb318c80afa6d6e85ef7d43025e9746d4381b7503c79"}
+{"event": "native-teardown-returned-before-http", "main_cleanup_deferred": true, "bind_status": 0}
+{"event": "real-sink-result", "rows": [["later"]], "statuses": [0], "requests": ["/hold"], "after_sha256": "38176d698676fdd3c156e65fb8478be624e377e7a1a192b4725ac73fcfdff4b6"}
+{"event": "same-root-successor-reached-real-sink-before-and-after-stale-cleanup"}
+{"event": "PASS", "case": "same-root-stale-capture"}

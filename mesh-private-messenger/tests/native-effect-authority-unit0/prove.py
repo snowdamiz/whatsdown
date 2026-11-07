@@ -23,6 +23,7 @@ def main():
     common = [ios / name for name in (
         "MeshMessengerAppLockPolicy.swift", "MeshMessengerAppLock.swift",
         "MeshMessengerProtectedFiles.swift", "MeshMessengerLockedNotifications.swift",
+        "MeshMessengerNativeRetirement.swift",
         "MeshMessengerDataProtection.swift")]
     receipts = []
 

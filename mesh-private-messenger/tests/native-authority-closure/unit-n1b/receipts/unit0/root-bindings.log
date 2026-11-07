@@ -1,0 +1,24 @@
+PASS exact native root context window and scene registration does not grant authentication
+PASS missing wrong-context or unrelated native owner cannot replace a valid registration
+PASS ambiguous second live owner cannot replace the actual current owner
+PASS root replacement invalidates old lease but late old root detach cannot revoke the fresh root
+PASS old Module destruction with reused AppContext cannot revoke a newer Module registration
+PASS delayed old probe teardown cannot close a genuinely admitted fresh native epoch
+PASS account change rejects old completion and old cleanup never refreshes its lease
+PASS weak native owner and root loss cannot be replaced by a global lookup
+PASS current Module teardown revokes once and repeated teardown preserves later locked-owner registration
+PASS same native window becoming inactive is not root detach while actual window loss is
+PASS delayed old registration cannot reclaim newer owner in same or different native AppContext
+PASS repeated exact root and owner callback is idempotent and never retires its own lease
+PASS unregistered native create refuses before mutation and exact repeated create is harmless
+PASS previously admitted old Module cannot repeat create after a newer owner and fresh public epoch
+PASS previously admitted old Module view cannot capture a fresh public epoch after native successor
+PASS same Module obsolete view cannot displace fresh attached native owner after another epoch rotation
+PASS actual native lifecycle adapter serializes disposal after registration action commit
+PASS off-main native registration refuses without changing gate state
+PASS same native host with replacement presenter refuses the old mount observation
+PASS canonical native registry replacement refuses another view with the same lookup tag
+PASS current presenter root tag resolving another native surface refuses admission
+PASS never admitted delayed old Module absent from canonical mount cannot displace current owner
+PASS mount replacement between capture preparation and completion refuses the captured owner
+RESULT 23/23 root-binding groups passed
