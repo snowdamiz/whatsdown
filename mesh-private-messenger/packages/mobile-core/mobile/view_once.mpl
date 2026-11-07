@@ -222,6 +222,10 @@ fn authenticate_private(device :: borrow DeviceKeys,
   let available = case decode_view_once_record(raw)? do
     Consumed(_) -> return Err("view_once_unavailable")
     Available(value) -> value
+    PendingFetch(_) -> return Err("view_once_unavailable")
+    Ready(_) -> return Err("view_once_unavailable")
+    ConsumedV2(_) -> return Err("view_once_unavailable")
+    Expired(_) -> return Err("view_once_unavailable")
   end
   let reference = decode_view_once_reference(available.reference)?
   if !Bytes.secure_equals(reference.binding.receiver_account_id, profile.account_id)

@@ -1117,4 +1117,9 @@ export const fr: Catalog = {
   'File could not be included in this backup.': 'Ce fichier n’a pas pu être inclus dans cette sauvegarde.',
   'Couldn’t open Morse. Close the app and try again.': 'Impossible d’ouvrir Morse. Fermez l’application puis réessayez.',
   'Those files could not be read.': 'Impossible de lire ces fichiers.',
+  'View-once photo · Waiting': 'Photo à vue unique · En attente',
+  'View-once photo · Ready': 'Photo à vue unique · Prête',
+  'View-once photo · Opened': 'Photo à vue unique · Ouverte',
+  'View-once photo · Expired': 'Photo à vue unique · Expirée',
+  'View-once photo · Unavailable': 'Photo à vue unique · Indisponible',
 };

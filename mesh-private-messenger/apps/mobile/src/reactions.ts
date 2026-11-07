@@ -70,7 +70,7 @@ export function encodeReaction(target: string, emoji: string, revision = Date.no
 
 // Reaction events use the same encrypted, bounded history as messages. Actor IDs
 // come from the authenticated history record, never from the reaction body.
-export function applyReactions<T extends { body: string }>(
+export function applyReactions<T extends { body: string; kind?: string }>(
   history: T[],
   keyOf: (message: T) => string,
   senderOf: (message: T) => string,
@@ -78,7 +78,7 @@ export function applyReactions<T extends { body: string }>(
   const messages: T[] = [];
   const updates = new Map<string, Map<string, Update>>();
   for (const message of history) {
-    if (!message.body.startsWith(prefix)) {
+    if (message.kind === 'view-once' || !message.body.startsWith(prefix)) {
       messages.push(message);
       continue;
     }

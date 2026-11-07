@@ -83,6 +83,7 @@ import {
 } from "./attachment-io";
 import {
   attachmentPreviewText,
+  messageBodyText,
   composerScope,
   describeAttachmentState,
   formatBytes,
@@ -4804,7 +4805,7 @@ function AppContent({ services, windowsPreview = false, onWindowsPreviewChange, 
     const scope = `chat/${conversation.conversationId.join(".")}`;
     const canReply = !conversation.blocked && !conversation.requestPending;
     // Each side of a chat is named in its own colour, as group members are.
-    const quoteOf = (message: Omit<HistoryMessage, "reply">) => ({
+    const quoteOf = (message: HistoryMessage) => ({
       name: message.direction === "sent" ? t("You") : contactName(conversation),
       accountId: message.direction === "sent" ? ownId : hex(conversation.peerAccountId),
       text: attachmentPreviewText(message),
@@ -4889,8 +4890,8 @@ function AppContent({ services, windowsPreview = false, onWindowsPreviewChange, 
               <DayDivider label={item.label} />
             ) : (
               <MessageBubble
-                body={item.message.body}
-                action={communityLinkAction(item.message.body)}
+                body={messageBodyText(item.message)}
+                action={item.message.kind === "view-once" ? undefined : communityLinkAction(item.message.body)}
                 timestamp={item.message.timestamp}
                 sent={item.message.direction === "sent"}
                 status={messageStatus(item.message, preview !== null || readReceipts,
@@ -4915,7 +4916,7 @@ function AppContent({ services, windowsPreview = false, onWindowsPreviewChange, 
                 tail={item.tail}
                 spaced={item.spaced}
                 enter={isFreshMessage(item.key)}
-                attachments={item.message.attachments?.map((attachment) => bubbleAttachment(
+                attachments={item.message.kind === "view-once" ? undefined : item.message.attachments?.map((attachment) => bubbleAttachment(
                   scope, attachment,
                   !conversation.requestPending && !conversation.blocked,
                 ))}

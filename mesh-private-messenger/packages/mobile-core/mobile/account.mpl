@@ -116,6 +116,7 @@ from Storage.Records import (
 )
 from Transport.Packet import ClientProfile, decode_client_profile, encode_client_profile
 from Storage.SignupDraft import seal_signup_draft
+from Mobile.ViewOnceAdmission import view_once_epoch_label, seal_view_once_epoch
 from Storage.AccountGuard import (
   erase_account_if_current,
   load_account_basis,
@@ -276,7 +277,8 @@ fn create_account_with_draft(request :: MobileAccountRequest,
         "profile/v1",
         "one-time-prekeys/v1",
         "one-time-prekey-active/v1",
-        "one-time-prekey-next-id/v1"
+        "one-time-prekey-next-id/v1",
+        view_once_epoch_label()
       ]
         ++ draft_labels
         ++ personal_labels,
@@ -290,7 +292,8 @@ fn create_account_with_draft(request :: MobileAccountRequest,
         profile_blob,
         prekey_index_blob,
         prekey_active_blob,
-        prekey_next_id_blob
+        prekey_next_id_blob,
+        seal_view_once_epoch(wrapping_key, identity.account_id, credential.device_id)?
       ]
         ++ draft_blobs
         ++ personal_blobs)?
@@ -522,7 +525,8 @@ pub fn complete_link(request :: MobilePayloadRequest) -> Bytes!String do
         "profile/v1",
         "one-time-prekeys/v1",
         "one-time-prekey-active/v1",
-        "one-time-prekey-next-id/v1"
+        "one-time-prekey-next-id/v1",
+        view_once_epoch_label()
       ],
       [
         signing_blob,
@@ -533,7 +537,8 @@ pub fn complete_link(request :: MobilePayloadRequest) -> Bytes!String do
         profile_blob,
         prekey_index_blob,
         prekey_active_blob,
-        prekey_next_id_blob
+        prekey_next_id_blob,
+        seal_view_once_epoch(wrapping_key, account.account_id, credential.device_id)?
       ])?
     Ok(profile)
   end

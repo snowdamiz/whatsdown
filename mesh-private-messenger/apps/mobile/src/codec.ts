@@ -39,16 +39,37 @@ export type AttachmentSummary = {
 // to. Absent once it has left.
 export type Delivery = 'pending' | 'failed';
 
+export type ViewOnceStatus = 'pending' | 'ready' | 'opened' | 'expired' | 'unavailable';
+
+export type MessageContent = { body: string } & (
+  | { kind?: 'ordinary'; attachments?: AttachmentSummary[] }
+  | { kind: 'view-once'; status: ViewOnceStatus; attachments?: never }
+);
+
+function parseHistoryContent(status: number, body: string, attachment: Uint8Array): MessageContent {
+  if (status === 0) {
+    const attachments = parseAttachmentSummaries(attachment);
+    return { body, ...(attachments.length ? { attachments } : {}) };
+  }
+  if (attachment.length !== 0) throw new Error('Invalid view-once attachment summary');
+  switch (status) {
+    case 1: return { kind: 'view-once', status: 'pending', body };
+    case 2: return { kind: 'view-once', status: 'ready', body };
+    case 3: return { kind: 'view-once', status: 'opened', body };
+    case 4: return { kind: 'view-once', status: 'expired', body };
+    case 5: return { kind: 'view-once', status: 'unavailable', body };
+    default: throw new Error('Invalid history status');
+  }
+}
+
 function parseDelivery(state: number): { delivery?: Delivery } {
   if (state > 2) throw new Error('Invalid delivery state');
   return state === 1 ? { delivery: 'pending' } : state === 2 ? { delivery: 'failed' } : {};
 }
 
-export type HistoryMessage = {
+type HistoryEntry = {
   delivery?: Delivery;
   reactions?: Reaction[];
-  // The message this one answers, quoted from this device's own history.
-  reply?: Reply<Omit<HistoryMessage, 'reply'>>;
   // The furthest the other side has acknowledged a sent message, or this account a received one.
   receipt?: ReceiptState;
   // A request to join a community, or its answer, which the body now reads as.
@@ -56,9 +77,12 @@ export type HistoryMessage = {
   direction: 'sent' | 'received';
   messageId: Uint8Array;
   timestamp: number;
-  body: string;
   disappearingSeconds: number;
-  attachments?: AttachmentSummary[];
+} & MessageContent;
+
+export type HistoryMessage = HistoryEntry & {
+  // Quotes are one level deep and retain the original content variant.
+  reply?: Reply<HistoryEntry>;
 };
 
 export type DeviceSummary = {
@@ -522,7 +546,9 @@ export function parseConversations(input: Uint8Array): Conversation[] {
 }
 
 export function parseHistory(input: Uint8Array): HistoryMessage[] {
-  const list = new Reader(input);
+  const versioned = input[0] === 2 && input[1] === 72 && input[2] === 83 && input[3] === 84;
+  if (input.length > 8 + 256 * (4 + 65_600) + (versioned ? 4 : 0)) throw new Error('History is too large');
+  const list = new Reader(versioned ? input.subarray(4) : input);
   const count = readU32(list.vector(4));
   if (count > 256) throw new Error('History is too large');
   const messages: HistoryMessage[] = [];
@@ -530,11 +556,13 @@ export function parseHistory(input: Uint8Array): HistoryMessage[] {
     const entry = new Reader(list.vector(65_600));
     const direction = readByte(entry.vector(1));
     const messageId = entry.vector(16);
+    if (messageId.length !== 16) throw new Error('Invalid message ID');
     const timestamp = readU64Number(entry.vector(8));
     const body = decodeUtf8(entry.vector(32_768));
     const disappearingSeconds = readU32(entry.vector(4));
-    const attachments = parseAttachmentSummaries(entry.vector(MAXIMUM_ATTACHMENT_SUMMARIES));
+    const attachment = entry.vector(MAXIMUM_ATTACHMENT_SUMMARIES);
     const delivery = parseDelivery(readByte(entry.vector(1)));
+    const status = versioned ? readByte(entry.vector(1)) : 0;
     entry.finish();
     if (direction !== 1 && direction !== 2) throw new Error('Invalid message direction');
     messages.push({
@@ -542,9 +570,8 @@ export function parseHistory(input: Uint8Array): HistoryMessage[] {
       direction: direction === 1 ? 'sent' : 'received',
       messageId,
       timestamp,
-      body,
       disappearingSeconds,
-      ...(attachments.length ? { attachments } : {}),
+      ...parseHistoryContent(status, body, attachment),
     });
   }
   list.finish();

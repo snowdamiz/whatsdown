@@ -1,0 +1,6 @@
+TEST_SYNTHETIC_RECEIVE_DELIVERED
+  ✓ real ratchet receive admits view-once without object retrieval or history reference
+
+1 passed in 0.81s
+
+1 test file passed in 31.80s

@@ -24,9 +24,24 @@ pub struct ViewOnceAvailable do
   message_expiry :: Option<U64>
 end
 
+pub struct ViewOncePending do
+  reference :: Bytes
+  expires_at :: U64
+  message_expiry :: Option<U64>
+end
+
+pub struct ViewOnceReady do
+  available :: ViewOnceAvailable
+  expires_at :: U64
+end
+
 pub type ViewOnceRecord do
   Available(value :: ViewOnceAvailable)
   Consumed(binding_digest :: Bytes)
+  PendingFetch(value :: ViewOncePending)
+  Ready(value :: ViewOnceReady)
+  ConsumedV2(reference_digest :: Bytes)
+  Expired(reference_digest :: Bytes)
 end
 
 pub type ViewOnceConsumeAction do
@@ -69,8 +84,63 @@ fn header(kind :: String) -> Bytes!String do
   mobile_join([mobile_byte(1)?, Bytes.from_utf8(kind)], 0, Bytes.empty())
 end
 
+fn v2_header(tag :: Int) -> Bytes!String do
+  mobile_join([mobile_byte(2)?, Bytes.from_utf8("VOS"), mobile_byte(tag)?], 0, Bytes.empty())
+end
+
+fn encoded_expiry(expiry :: Option<U64>) -> Bytes!String do
+  case expiry do
+    None -> mobile_join([mobile_byte(0)?, mobile_write_u64(U64.parse("0")?)?], 0, Bytes.empty())
+    Some(time) -> mobile_join([mobile_byte(1)?, mobile_write_u64(time)?], 0, Bytes.empty())
+  end
+end
+
+fn encoded_v2_reference(reference :: Bytes,
+  expires_at :: U64,
+  expiry :: Option<U64>) -> Bytes!String do
+  if Bytes.length(reference) == 0 || Bytes.length(reference) > 1024 do
+    return Err("view_once_storage_refused")
+  end
+  mobile_join([mobile_vector(reference)?, mobile_write_u64(expires_at)?, encoded_expiry(expiry)?],
+    0,
+    Bytes.empty())
+end
+
+fn encoded_terminal(tag :: Int, digest :: Bytes) -> Bytes!String do
+  if Bytes.length(digest) != 32 do
+    return Err("view_once_storage_refused")
+  end
+  mobile_join([v2_header(tag)?, digest], 0, Bytes.empty())
+end
+
 pub fn encode_view_once_record(value :: ViewOnceRecord) -> Bytes!String do
   case value do
+    PendingFetch(pending) -> mobile_join([
+        v2_header(1)?,
+        encoded_v2_reference(pending.reference, pending.expires_at, pending.message_expiry)?
+      ],
+      0,
+      Bytes.empty())
+    Ready(ready) -> do
+      let hashes = ready.available.chunk_hashes
+      if List.length(hashes) < 1
+        || List.length(hashes) > 256
+        || List.any(hashes, fn(digest) -> Bytes.length(digest) != 32 end) do
+        return Err("view_once_storage_refused")
+      end
+      mobile_join([
+          v2_header(2)?,
+          encoded_v2_reference(ready.available.reference,
+            ready.expires_at,
+            ready.available.message_expiry)?,
+          mobile_write_u16(List.length(hashes))?
+        ]
+          ++ hashes,
+        0,
+        Bytes.empty())
+    end
+    ConsumedV2(digest) -> encoded_terminal(3, digest)
+    Expired(digest) -> encoded_terminal(4, digest)
     Consumed(digest) -> if Bytes.length(digest) != 32 do
       Err("view_once_storage_refused")
     else
@@ -114,8 +184,87 @@ fn read_hashes(state :: BinaryReader,
   end
 end
 
+struct ViewOnceV2Fields do
+  state :: BinaryReader
+  reference :: Bytes
+  expires_at :: U64
+  message_expiry :: Option<U64>
+end
+
+fn read_v2_fields(state :: BinaryReader) -> ViewOnceV2Fields!String do
+  let reference = take_vector_error(state, 1024, "view_once_storage_refused")?
+  if Bytes.length(reference.value) == 0 do
+    return Err("view_once_storage_refused")
+  end
+  let expires = take_fixed(reference.state, 8)?
+  let flag = take_fixed(expires.state, 1)?
+  let time = take_fixed(flag.state, 8)?
+  let flag_value = mobile_read_byte(flag.value)?
+  let time_value = mobile_read_u64(time.value)?
+  let expiry = if flag_value == 0 && U64.to_string(time_value) == "0" do
+    None
+  else if flag_value == 1 do
+    Some(time_value)
+  else
+    return Err("view_once_storage_refused")
+  end
+  Ok(ViewOnceV2Fields {
+    state: time.state,
+    reference: reference.value,
+    expires_at: mobile_read_u64(expires.value)?,
+    message_expiry: expiry
+  })
+end
+
+fn decode_v2_record(state :: BinaryReader) -> ViewOnceRecord!String do
+  let tag = take_fixed(state, 1)?
+  let kind = mobile_read_byte(tag.value)?
+  if kind == 3 || kind == 4 do
+    let digest = take_fixed(tag.state, 32)?
+    mobile_finish(digest.state, "view_once_storage_refused")?
+    return Ok(if kind == 3 do
+      ConsumedV2(digest.value)
+    else
+      Expired(digest.value)
+    end)
+  end
+  if kind != 1 && kind != 2 do
+    return Err("view_once_storage_refused")
+  end
+  let fields = read_v2_fields(tag.state)?
+  if kind == 1 do
+    mobile_finish(fields.state, "view_once_storage_refused")?
+    return Ok(PendingFetch(ViewOncePending {
+      reference: fields.reference,
+      expires_at: fields.expires_at,
+      message_expiry: fields.message_expiry
+    }))
+  end
+  let count_bytes = take_fixed(fields.state, 2)?
+  let count = case Bytes.read_u16_be(count_bytes.value, 0) do
+    Err(_) -> return Err("view_once_storage_refused")
+    Ok(value) -> value
+  end
+  if count < 1 || count > 256 do
+    return Err("view_once_storage_refused")
+  end
+  let hashes = read_hashes(count_bytes.state, count, [])?
+  mobile_finish(hashes.state, "view_once_storage_refused")?
+  Ok(Ready(ViewOnceReady {
+    available: ViewOnceAvailable {
+      reference: fields.reference,
+      chunk_hashes: hashes.hashes,
+      message_expiry: fields.message_expiry
+    },
+    expires_at: fields.expires_at
+  }))
+end
+
 pub fn decode_view_once_record(wire :: Bytes) -> ViewOnceRecord!String do
-  let magic = take_fixed(mobile_reader(wire, 9235, "view_once_storage_refused")?, 4)?
+  let magic = take_fixed(mobile_reader(wire, 9244, "view_once_storage_refused")?, 4)?
+  if Bytes.secure_equals(magic.value, Bytes.from_hex("02564f53")?) do
+    return decode_v2_record(magic.state)
+  end
   if Bytes.secure_equals(magic.value, header("VOC")?) do
     let digest = take_fixed(magic.state, 32)?
     mobile_finish(digest.state, "view_once_storage_refused")?

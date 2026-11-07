@@ -167,6 +167,25 @@ fn fixture_material(device :: borrow DeviceKeys,
   })
 end
 
+## Build a recipient-bound carrier for an actual authenticated receive fixture.
+pub fn view_once_receive_material(device :: borrow DeviceKeys,
+  binding :: ViewOnceBinding) -> Result<(Bytes, Bytes, Bytes), String> do
+  view_once_receive_material_at(device, binding, U64.parse("4102444800000")?)
+end
+
+pub fn view_once_receive_material_at(device :: borrow DeviceKeys,
+  binding :: ViewOnceBinding,
+  expires :: U64) -> Result<(Bytes, Bytes, Bytes), String> do
+  let secret = case generate_attachment_key() do
+    Err(_) -> return Err("view_once_fixture_key")
+    Ok(value) -> value
+  end
+  let material = fixture_material(device, binding, secret, expires)
+  Secret.destroy(secret)
+  let value = material?
+  Ok((value.wire, value.chunk, value.png))
+end
+
 fn retire_device(device :: consume DeviceKeys) do
   nil
 end

@@ -15,6 +15,7 @@ from Mobile.Presentation import (
   community_change_allowed,
   community_group,
   group_record_labels,
+  group_presentation_carrier_supported,
   load_presentation_record,
   present_message,
   present_message_with_attachment,
@@ -1031,6 +1032,11 @@ fn open_mobile_group_message(database_path :: String,
         let now = current_time()?
         let timed = opened_group_payload(message.version, plaintext, now)?
         let payload = timed.payload
+        let carrier_supported = declassify(group_presentation_carrier_supported(payload.body),
+          "Authenticated group receive reveals only whether its presentation carries a supported ordinary attachment; message and attachment contents remain private.")
+        if !carrier_supported do
+          return Err("group_message_rejected")
+        end
         let timestamp = timed.timestamp
         let seconds = timed.disappearing_seconds
         let visible = message_unexpired(timestamp, seconds, now)?

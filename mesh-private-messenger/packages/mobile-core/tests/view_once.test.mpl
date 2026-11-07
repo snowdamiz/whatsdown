@@ -83,6 +83,7 @@ fn canonical_case() -> Plaintext<Bool>!String do
     Ok(Consumed(_)) -> false
     Ok(Available(value)) -> Bytes.secure_equals(value.reference, fixture.wire)
       && List.length(value.chunk_hashes) == 1
+    _ -> false
   end
   Ok(encoded_ok
     && decoded_ok

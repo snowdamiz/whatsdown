@@ -9,7 +9,7 @@ from Mobile.Codec import (
   mobile_read_u32,
   take_vector
 )
-from Mobile.Types import MobileHistoryEntry
+from Mobile.Types import MobileHistoryEntry, MobileHistoryAttachment
 from Mobile.HistoryLimits import (
   history_max_entries,
   history_max_entry_bytes,
@@ -31,9 +31,17 @@ fn history_inner_bytes(value :: InnerEnvelope) -> Bytes!String do
 end
 
 fn encode_history_entry(value :: MobileHistoryEntry) -> Bytes!String do
+  let kind = case value.attachment_kind do
+    HistoryOrdinary -> 0
+    HistoryViewOnce -> 1
+  end
+  if kind == 1 && Bytes.length(value.inner.attachment_manifest) != 0 do
+    return Err("invalid_history")
+  end
   mobile_join([
       mobile_vector(mobile_byte(value.direction)?)?,
-      mobile_vector(history_inner_bytes(value.inner)?)?
+      mobile_vector(history_inner_bytes(value.inner)?)?,
+      mobile_vector(mobile_byte(kind)?)?
     ],
     0,
     Bytes.empty())
@@ -58,7 +66,10 @@ fn encode_history_fields(values :: List<MobileHistoryEntry>) -> Bytes!String do
   else
     values
   end
-  let frames = [mobile_vector(mobile_write_u32(List.length(bounded))?)?]
+  let frames = [
+    Bytes.from_hex("02485354")?,
+    mobile_vector(mobile_write_u32(List.length(bounded))?)?
+  ]
     ++ for entry in bounded do
       mobile_vector(encode_history_entry(entry)?)?
     end
@@ -94,23 +105,48 @@ pub fn encode_history(values :: List<MobileHistoryEntry>) -> Bytes!String do
   end
 end
 
-fn parse_history_entry(input :: Bytes) -> MobileHistoryEntry!String do
+fn history_entry_inner(input :: Bytes,
+  direction :: Int,
+  kind :: MobileHistoryAttachment) -> MobileHistoryEntry!String do
+  case decode_inner_envelope(input) do
+    Err(_) -> Err("invalid_history")
+    Ok(value) -> if kind == HistoryViewOnce && Bytes.length(value.attachment_manifest) != 0 do
+      Err("invalid_history")
+    else
+      Ok(MobileHistoryEntry { direction: direction, inner: value, attachment_kind: kind })
+    end
+  end
+end
+
+fn parse_history_entry(input :: Bytes, versioned :: Bool) -> MobileHistoryEntry!String do
   case reader(input, history_max_entry_bytes()) do
     Err(_) -> Err("invalid_history")
     Ok(state) -> do
       let direction = take_vector(state, 1)?
       let inner = take_vector(direction.state, 65536)?
-      case finish(inner.state) do
+      let (end_state, kind) = if versioned do
+        let field = take_vector(inner.state, 1)?
+        let value = mobile_read_byte(field.value)?
+        if value > 1 do
+          return Err("invalid_history")
+        end
+        (field.state,
+          if value == 0 do
+            HistoryOrdinary
+          else
+            HistoryViewOnce
+          end)
+      else
+        (inner.state, HistoryOrdinary)
+      end
+      case finish(end_state) do
         Err(_) -> Err("invalid_history")
         Ok(_) -> do
           let direction_value = mobile_read_byte(direction.value)?
           if direction_value != 1 && direction_value != 2 do
             Err("invalid_history")
           else
-            case decode_inner_envelope(inner.value) do
-              Err(_) -> Err("invalid_history")
-              Ok(value) -> Ok(MobileHistoryEntry { direction: direction_value, inner: value })
-            end
+            history_entry_inner(inner.value, direction_value, kind)
           end
         end
       end
@@ -121,7 +157,8 @@ end
 fn parse_history_parts(state :: BinaryReader,
   count :: Int,
   index :: Int,
-  values :: List<MobileHistoryEntry>) -> List<MobileHistoryEntry>!String do
+  values :: List<MobileHistoryEntry>,
+  versioned :: Bool) -> List<MobileHistoryEntry>!String do
   if index >= count do
     case finish(state) do
       Err(_) -> Err("invalid_history")
@@ -132,12 +169,20 @@ fn parse_history_parts(state :: BinaryReader,
     parse_history_parts(entry.state,
       count,
       index + 1,
-      List.append(values, parse_history_entry(entry.value)?))
+      List.append(values, parse_history_entry(entry.value, versioned)?),
+      versioned)
   end
 end
 
 pub fn decode_history(input :: Bytes) -> List<MobileHistoryEntry>!String do
-  case reader(input, history_max_plaintext_bytes()) do
+  let versioned = Bytes.length(input) >= 4
+    && Bytes.secure_equals(Bytes.slice(input, 0, 4)?, Bytes.from_hex("02485354")?)
+  let payload = if versioned do
+    Bytes.slice(input, 4, Bytes.length(input) - 4)?
+  else
+    input
+  end
+  case reader(payload, history_max_plaintext_bytes()) do
     Err(_) -> Err("invalid_history")
     Ok(state) -> do
       let count = take_vector(state, 4)?
@@ -145,7 +190,7 @@ pub fn decode_history(input :: Bytes) -> List<MobileHistoryEntry>!String do
       if count_value > history_max_entries() do
         Err("invalid_history")
       else
-        parse_history_parts(count.state, count_value, 0, List.new())
+        parse_history_parts(count.state, count_value, 0, List.new(), versioned)
       end
     end
   end

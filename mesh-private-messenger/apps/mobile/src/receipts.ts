@@ -32,7 +32,7 @@ export function encodeReceipt(state: ReceiptState, through: number): string {
 // ponytail: each receipt occupies one slot of the core's 256-record history, and
 // expires with the conversation's disappearing timer. Consume receipts in the
 // native core, as it does presentation records, if history depth matters.
-export function applyReceipts<T extends { body: string; direction: 'sent' | 'received'; timestamp: number }>(
+export function applyReceipts<T extends { body: string; kind?: string; direction: 'sent' | 'received'; timestamp: number }>(
   history: T[],
 ): (T & { receipt?: ReceiptState })[] {
   // The highest watermark among later receipts, by who sent them and for which state.
@@ -42,7 +42,7 @@ export function applyReceipts<T extends { body: string; direction: 'sent' | 'rec
   // a forged watermark cannot acknowledge what had not been sent yet.
   for (let index = history.length - 1; index >= 0; index -= 1) {
     const message = history[index]!;
-    if (message.body.startsWith(prefix)) {
+    if (message.kind !== 'view-once' && message.body.startsWith(prefix)) {
       // Reserved control messages, including malformed ones, never become bubbles.
       if (message.body.length > 64) continue;
       let update: unknown;

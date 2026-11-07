@@ -50,6 +50,7 @@ pub fn permanent_direct_delivery_error(error :: String) -> Bool do
     || error == "invalid_initial_plaintext"
     || error == "invalid_peer_profile"
     || error == "invalid_inner_envelope"
+    || error == "view_once_reference_refused"
     || error == "initial_identity_mismatch"
     || error == "invalid_sync_payload"
     || error == "invalid_ratchet_packet"

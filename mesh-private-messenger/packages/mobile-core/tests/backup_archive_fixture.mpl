@@ -1,3 +1,4 @@
+from Mobile.Types import MobileHistoryAttachment
 from MobileCore import create_account_export
 from Mobile.Profile import load_profile, open_account, open_device
 from Identity.Device import AccountKeys, DeviceKeys, generate_device, issue_device_credential
@@ -539,6 +540,7 @@ fn d4_core_direct_wire(profile :: ClientProfile,
   text :: String) -> Bytes!String do
   encode_history([
     MobileHistoryEntry {
+      attachment_kind: HistoryOrdinary,
       direction: 1,
       inner: InnerEnvelope {
         version: 1,
@@ -988,6 +990,7 @@ fn d4_core_matrix_row(profile :: ClientProfile, index :: Int) -> MobileHistoryEn
     "must-not-be-exported"
   end
   Ok(MobileHistoryEntry {
+    attachment_kind: HistoryOrdinary,
     direction: 1,
     inner: InnerEnvelope {
       version: 1,

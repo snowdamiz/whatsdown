@@ -1,4 +1,5 @@
 from Mobile.Profile import load_profile
+from Mobile.Attachments import view_once_carrier_present, contains_view_once_header
 from Transport.Packet import decode_client_profile
 from Mobile.Codec import (
   mobile_read_u64,
@@ -486,6 +487,33 @@ fn recognized_presentation(input :: Bytes) -> Option<(Bytes, Bytes, Bytes, Bytes
   case decode_presented_message(encoded) do
     Err(_) -> None
     Ok(value) -> Some(value)
+  end
+end
+
+## Do not return opaque malformed presentation bytes as a view-once caption.
+pub fn view_once_presentation_valid(input :: Plaintext<Bytes>) -> Plaintext<Bool> do
+  let prefix = Bytes.from_utf8("MORSE-PRESENTATION/1\n")
+  let head = Result.unwrap_or(Bytes.slice(input, 0, Bytes.length(prefix)), Bytes.empty())
+  !Bytes.secure_equals(head, prefix) || Option.is_some(recognized_presentation(input))
+end
+
+## Group receive has no view-once carrier yet. Ordinary attachment handling
+## remains with the existing group decoder.
+pub fn group_presentation_carrier_supported(input :: Plaintext<Bytes>) -> Plaintext<Bool> do
+  let prefix = Bytes.from_utf8("MORSE-PRESENTATION/1\n")
+  let head = Result.unwrap_or(Bytes.slice(input, 0, Bytes.length(prefix)), Bytes.empty())
+  if !Bytes.secure_equals(head, prefix) do
+    return true
+  end
+  case recognized_presentation(input) do
+    None -> !contains_view_once_header(input,
+      Result.unwrap_or(Bytes.from_hex("01564f52"), Bytes.empty()))
+    Some(value) -> do
+      let (_body, _profile, _group, attachment) = value
+      let vor = Result.unwrap_or(Bytes.from_hex("01564f52"), Bytes.empty())
+      let batch = Result.unwrap_or(Bytes.from_hex("01415442"), Bytes.empty())
+      !view_once_carrier_present(attachment, vor, batch)
+    end
   end
 end
 

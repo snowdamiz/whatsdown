@@ -1,11 +1,28 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import type { ViewOnceStatus } from './codec.ts';
 import { parseNotificationPreview, planNotifications, redactNotification, type NotificationThread } from './notification-policy.ts';
 
 const own = { accountId: '01', username: 'sam.k' };
 const message = { messageId: Uint8Array.of(9), direction: 'received' as const, body: 'Hi @sam.k!', timestamp: 1,
   epoch: 1, senderAccountId: Uint8Array.of(2), senderDeviceId: Uint8Array.of(3) };
 const group: NotificationThread = { scope: `group/${'a'.repeat(64)}`, title: 'Friends', messages: [message], senders: { '02': '@alex' } };
+
+test('view-once notifications contain only finite placeholders, including when a caption is present', () => {
+  const cases: [ViewOnceStatus, string][] = [
+    ['pending', 'Waiting'], ['ready', 'Ready'], ['opened', 'Opened'], ['expired', 'Expired'], ['unavailable', 'Unavailable'],
+  ];
+  for (const [status, label] of cases) {
+    const chat: NotificationThread = { scope: `chat/${'b'.repeat(32)}`, title: '@alex', messages: [{
+      kind: 'view-once', status, messageId: new Uint8Array(16).fill(4), direction: 'received', timestamp: 1,
+      body: 'a caption', disappearingSeconds: 0,
+    }] };
+    const result = planNotifications([chat], {}, own, null);
+    assert.equal(result.notifications[0]?.body, `View-once photo · ${label}`);
+    assert.equal(result.notifications[0]?.mention, false);
+    assert.deepEqual(planNotifications([chat], result.state, own, null).notifications, []);
+  }
+});
 
 test('new group tags and normal messages produce distinct alerts after decryption', () => {
   const plan = planNotifications([group], {}, own, null);

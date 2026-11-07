@@ -15,13 +15,13 @@ export function encodeReply(target: string, body: string): string {
 
 // Runs after control messages are folded away, so only bubbles can be quoted.
 // A header that does not parse is left alone: the message is then only text.
-export function applyReplies<T extends { body: string }>(
+export function applyReplies<T extends { body: string; kind?: string }>(
   history: T[],
   keyOf: (message: T) => string,
 ): (T & { reply?: Reply<T> })[] {
   const targets: (string | undefined)[] = [];
   const messages = history.map((message) => {
-    const match = header.exec(message.body);
+    const match = message.kind === 'view-once' ? null : header.exec(message.body);
     targets.push(match?.[1]);
     return match ? { ...message, body: message.body.slice(match[0].length) } : message;
   });
