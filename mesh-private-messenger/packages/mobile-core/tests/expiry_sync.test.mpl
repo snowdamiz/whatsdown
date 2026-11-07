@@ -1,3 +1,4 @@
+from Mobile.Types import MobileHistoryAttachment
 from MobileCore import create_account_export
 from Mobile.Codec import current_time, mobile_join, mobile_vector
 from Mobile.Inbox import process_delivery_batch
@@ -17,7 +18,11 @@ from Tests.Support import database_path, repeated
 from Transport.Packet import decode_client_profile
 
 fn request(values :: List<Bytes>) -> Bytes!String do
-  mobile_join(for value in values do mobile_vector(value)? end, 0, Bytes.empty())
+  mobile_join(for value in values do
+      mobile_vector(value)?
+    end,
+    0,
+    Bytes.empty())
 end
 
 fn rejected_stale(result :: Result<(), String>) -> Bool do
@@ -32,6 +37,7 @@ fn entry(conversation :: Bytes,
   timestamp :: U64,
   seconds :: Int) -> MobileHistoryEntry!String do
   Ok(MobileHistoryEntry {
+    attachment_kind: HistoryOrdinary,
     direction: 2,
     inner: InnerEnvelope {
       version: 1,
@@ -56,7 +62,8 @@ fn empty_sync_deletes_unopened_history() -> Bool!String do
   assert(Test.install_in_memory_secure_store())
   let path = database_path("expiry-sync")?
   let profile = decode_client_profile(create_account_export(request([
-    Bytes.from_utf8(path), Bytes.from_utf8("expiryfixture")
+    Bytes.from_utf8(path),
+    Bytes.from_utf8("expiryfixture")
   ])?)?)?
   let key = platform_key()?
   let session = repeated(21, 32)?
@@ -92,7 +99,9 @@ fn empty_sync_deletes_unopened_history() -> Bool!String do
     ["sessions/v1", session_label, history_label],
     [
       seal_session_ids([session], key)?,
-      seal_local(updated_session_record(Bytes.empty(), record)?, key, local_context(session_label)?)?,
+      seal_local(updated_session_record(Bytes.empty(), record)?,
+        key,
+        local_context(session_label)?)?,
       original
     ])?
   let batch = case encode_delivery_batch([]) do
@@ -110,34 +119,39 @@ fn empty_sync_deletes_unopened_history() -> Bool!String do
   let second = process_delivery_batch(MobileBatchRequest { database_path: path, batch: batch })?
   assert(Bytes.length(second) == 0)
   assert(Bytes.secure_equals(load_blob(path, history_label)?, stored))
-
   # A concurrent incoming message must survive a stale cleanup plan unchanged.
   store_updated_blobs(path, [history_label], [original])?
   let stale_history = prepare_direct_history_expiry(path, key, session, now)?
   let incoming = seal_history_blob(encode_history(List.append(entries,
-    entry(conversation, 4, now, 0)?))?, key, history_label)?
+      entry(conversation, 4, now, 0)?))?,
+    key,
+    history_label)?
   store_updated_blobs(path, [history_label], [incoming])?
   assert(rejected_stale(commit_history_expiry(path, stale_history)))
   assert(Bytes.secure_equals(load_blob(path, history_label)?, incoming))
   commit_history_expiry(path, prepare_direct_history_expiry(path, key, session, now)?)?
-  let after_incoming = decode_history(open_history_blob(load_blob(path, history_label)?, key, history_label)?)?
+  let after_incoming = decode_history(open_history_blob(load_blob(path, history_label)?,
+    key,
+    history_label)?)?
   assert(List.length(after_incoming) == 3)
   assert(Bytes.secure_equals(List.get(after_incoming, 2).inner.client_message_id, repeated(4, 16)?))
-
   store_updated_blobs(path, [history_label], [original])?
   let stale_index = prepare_direct_history_expiry(path, key, session, now)?
   store_updated_blobs(path, ["sessions/v1"], [seal_session_ids([], key)?])?
   assert(rejected_stale(commit_history_expiry(path, stale_index)))
   assert(Bytes.secure_equals(load_blob(path, history_label)?, original))
   store_updated_blobs(path, ["sessions/v1"], [seal_session_ids([session], key)?])?
-
   let stale_record = prepare_direct_history_expiry(path, key, session, now)?
   let changed_record = %{record | blocked: true}
-  store_updated_blobs(path, [session_label], [seal_local(updated_session_record(Bytes.empty(), changed_record)?,
-    key, local_context(session_label)?)?])?
+  store_updated_blobs(path,
+    [session_label],
+    [
+      seal_local(updated_session_record(Bytes.empty(), changed_record)?,
+        key,
+        local_context(session_label)?)?
+    ])?
   assert(rejected_stale(commit_history_expiry(path, stale_record)))
   assert(Bytes.secure_equals(load_blob(path, history_label)?, original))
-
   # Use another real account's valid sealed custody, not malformed ciphertext.
   let other_path = database_path("expiry-other")?
   create_account_export(request([Bytes.from_utf8(other_path), Bytes.from_utf8("expiryother")])?)?
@@ -148,19 +162,20 @@ fn empty_sync_deletes_unopened_history() -> Bool!String do
   assert(Bytes.secure_equals(load_blob(path, history_label)?, original))
   store_updated_blobs(path, ["profile/v1"], [original_profile])?
   File.delete(other_path)?
-
   # Cleanup runs before transport setup, even when no network can be attempted.
   assert(Test.set_push_token(Bytes.from_utf8("messenger/network/v1"), Bytes.empty()))
   assert(case synchronize_mailbox(path) do
     Err("invalid_network_configuration") -> true
     _ -> false
   end)
-  let offline = decode_history(open_history_blob(load_blob(path, history_label)?, key, history_label)?)?
+  let offline = decode_history(open_history_blob(load_blob(path, history_label)?,
+    key,
+    history_label)?)?
   assert(List.length(offline) == 2)
-
   # An entirely expired history removes the row; a repeat empty sync stays empty.
   let expired = seal_history_blob(encode_history([entry(conversation, 5, U64.parse("1000")?, 1)?])?,
-    key, history_label)?
+    key,
+    history_label)?
   store_updated_blobs(path, [history_label], [expired])?
   process_delivery_batch(MobileBatchRequest { database_path: path, batch: batch })?
   assert(case load_blob(path, history_label) do

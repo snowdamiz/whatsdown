@@ -53,7 +53,12 @@ from Mobile.GroupState import (
 )
 from Mobile.GroupPolicyWire import group_policy_label, decode_group_policy
 from Mobile.HistoryWire import decode_history
-from Mobile.Types import MobileHistoryEntry, MobileGroupHistoryEntry, MobileSessionRecord
+from Mobile.Types import (
+  MobileHistoryEntry,
+  MobileHistoryAttachment,
+  MobileGroupHistoryEntry,
+  MobileSessionRecord
+)
 from Mobile.Codec import (
   mobile_zeroes,
   mobile_byte,
@@ -2064,7 +2069,11 @@ fn backup_attachment_record_sources(raw :: D4BackupRawSource) -> List<D4BackupAt
         Some(record) -> [
           D4BackupAttachmentRecordSource {
             ordinal: record.ordinal,
-            reference: row.inner.attachment_manifest
+            reference: if row.attachment_kind == HistoryViewOnce do
+              Bytes.empty()
+            else
+              row.inner.attachment_manifest
+            end
           }
         ]
       end

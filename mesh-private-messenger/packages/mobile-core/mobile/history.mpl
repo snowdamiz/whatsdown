@@ -1,4 +1,8 @@
-from Mobile.HistoryExpiry import prepare_direct_history_expiry, commit_history_expiry, unexpired_history
+from Mobile.HistoryExpiry import (
+  prepare_direct_history_expiry,
+  commit_history_expiry,
+  unexpired_history
+)
 from Mobile.ConversationPolicy import prepare_conversation_policy, commit_conversation_policy
 from Mobile.ReceiveSources import ReceiveSources
 from Session.State import RatchetState
@@ -13,7 +17,7 @@ from Storage.HistoryBlobs import (
 )
 from Mobile.Attachments import attachment_summary
 from Mobile.Delivery import DeliveryRecord, delivery_state, load_delivery
-from Mobile.Presentation import presented_message_writes
+from Mobile.Presentation import presented_message_writes, presented_body
 from Binary.Reader import BinaryReader, finish, reader
 from Identity.Device import DeviceKeys
 from Mobile.Codec import (
@@ -43,6 +47,8 @@ from Mobile.Sessions import (
 from Mobile.Types import (
   ConversationSummary,
   MobileHistoryEntry,
+  MobileHistoryAttachment,
+  MobileHistoryMatch,
   MobileLoadedSession,
   MobilePeerRequest,
   MobilePolicyRequest,
@@ -60,6 +66,9 @@ from Protocol.V1 import (
 from Session.Snapshot import SnapshotOutcome, snapshot
 from Storage.Blobs import ensure_schema, load_blob
 from Storage.Keys import local_context, open_local, platform_key, seal_local
+from Storage.AccountGuard import AccountBasis
+from Storage.ViewOnce import ViewOnceRecord, decode_view_once_record
+from Mobile.ViewOnceAdmission import view_once_row_label
 from Transport.Packet import ClientProfile, decode_client_profile
 
 ##! Mobile.History implementation.
@@ -82,24 +91,97 @@ fn load_history(database_path :: String,
   end
 end
 
+## Inspect only the already captured history ciphertext. The receive commit
+## later checks the same basis, so a concurrent history change cannot be blessed.
+fn matched_view_once_history(entries :: List<MobileHistoryEntry>,
+  expected :: InnerEnvelope,
+  direction :: Int) -> Plaintext<MobileHistoryMatch> do
+  let matches = List.filter(entries,
+    fn(value) -> Bytes.secure_equals(value.inner.client_message_id, expected.client_message_id) end)
+  if List.length(matches) == 0 do
+    return HistoryAbsent
+  end
+  if List.length(matches) != 1 do
+    return HistoryConflict
+  end
+  let existing = List.head(matches)
+  let same = existing.attachment_kind == HistoryViewOnce
+    && existing.direction == direction
+    && Bytes.secure_equals(existing.inner.sender_account_id, expected.sender_account_id)
+    && Bytes.secure_equals(existing.inner.sender_device_id, expected.sender_device_id)
+    && Bytes.secure_equals(existing.inner.recipient_device_id, expected.recipient_device_id)
+    && Bytes.secure_equals(existing.inner.conversation_id, expected.conversation_id)
+    && U64.compare(existing.inner.client_timestamp, expected.client_timestamp) == 0
+    && existing.inner.message_type == expected.message_type
+    && Bytes.secure_equals(existing.inner.body, presented_body(expected.body))
+    && Bytes.secure_equals(existing.inner.reply_reference, expected.reply_reference)
+    && existing.inner.receipt_policy == expected.receipt_policy
+    && existing.inner.disappearing_seconds == expected.disappearing_seconds
+  if same do
+    HistoryIdentical
+  else
+    HistoryConflict
+  end
+end
+
+pub fn captured_history_match(key :: borrow StorageKey,
+  before :: AccountBasis,
+  expected :: InnerEnvelope,
+  direction :: Int) -> Result<Plaintext<MobileHistoryMatch>, String> do
+  let label = history_label(expected.conversation_id)
+  if List.length(before.labels) != List.length(before.records) do
+    return Err("invalid_receive_basis")
+  end
+  for index in 0..List.length(before.labels) do
+    if List.get(before.labels, index) == label do
+      let blob = List.get(before.records, index)
+      if Bytes.length(blob) == 0 do
+        return Ok(HistoryAbsent)
+      end
+      let entries = decode_history(open_history_blob(blob, key, label)?)?
+      return Ok(matched_view_once_history(entries, expected, direction))
+    end
+  end
+  Err("invalid_receive_basis")
+end
+
 pub fn updated_history(database_path :: String,
   wrapping_key :: borrow StorageKey,
   inner :: InnerEnvelope,
   direction :: Int) -> Result<(List<String>, List<Bytes>), String> do
+  updated_history_with_kind(database_path, wrapping_key, inner, direction, HistoryOrdinary)
+end
+
+pub fn updated_history_with_kind(database_path :: String,
+  wrapping_key :: borrow StorageKey,
+  inner :: InnerEnvelope,
+  direction :: Int,
+  kind :: MobileHistoryAttachment) -> Result<(List<String>, List<Bytes>), String> do
   let label = history_label(inner.conversation_id)
   let entries = load_history(database_path, wrapping_key, inner.conversation_id)?
-  let presentation = presented_message_writes(database_path,
-    wrapping_key,
-    inner.sender_account_id,
-    Bytes.empty(),
-    Bytes.empty(),
-    inner.body)
+  let presentation = if kind == HistoryViewOnce do
+    Ok((presented_body(inner.body), Bytes.empty(), [], []))
+  else
+    presented_message_writes(database_path,
+      wrapping_key,
+      inner.sender_account_id,
+      Bytes.empty(),
+      Bytes.empty(),
+      inner.body)
+  end
   let (body, framed_attachment, presentation_labels, presentation_blobs) = Result.unwrap_or(presentation,
     (inner.body, Bytes.empty(), [], []))
-  let updated = if Bytes.length(body) == 0 && Bytes.length(inner.attachment_manifest) == 0 do
+  let updated = if Bytes.length(body) == 0
+    && Bytes.length(inner.attachment_manifest) == 0
+    && kind == HistoryOrdinary do
     entries
   else
-    List.append(entries, MobileHistoryEntry { direction: direction, inner: %{inner | body: body} })
+    List.append(entries,
+      MobileHistoryEntry {
+        direction: direction,
+        inner: %{inner | body: body},
+        attachment_kind: kind
+      })
   end
   let encoded = encode_history(updated)
   let encrypted = seal_history_blob(Result.unwrap_or(encoded, Bytes.empty()), wrapping_key, label)
@@ -270,11 +352,93 @@ end
 # The last field says what became of a sent message: 0 sent, 1 still waiting
 # to leave, 2 refused for good by every device it was addressed to.
 
-fn history_summary(device :: borrow DeviceKeys,
+fn history_view_once_kind(value :: MobileHistoryEntry) -> Bool do
+  declassify(value.attachment_kind == HistoryViewOnce,
+    "Direct history discloses only whether an authenticated message has a view-once placeholder; the reference, object capability, and content remain private.")
+end
+
+fn view_once_display_expired(now :: U64, expires :: U64, message :: Option<U64>) -> Bool do
+  U64.compare(now, expires) >= 0
+    || case message do
+      None -> false
+      Some(expiry) -> U64.compare(now, expiry) >= 0
+    end
+end
+
+fn view_once_display_state(opened :: Result<Plaintext<Bytes>, String>,
+  now :: U64) -> Plaintext<Int> do
+  case opened do
+    Err(_) -> 5
+    Ok(raw) -> case decode_view_once_record(raw) do
+      Err(_) -> 5
+      Ok(record) -> case record do
+        PendingFetch(value) -> if view_once_display_expired(now,
+          value.expires_at,
+          value.message_expiry) do
+          4
+        else
+          1
+        end
+        Ready(value) -> if view_once_display_expired(now,
+          value.expires_at,
+          value.available.message_expiry) do
+          4
+        else
+          2
+        end
+        Available(_) -> 2
+        Consumed(_) -> 3
+        ConsumedV2(_) -> 3
+        Expired(_) -> 4
+      end
+    end
+  end
+end
+
+fn view_once_history_status(path :: String,
+  key :: borrow StorageKey,
+  conversation :: Bytes,
+  message :: Bytes,
+  now :: U64) -> Int!String do
+  let v1 = view_once_row_label(1, conversation, message)
+  let v2 = view_once_row_label(2, conversation, message)
+  let old = Result.unwrap_or(load_blob(path, v1), Bytes.empty())
+  let new = Result.unwrap_or(load_blob(path, v2), Bytes.empty())
+  let chosen = if Bytes.length(old) > 0 && Bytes.length(new) > 0 do
+    Err("view_once_unavailable")
+  else if Bytes.length(new) > 0 do
+    open_local(new, key, local_context(v2)?)
+  else if Bytes.length(old) > 0 do
+    open_local(old, key, local_context(v1)?)
+  else
+    Err("view_once_unavailable")
+  end
+  let closed = view_once_display_state(chosen, now)
+  Ok(declassify(closed,
+    "Direct history displays only pending, ready, opened, expired, or unavailable for the selected view-once item; references, capabilities, keys, image metadata, and errors remain private."))
+end
+
+fn history_summary(path :: String,
+  wrapping_key :: borrow StorageKey,
+  conversation :: Bytes,
+  now :: U64,
+  versioned :: Bool,
+  device :: borrow DeviceKeys,
   value :: MobileHistoryEntry,
   delivery :: List<DeliveryRecord>) -> Bytes!String do
   let state = if value.direction == 1 do
     delivery_state(delivery, value.inner.client_message_id)
+  else
+    0
+  end
+  let view_once = history_view_once_kind(value)
+  let attachment = if view_once do
+    Bytes.empty()
+  else
+    attachment_summary(device, value.inner.attachment_manifest)
+  end
+  let status = if view_once do
+    view_once_history_status(path, wrapping_key, conversation, value.inner.client_message_id, now)?
   else
     0
   end
@@ -284,14 +448,24 @@ fn history_summary(device :: borrow DeviceKeys,
       mobile_vector(mobile_write_u64(value.inner.client_timestamp)?)?,
       mobile_vector(value.inner.body)?,
       mobile_vector(mobile_write_u32(value.inner.disappearing_seconds)?)?,
-      mobile_vector(attachment_summary(device, value.inner.attachment_manifest))?,
+      mobile_vector(attachment)?,
       mobile_vector(mobile_byte(state)?)?
-    ],
+    ]
+      ++ if versioned do
+        [mobile_vector(mobile_byte(status)?)?]
+      else
+        []
+      end,
     0,
     Bytes.empty())
 end
 
-fn history_summaries(device :: borrow DeviceKeys,
+fn history_summaries(path :: String,
+  wrapping_key :: borrow StorageKey,
+  conversation :: Bytes,
+  now :: U64,
+  versioned :: Bool,
+  device :: borrow DeviceKeys,
   values :: List<MobileHistoryEntry>,
   delivery :: List<DeliveryRecord>,
   index :: Int,
@@ -299,11 +473,24 @@ fn history_summaries(device :: borrow DeviceKeys,
   if index >= List.length(values) do
     Ok(summaries)
   else
-    history_summaries(device,
+    history_summaries(path,
+      wrapping_key,
+      conversation,
+      now,
+      versioned,
+      device,
       values,
       delivery,
       index + 1,
-      List.append(summaries, history_summary(device, List.get(values, index), delivery)?))
+      List.append(summaries,
+        history_summary(path,
+          wrapping_key,
+          conversation,
+          now,
+          versioned,
+          device,
+          List.get(values, index),
+          delivery)?))
   end
 end
 
@@ -323,11 +510,24 @@ pub fn load_visible_history(request :: MobilePeerRequest) -> Result<Plaintext<By
   let entries = load_history(request.database_path, wrapping_key, loaded.record.conversation_id)?
   let visible = unexpired_history(entries, now)?
   let device = open_device(local, wrapping_key, request.database_path)?
-  encode_output_list(history_summaries(device,
+  let versioned = declassify(List.any(visible,
+      fn(value) -> value.attachment_kind == HistoryViewOnce end),
+    "Direct history selects versioned framing only when a visible view-once placeholder is present; bodies and references remain private.")
+  let output = encode_output_list(history_summaries(request.database_path,
+    wrapping_key,
+    loaded.record.conversation_id,
+    now,
+    versioned,
+    device,
     visible,
     load_delivery(request.database_path, wrapping_key)?,
     0,
-    List.new())?)
+    List.new())?)?
+  if versioned do
+    mobile_append(Bytes.from_hex("02485354")?, output)
+  else
+    Ok(output)
+  end
 end
 
 pub fn conversation_safety(request :: MobilePeerRequest) -> Bytes!String do

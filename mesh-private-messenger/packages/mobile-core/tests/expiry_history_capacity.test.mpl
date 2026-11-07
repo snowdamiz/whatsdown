@@ -1,3 +1,4 @@
+from Mobile.Types import MobileHistoryAttachment
 from MobileCore import create_account_export
 from Mobile.Codec import mobile_join, mobile_vector
 from Mobile.Inbox import process_delivery_batch
@@ -14,11 +15,19 @@ from Tests.Support import database_path, repeated
 from Transport.Packet import ClientProfile, decode_client_profile
 
 fn request(values :: List<Bytes>) -> Bytes!String do
-  mobile_join(for value in values do mobile_vector(value)? end, 0, Bytes.empty())
+  mobile_join(for value in values do
+      mobile_vector(value)?
+    end,
+    0,
+    Bytes.empty())
 end
 
-fn entry(conversation :: Bytes, body :: Bytes, id :: Int, seconds :: Int) -> MobileHistoryEntry!String do
+fn entry(conversation :: Bytes,
+  body :: Bytes,
+  id :: Int,
+  seconds :: Int) -> MobileHistoryEntry!String do
   Ok(MobileHistoryEntry {
+    attachment_kind: HistoryOrdinary,
     direction: 2,
     inner: InnerEnvelope {
       version: 1,
@@ -39,7 +48,9 @@ fn entry(conversation :: Bytes, body :: Bytes, id :: Int, seconds :: Int) -> Mob
   })
 end
 
-fn record(profile :: ClientProfile, conversation :: Bytes, device :: Int) -> MobileSessionRecord!String do
+fn record(profile :: ClientProfile,
+  conversation :: Bytes,
+  device :: Int) -> MobileSessionRecord!String do
   Ok(MobileSessionRecord {
     snapshot: Bytes.empty(),
     local_account_id: profile.account_id,
@@ -73,7 +84,8 @@ fn full_text_history_cleanup() -> Bool!String do
   assert(Test.install_in_memory_secure_store())
   let path = database_path("expiry-capacity")?
   let profile = decode_client_profile(create_account_export(request([
-    Bytes.from_utf8(path), Bytes.from_utf8("expirycapacity")
+    Bytes.from_utf8(path),
+    Bytes.from_utf8("expirycapacity")
   ])?)?)?
   let key = platform_key()?
   let conversation = repeated(31, 16)?
@@ -82,23 +94,42 @@ fn full_text_history_cleanup() -> Bool!String do
   let other_label = "history/v1/#{Bytes.to_hex(other_conversation)}"
   let body = repeated(120, 32768)?
   let entries = for id in 0..256 do
-    entry(conversation, body, id, if id < 128 do 1 else 0 end)?
+    entry(conversation,
+      body,
+      id,
+      if id < 128 do
+        1
+      else
+        0
+      end)?
   end
   let wire = encode_history(entries)?
   assert(Bytes.length(wire) > 8388608)
   let original = seal_history_blob(wire, key, label)?
   assert(Bytes.secure_equals(Bytes.slice(original, 0, 4)?, Bytes.from_utf8("HCB2")))
   let other = seal_history_blob(encode_history([
-    entry(other_conversation, Bytes.from_utf8("unrelated untimed history"), 9, 0)?
-  ])?, key, other_label)?
+      entry(other_conversation, Bytes.from_utf8("unrelated untimed history"), 9, 0)?
+    ])?,
+    key,
+    other_label)?
   # Four linked-device aliases point at one large conversation. A fifth points
   # elsewhere; cleanup must preserve that unrelated history byte-for-byte.
-  let ids = for index in 0..5 do repeated(21 + index, 32)? end
-  let labels = for id in ids do "session/v1/#{Bytes.to_hex(id)}" end
+  let ids = for index in 0..5 do
+    repeated(21 + index, 32)?
+  end
+  let labels = for id in ids do
+    "session/v1/#{Bytes.to_hex(id)}"
+  end
   let blobs = for index in 0..5 do
-    let conversation_id = if index == 4 do other_conversation else conversation end
+    let conversation_id = if index == 4 do
+      other_conversation
+    else
+      conversation
+    end
     let value = record(profile, conversation_id, 100 + index)?
-    seal_local(updated_session_record(Bytes.empty(), value)?, key, local_context(List.get(labels, index))?)?
+    seal_local(updated_session_record(Bytes.empty(), value)?,
+      key,
+      local_context(List.get(labels, index))?)?
   end
   store_updated_blobs(path,
     ["sessions/v1", label, other_label] ++ labels,
@@ -123,9 +154,12 @@ fn full_text_history_cleanup() -> Bool!String do
   assert(synchronize(path, batch, "untimed_repeat")?)
   assert(Bytes.secure_equals(load_blob(path, label)?, compacted))
   assert(Bytes.secure_equals(load_blob(path, other_label)?, other))
-
   let expired = for value in retained do
-    MobileHistoryEntry { direction: value.direction, inner: %{value.inner | disappearing_seconds: 1} }
+    MobileHistoryEntry {
+      attachment_kind: HistoryOrdinary,
+      direction: value.direction,
+      inner: %{value.inner | disappearing_seconds: 1}
+    }
   end
   store_updated_blobs(path, [label], [seal_history_blob(encode_history(expired)?, key, label)?])?
   assert(synchronize(path, batch, "complete_expiry")?)

@@ -13,6 +13,7 @@ from Mobile.HeaderAdmission import (
   capture_legacy_receive,
   commit_legacy_receive_with_sources,
   capture_header_history,
+  capture_header_record,
   commit_initial_admission_at_policy,
   prepared_header_initial_alias
 )
@@ -29,10 +30,23 @@ from Mobile.AttachmentSendState import (
   commit_direct_attachment,
   commit_direct_attachment_at_policy
 )
-from Mobile.Attachments import rewrap_reference
-from Mobile.Presentation import presented_body
+from Mobile.Attachments import (
+  rewrap_reference,
+  view_once_carrier_kind,
+  view_once_carrier_present,
+  contains_view_once_material
+)
+from Mobile.Presentation import presented_body, view_once_presentation_valid
 from Identity.Device import DeviceKeys, VerificationPolicy
-from Mobile.Codec import canonical_outer, current_time, random_bytes
+from Mobile.Codec import (
+  canonical_outer,
+  current_time,
+  random_bytes,
+  mobile_join,
+  mobile_byte,
+  mobile_write_u32,
+  mobile_write_u64
+)
 from Mobile.ContactAddress import (
   deposit_address,
   learned_contact_address_writes
@@ -41,7 +55,23 @@ from Mobile.Outgoing import direct_extensions
 from Mobile.Gossip import observe_gossip
 from Mobile.TransparencySafety import require_log_changes_allowed
 from Mobile.FanoutPrekeys import matching_fanout_prekey_state_labels
-from Mobile.History import accepted_request_writes_from_sources, updated_history
+from Mobile.History import (
+  accepted_request_writes_from_sources,
+  updated_history,
+  updated_history_with_kind,
+  captured_history_match
+)
+from Mobile.ViewOnceAdmission import (
+  prepare_view_once_pending,
+  prepare_view_once_write,
+  view_once_row_label,
+  view_once_identity_label,
+  view_once_logical_label,
+  view_once_epoch_label,
+  require_view_once_epoch,
+  captured_view_once_exists
+)
+from Attachments.ViewOnce import ViewOnceBinding, decode_view_once_reference
 from Mobile.GroupInvitesState import received_invitation_writes
 from Mobile.Outbox import load_outbox_ids, outbox_capacity, prepare_outbox_writes
 from Mobile.Prekeys import (
@@ -89,6 +119,7 @@ from Mobile.Types import (
   MobileOneTimePrekey,
   MobilePreparedSend,
   MobileReceiveRequest,
+  MobileHistoryAttachment,
   MobileSessionRecord,
   MobileStartRequest,
   MobileSyncPayload
@@ -143,6 +174,209 @@ from Transport.Packet import (
 )
 
 ##! Mobile.Messages implementation.
+
+struct PreparedReceivedHistory do
+  basis :: AccountBasis
+  kind :: MobileHistoryAttachment
+  pending_labels :: List<String>
+  pending_blobs :: List<Bytes>
+  duplicate :: Bool
+end
+
+fn view_once_body_safe(wire :: Bytes, body :: Bytes) -> Plaintext<Bool> do
+  if !view_once_presentation_valid(body) do
+    return false
+  end
+  let visible = presented_body(body)
+  case decode_view_once_reference(wire) do
+    Err(_) -> false
+    Ok(reference) -> !contains_view_once_material(visible, wire)
+      && !contains_view_once_material(visible, reference.object_id)
+      && !contains_view_once_material(visible, reference.download_capability)
+      && !contains_view_once_material(visible, reference.encrypted_manifest)
+      && !contains_view_once_material(visible, reference.wrapped_key)
+  end
+end
+
+## Local aliases and ignored contact extensions are not message identity.
+fn view_once_message_digest(inner :: InnerEnvelope,
+  direction :: Int) -> Result<Plaintext<Bytes>, String> do
+  let input = mobile_join([
+      Bytes.from_utf8("morse/view-once/content/v2\n"),
+      mobile_byte(direction)?,
+      inner.sender_account_id,
+      inner.sender_device_id,
+      inner.recipient_device_id,
+      inner.client_message_id,
+      mobile_write_u64(inner.client_timestamp)?,
+      mobile_write_u32(inner.message_type)?,
+      mobile_write_u32(inner.receipt_policy)?,
+      mobile_write_u32(inner.disappearing_seconds)?,
+      Crypto.sha256(presented_body(inner.body)),
+      Crypto.sha256(inner.reply_reference)
+    ],
+    0,
+    Bytes.empty())?
+  Ok(Crypto.sha256(input))
+end
+
+fn sync_side_effects(key :: borrow StorageKey,
+  peer :: Bytes,
+  sources :: ReceiveSources,
+  duplicate :: Bool,
+  alias_labels :: List<String>,
+  alias_blobs :: List<Bytes>) -> Result<(List<String>, List<Bytes>), String> do
+  if duplicate do
+    Ok(([], []))
+  else
+    let (labels, blobs) = accepted_request_writes_from_sources(key, peer, sources)?
+    Ok((labels ++ alias_labels, blobs ++ alias_blobs))
+  end
+end
+
+fn sync_initial_index(path :: String,
+  key :: borrow StorageKey,
+  session :: Bytes,
+  duplicate :: Bool,
+  prepared_index :: Bytes) -> Bytes!String do
+  if duplicate do
+    updated_session_index(path, key, session)
+  else
+    Ok(prepared_index)
+  end
+end
+
+fn required_receive_basis(value :: Option<AccountBasis>) -> AccountBasis!String do
+  case value do
+    None -> Err("invalid_receive_basis")
+    Some(basis) -> Ok(basis)
+  end
+end
+
+fn prepare_received_history(path :: String,
+  key :: borrow StorageKey,
+  device :: borrow DeviceKeys,
+  local :: ClientProfile,
+  before :: AccountBasis,
+  authenticated_sender :: InnerEnvelope,
+  wire_conversation :: Bytes,
+  peer_context :: Bytes,
+  history :: InnerEnvelope,
+  direction :: Int) -> PreparedReceivedHistory!String do
+  let attachment = history.attachment_manifest
+  let expected_marker = Bytes.from_hex("01564f52")?
+  let batch_marker = Bytes.from_hex("01415442")?
+  let kind = declassify(view_once_carrier_kind(attachment, expected_marker, batch_marker),
+    "Authenticated receive distinguishes only ordinary attachments, a standalone view-once reference, and a refused mixed or malformed batch; reference contents and message body remain private.")
+  if kind == 2 do
+    return Err("view_once_reference_refused")
+  end
+  let legacy_label = view_once_row_label(1, history.conversation_id, history.client_message_id)
+  let label = view_once_row_label(2, history.conversation_id, history.client_message_id)
+  let expected = ViewOnceBinding {
+    sender_account_id: authenticated_sender.sender_account_id,
+    sender_device_id: authenticated_sender.sender_device_id,
+    receiver_account_id: local.account_id,
+    receiver_device_id: local.device_id,
+    conversation_id: wire_conversation,
+    message_id: history.client_message_id
+  }
+  let identity_label = view_once_identity_label(expected)?
+  let logical_label = view_once_logical_label(local.account_id,
+    peer_context,
+    history.client_message_id)?
+  let captured = capture_header_record(path, Some(before), legacy_label)?
+  let captured = capture_header_record(path, captured, label)?
+  let captured = capture_header_record(path, captured, identity_label)?
+  let captured = capture_header_record(path, captured, logical_label)?
+  let basis = required_receive_basis(captured)?
+  if kind == 0 do
+    if captured_view_once_exists(basis, legacy_label, label, identity_label, logical_label)? do
+      return Err("view_once_reference_refused")
+    end
+    return Ok(PreparedReceivedHistory {
+      basis: basis,
+      kind: HistoryOrdinary,
+      pending_labels: [],
+      pending_blobs: [],
+      duplicate: false
+    })
+  end
+  let captured = capture_header_record(path, Some(basis), view_once_epoch_label())?
+  let basis = required_receive_basis(captured)?
+  require_view_once_epoch(key, basis, local.account_id, local.device_id)?
+  let expiry = if history.disappearing_seconds == 0 do
+    None
+  else if history.disappearing_seconds < 0 do
+    return Err("view_once_reference_refused")
+  else
+    Some(U64.add(history.client_timestamp,
+      U64.parse(Int.to_string(history.disappearing_seconds * 1000))?)?)
+  end
+  let now = current_time()?
+  let pending = prepare_view_once_pending(device, expected, attachment, expiry, now)?
+  if !declassify(view_once_body_safe(attachment, history.body),
+    "Authenticated view-once receive exposes only whether its caption is valid and excludes the selected reference material; caption, reference, key, capability and errors remain private.") do
+    return Err("view_once_reference_refused")
+  end
+  let history_match = captured_history_match(key, basis, history, direction)
+  let content_digest = view_once_message_digest(history, direction)
+  let write = prepare_view_once_write(key,
+    basis,
+    history.conversation_id,
+    wire_conversation,
+    history.client_message_id,
+    local.account_id,
+    peer_context,
+    identity_label,
+    logical_label,
+    pending,
+    history_match,
+    content_digest,
+    now)?
+  Ok(PreparedReceivedHistory {
+    basis: basis,
+    kind: HistoryViewOnce,
+    pending_labels: if write.duplicate do
+      []
+    else
+      [write.label, write.identity_label, write.logical_label]
+    end,
+    pending_blobs: if write.duplicate do
+      []
+    else
+      [write.blob, write.identity_blob, write.logical_blob]
+    end,
+    duplicate: write.duplicate
+  })
+end
+
+fn received_history_writes(path :: String,
+  key :: borrow StorageKey,
+  prepared :: PreparedReceivedHistory,
+  history :: InnerEnvelope,
+  direction :: Int) -> Result<(List<String>, List<Bytes>), String> do
+  if prepared.duplicate do
+    Ok(([], []))
+  else
+    let inner = if prepared.kind == HistoryViewOnce do
+      %{history | attachment_manifest: Bytes.empty(), extensions: List.new()}
+    else
+      history
+    end
+    let (labels, blobs) = updated_history_with_kind(path, key, inner, direction, prepared.kind)?
+    Ok((labels ++ prepared.pending_labels, blobs ++ prepared.pending_blobs))
+  end
+end
+
+fn received_history_body(prepared :: PreparedReceivedHistory,
+  body :: Plaintext<Bytes>) -> Plaintext<Bytes> do
+  if prepared.duplicate do
+    Bytes.empty()
+  else
+    presented_body(body)
+  end
+end
 
 pub fn start_conversation(request :: MobileStartRequest) -> Bytes!String do
   ensure_schema(request.database_path)?
@@ -297,6 +531,17 @@ end
 # write: the message may be delivered again, and the address is as true then.
 # A blocked peer is not listened to.
 
+fn require_control_without_view_once(inner :: InnerEnvelope) -> Unit!String do
+  let vor = Bytes.from_hex("01564f52")?
+  let batch = Bytes.from_hex("01415442")?
+  if declassify(view_once_carrier_present(inner.attachment_manifest, vor, batch),
+    "Authenticated direct control receive reveals only whether an unsupported view-once carrier is present; attachment and message contents remain private.") do
+    Err("view_once_reference_refused")
+  else
+    Ok(nil)
+  end
+end
+
 fn keep_contact_address(database_path :: String,
   wrapping_key :: borrow StorageKey,
   blocked :: Bool,
@@ -315,6 +560,20 @@ fn keep_contact_address(database_path :: String,
     else
       store_record_changes(database_path, labels, blobs, removed)
     end
+  end
+end
+
+## View-once admission owns its own durable boundary. Do not apply unrelated
+## contact or gossip writes for its new, duplicate, or refused carriers.
+fn keep_ordinary_contact(database_path :: String,
+  wrapping_key :: borrow StorageKey,
+  prepared :: PreparedReceivedHistory,
+  public_address :: Bytes,
+  inner :: InnerEnvelope) -> Unit!String do
+  if prepared.kind == HistoryOrdinary do
+    keep_contact_address(database_path, wrapping_key, false, public_address, inner)
+  else
+    Ok(nil)
   end
 end
 
@@ -494,11 +753,6 @@ pub fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes!String 
           None -> false
           Some(loaded) -> loaded.record.blocked
         end
-        keep_contact_address(request.database_path,
-          wrapping_key,
-          blocked,
-          peer.entry.mailbox_token,
-          inner)?
         let (session_id, label, session_blob) = case previous do
           None -> seal_session(state, wrapping_key, local, peer, inner.conversation_id, 0, false)
           Some(loaded) -> seal_upgraded_session(state, wrapping_key, loaded, local, peer)
@@ -547,28 +801,59 @@ pub fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes!String 
           let admission_before = capture_header_history(request.database_path,
             admission_before,
             synced_key)?
-          let (history_keys, history_blobs) = updated_history(request.database_path,
+          let before = required_receive_basis(admission_before)?
+          let prepared = prepare_received_history(request.database_path,
             wrapping_key,
+            local_device,
+            local,
+            before,
+            inner,
+            sync.conversation_id,
+            sync.peer_account_id,
+            history_inner,
+            1)?
+          keep_ordinary_contact(request.database_path,
+            wrapping_key,
+            prepared,
+            peer.entry.mailbox_token,
+            inner)?
+          let (history_keys, history_blobs) = received_history_writes(request.database_path,
+            wrapping_key,
+            prepared,
             history_inner,
             1)?
           # A sibling device could only send this once the request was accepted there.
-          let (accepted_labels, accepted_blobs) = accepted_request_writes_from_sources(wrapping_key,
+          let (sync_labels, sync_blobs) = sync_side_effects(wrapping_key,
             sync.peer_account_id,
-            acceptance_sources)?
+            acceptance_sources,
+            prepared.duplicate,
+            alias_labels,
+            alias_blobs)?
+          let index_blob = sync_initial_index(request.database_path,
+            wrapping_key,
+            session_id,
+            prepared.duplicate,
+            index_blob)?
           commit_initial_admission_at_policy(request.database_path,
-            admission_before,
+            Some(prepared.basis),
             Some(acceptance_sources),
             session_policy,
             label,
             session_blob,
             index_blob,
-            history_keys ++ accepted_labels ++ alias_labels,
-            history_blobs ++ accepted_blobs ++ alias_blobs,
+            history_keys ++ sync_labels,
+            history_blobs ++ sync_blobs,
             removed_labels,
             prekey_labels,
             prekey_blobs)?
-          Ok(presented_body(history_inner.body))
+          Ok(received_history_body(prepared, history_inner.body))
         else if inner.message_type == 3 || inner.message_type == 4 do
+          require_control_without_view_once(inner)?
+          keep_contact_address(request.database_path,
+            wrapping_key,
+            false,
+            peer.entry.mailbox_token,
+            inner)?
           let (labels, blobs) = received_invitation_writes(request.database_path,
             wrapping_key,
             local,
@@ -592,12 +877,29 @@ pub fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes!String 
           let admission_before = capture_header_history(request.database_path,
             admission_before,
             conversation_key)?
-          let (history_keys, history_blobs) = updated_history(request.database_path,
+          let before = required_receive_basis(admission_before)?
+          let prepared = prepare_received_history(request.database_path,
             wrapping_key,
+            local_device,
+            local,
+            before,
+            inner,
+            inner.conversation_id,
+            inner.sender_account_id,
+            %{inner | conversation_id: conversation_key},
+            2)?
+          keep_ordinary_contact(request.database_path,
+            wrapping_key,
+            prepared,
+            peer.entry.mailbox_token,
+            inner)?
+          let (history_keys, history_blobs) = received_history_writes(request.database_path,
+            wrapping_key,
+            prepared,
             %{inner | conversation_id: conversation_key},
             2)?
           commit_initial_admission_at_policy(request.database_path,
-            admission_before,
+            Some(prepared.basis),
             Some(initial_sources),
             session_policy,
             label,
@@ -608,7 +910,7 @@ pub fn receive_initial_message(request :: MobileReceiveRequest) -> Bytes!String 
             removed_labels,
             prekey_labels,
             prekey_blobs)?
-          Ok(presented_body(inner.body))
+          Ok(received_history_body(prepared, inner.body))
         end
       end
     end
@@ -782,6 +1084,25 @@ fn capture_received_acceptance(path :: String,
   capture_receive_sources(path, key, before, ids, peer)
 end
 
+fn selected_receive_basis(selected :: Option<HeaderRoute>,
+  legacy_before :: Option<AccountBasis>) -> AccountBasis!String do
+  case selected do
+    Some(route) -> Ok(route.basis)
+    None -> case legacy_before do
+      Some(before) -> Ok(before)
+      None -> Err("invalid_receive_basis")
+    end
+  end
+end
+
+fn with_received_basis(selected :: Option<HeaderRoute>,
+  before :: AccountBasis) -> (Option<HeaderRoute>, Option<AccountBasis>) do
+  case selected do
+    Some(route) -> (Some(%{route | basis: before}), None)
+    None -> (None, Some(before))
+  end
+end
+
 fn commit_received(path :: String,
   selected :: Option<HeaderRoute>,
   legacy_before :: Option<AccountBasis>,
@@ -889,11 +1210,6 @@ pub fn receive_message(request :: MobileReceiveRequest) -> Bytes!String do
           reject_message(next_state, "message_rejected")
         else
           let session_blob = seal_updated_session(next_state, loaded, wrapping_key)?
-          keep_contact_address(request.database_path,
-            wrapping_key,
-            peer_policy.record.blocked,
-            loaded.record.peer_mailbox,
-            inner)?
           if peer_policy.record.blocked do
             commit_received(request.database_path,
               selected,
@@ -902,6 +1218,12 @@ pub fn receive_message(request :: MobileReceiveRequest) -> Bytes!String do
               [session_blob])?
             Err("blocked_message")
           else if inner.message_type == 5 do
+            require_control_without_view_once(inner)?
+            keep_contact_address(request.database_path,
+              wrapping_key,
+              false,
+              loaded.record.peer_mailbox,
+              inner)?
             commit_received(request.database_path,
               selected,
               legacy_before,
@@ -909,6 +1231,12 @@ pub fn receive_message(request :: MobileReceiveRequest) -> Bytes!String do
               [session_blob])?
             Ok(Bytes.empty())
           else if inner.message_type == 3 || inner.message_type == 4 do
+            require_control_without_view_once(inner)?
+            keep_contact_address(request.database_path,
+              wrapping_key,
+              false,
+              loaded.record.peer_mailbox,
+              inner)?
             let (labels, blobs) = received_invitation_writes(request.database_path,
               wrapping_key,
               local,
@@ -939,28 +1267,65 @@ pub fn receive_message(request :: MobileReceiveRequest) -> Bytes!String do
               selected,
               legacy_before,
               synced_key)?
-            let (history_keys, history_blobs) = updated_history(request.database_path,
+            let prepared = prepare_received_history(request.database_path,
               wrapping_key,
+              local_device,
+              local,
+              selected_receive_basis(selected, legacy_before)?,
+              inner,
+              sync.conversation_id,
+              sync.peer_account_id,
+              history_inner,
+              1)?
+            keep_ordinary_contact(request.database_path,
+              wrapping_key,
+              prepared,
+              loaded.record.peer_mailbox,
+              inner)?
+            let (selected, legacy_before) = with_received_basis(selected, prepared.basis)
+            let (history_keys, history_blobs) = received_history_writes(request.database_path,
+              wrapping_key,
+              prepared,
               history_inner,
               1)?
             # A sibling device could only send this once the request was accepted there.
-            let (accepted_labels, accepted_blobs) = accepted_request_writes_from_sources(wrapping_key,
+            let (sync_labels, sync_blobs) = sync_side_effects(wrapping_key,
               sync.peer_account_id,
-              acceptance_sources)?
+              acceptance_sources,
+              prepared.duplicate,
+              alias_labels,
+              alias_blobs)?
             commit_received_with_sources(request.database_path,
               selected,
               legacy_before,
               Some(acceptance_sources),
-              [loaded.label] ++ history_keys ++ accepted_labels ++ alias_labels,
-              [session_blob] ++ history_blobs ++ accepted_blobs ++ alias_blobs)?
-            Ok(presented_body(history_inner.body))
+              [loaded.label] ++ history_keys ++ sync_labels,
+              [session_blob] ++ history_blobs ++ sync_blobs)?
+            Ok(received_history_body(prepared, history_inner.body))
           else
             let (selected, legacy_before) = capture_received_history(request.database_path,
               selected,
               legacy_before,
               loaded.record.conversation_id)?
-            let (history_keys, history_blobs) = updated_history(request.database_path,
+            let prepared = prepare_received_history(request.database_path,
               wrapping_key,
+              local_device,
+              local,
+              selected_receive_basis(selected, legacy_before)?,
+              inner,
+              inner.conversation_id,
+              inner.sender_account_id,
+              %{inner | conversation_id: loaded.record.conversation_id},
+              2)?
+            keep_ordinary_contact(request.database_path,
+              wrapping_key,
+              prepared,
+              loaded.record.peer_mailbox,
+              inner)?
+            let (selected, legacy_before) = with_received_basis(selected, prepared.basis)
+            let (history_keys, history_blobs) = received_history_writes(request.database_path,
+              wrapping_key,
+              prepared,
               %{inner | conversation_id: loaded.record.conversation_id},
               2)?
             commit_received(request.database_path,
@@ -968,7 +1333,7 @@ pub fn receive_message(request :: MobileReceiveRequest) -> Bytes!String do
               legacy_before,
               [loaded.label] ++ history_keys,
               [session_blob] ++ history_blobs)?
-            Ok(presented_body(inner.body))
+            Ok(received_history_body(prepared, inner.body))
           end
         end
       end

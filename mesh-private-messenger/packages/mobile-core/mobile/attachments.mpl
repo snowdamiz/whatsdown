@@ -228,6 +228,77 @@ fn attachment_parts(input :: Bytes, maximum :: Int) -> List<Bytes>!String do
   read_batch_parts(count.state, length, maximum, [])
 end
 
+fn attachment_has_header(input :: Bytes, expected :: Bytes) -> Bool do
+  Bytes.secure_equals(Result.unwrap_or(Bytes.slice(input, 0, 4), Bytes.empty()), expected)
+end
+
+pub fn contains_view_once_header(input :: Bytes, vor :: Bytes) -> Plaintext<Bool> do
+  if Bytes.length(vor) != 4 || Bytes.length(input) < 4 do
+    return false
+  end
+  for offset in 0..(Bytes.length(input) - 3) do
+    if Bytes.secure_equals(Result.unwrap_or(Bytes.slice(input, offset, 4), Bytes.empty()), vor) do
+      return true
+    end
+  end
+  false
+end
+
+## Private exact-byte check used only before displaying an authenticated
+## view-once caption. Both the searched material and its location stay private.
+pub fn contains_view_once_material(input :: Bytes, needle :: Bytes) -> Plaintext<Bool> do
+  let size = Bytes.length(needle)
+  if size < 4 || size > Bytes.length(input) do
+    return false
+  end
+  let prefix = Result.unwrap_or(Bytes.slice(needle, 0, 4), Bytes.empty())
+  for offset in 0..(Bytes.length(input) - size + 1) do
+    if Bytes.secure_equals(Result.unwrap_or(Bytes.slice(input, offset, 4), Bytes.empty()), prefix)
+      && Bytes.secure_equals(Result.unwrap_or(Bytes.slice(input, offset, size), Bytes.empty()),
+        needle) do
+      return true
+    end
+  end
+  false
+end
+
+## Used only to refuse unsupported carriers in control and group messages.
+## Ordinary group batches can contain ATG parts larger than direct references.
+pub fn view_once_carrier_present(input :: Bytes, vor :: Bytes, batch :: Bytes) -> Plaintext<Bool> do
+  if attachment_has_header(input, vor) do
+    return true
+  end
+  if !attachment_has_header(input, batch) do
+    return false
+  end
+  case attachment_parts(input, 65536) do
+    Err(_) -> contains_view_once_header(input, vor)
+    Ok(parts) -> List.any(parts,
+      fn(part) -> attachment_has_header(part, vor)
+        || (attachment_has_header(part, batch) && contains_view_once_header(part, vor)) end)
+  end
+end
+
+## A VOR is a standalone carrier. A batch may contain ordinary references,
+## but must not conceal a VOR or another batch from receive admission.
+pub fn view_once_carrier_kind(input :: Bytes, vor :: Bytes, batch :: Bytes) -> Plaintext<Int> do
+  if attachment_has_header(input, vor) do
+    return 1
+  end
+  if !attachment_has_header(input, batch) do
+    return 0
+  end
+  case attachment_parts(input, 1024) do
+    Err(_) -> 2
+    Ok(parts) -> if List.any(parts,
+      fn(part) -> attachment_has_header(part, vor) || attachment_has_header(part, batch) end) do
+      2
+    else
+      0
+    end
+  end
+end
+
 fn encode_batch(values :: List<Bytes>) -> Bytes!String do
   case values do
     [] -> Ok(Bytes.empty())

@@ -1,3 +1,4 @@
+from Mobile.Types import MobileHistoryAttachment
 from Storage.OutboxGuard import OutboxBasis, PreparedOutboxIndex
 import File
 from Binary.Reader import BinaryReader
@@ -48,7 +49,11 @@ fn full_history() -> Bool!String do
   ensure_schema(path)?
   let body = repeated(120, 32768)?
   let values = for index in 0..256 do
-    MobileHistoryEntry { direction: 1, inner: entry(body, index)? }
+    MobileHistoryEntry {
+      attachment_kind: HistoryOrdinary,
+      direction: 1,
+      inner: entry(body, index)?
+    }
   end
   let encoded = encode_history(values)?
   assert(Bytes.length(encoded) > 8388608)
@@ -235,7 +240,9 @@ fn legacy_migration_and_seal_failure() -> Bool!String do
   ensure_schema(path)?
   let first = entry(repeated(120, 32768)?, 8)?
   let label = "history/v1/#{Bytes.to_hex(first.conversation_id)}"
-  let wire = encode_history([MobileHistoryEntry { direction: 2, inner: first }])?
+  let wire = encode_history([
+    MobileHistoryEntry { attachment_kind: HistoryOrdinary, direction: 2, inner: first }
+  ])?
   # Write the exact pre-chunking platform format, independently of the new writer.
   let legacy = seal_local(wire, key, local_context(label)?)?
   store_updated_blobs(path, [label], [legacy])?

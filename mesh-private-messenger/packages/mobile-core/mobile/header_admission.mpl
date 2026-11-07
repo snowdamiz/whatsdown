@@ -130,7 +130,11 @@ fn commit_initial_admission_policy(path :: String,
   case before do
     None -> do
       if Option.is_some(sources)
-        || List.any(updated_labels, fn(value) -> String.starts_with(value, "session/v1/") end) do
+        || List.any(updated_labels,
+          fn(value) -> String.starts_with(value, "session/v1/")
+            || String.starts_with(value, "view-once/v2/")
+            || String.starts_with(value, "view-once/id/v2/")
+            || String.starts_with(value, "view-once/message/v2/") end) do
         return Err("invalid_receive_commit")
       end
       store_received_session(path,
@@ -218,14 +222,23 @@ end
 pub fn capture_header_history(path :: String,
   before :: Option<AccountBasis>,
   conversation_id :: Bytes) -> Option<AccountBasis>!String do
+  if Bytes.length(conversation_id) != 16 do
+    return Err("invalid_header_receive_basis")
+  end
+  capture_header_record(path, before, "history/v1/#{Bytes.to_hex(conversation_id)}")
+end
+
+## Extend the original transaction authority, retaining the first observation
+## of every prior source while capturing this exact row, including absence.
+pub fn capture_header_record(path :: String,
+  before :: Option<AccountBasis>,
+  label :: String) -> Option<AccountBasis>!String do
   case before do
     None -> Ok(None)
     Some(basis) -> do
-      if Bytes.length(conversation_id) != 16
-        || List.length(basis.labels) != List.length(basis.records) do
+      if String.length(label) == 0 || List.length(basis.labels) != List.length(basis.records) do
         return Err("invalid_header_receive_basis")
       end
-      let label = "history/v1/#{Bytes.to_hex(conversation_id)}"
       if List.contains(basis.labels, label) do
         return Ok(Some(basis))
       end

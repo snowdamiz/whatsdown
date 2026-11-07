@@ -153,9 +153,21 @@ pub struct MobilePreparedSend do
   new_session :: Bool
 end
 
+pub type MobileHistoryAttachment do
+  HistoryOrdinary
+  HistoryViewOnce
+end
+
+pub type MobileHistoryMatch do
+  HistoryAbsent
+  HistoryIdentical
+  HistoryConflict
+end
+
 pub struct MobileHistoryEntry do
   direction :: Int
   inner :: InnerEnvelope
+  attachment_kind :: MobileHistoryAttachment
 end
 
 pub struct MobileSyncPayload do

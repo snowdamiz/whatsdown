@@ -551,7 +551,7 @@ end
   list_conversations(mobile_utf8(request, "invalid_database_path")?)
 end
 
-@display("Direct history bodies and attachment presentation are returned to the reviewed React Native chat and local notification adapters; notification redaction and receipt timestamps are computed there, and receipt transport is natively re-sealed.")
+@display("Direct history bodies, attachment presentation and finite view-once placeholder statuses are returned to the reviewed React Native chat and local notification adapters; notification redaction and receipt timestamps are computed there, and receipt transport is natively re-sealed. View-once references, capabilities, keys and image bytes remain private.")
 @export("mesh_messenger_load_history", max_output: 16_794_632) pub fn load_history_export(request :: Bytes) -> Bytes!String do
   load_visible_history(parse_peer_request(request)?)
 end

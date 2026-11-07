@@ -1,3 +1,4 @@
+from Mobile.Types import MobileHistoryAttachment
 import File
 from Mobile.HistoryWire import encode_history, decode_history
 from Mobile.Types import MobileHistoryEntry
@@ -38,7 +39,11 @@ fn exercise_full() -> Bool!String do
     extensions: []
   }
   let fixture_values = for index in 0..256 do
-    MobileHistoryEntry { direction: 1, inner: %{inner | client_message_id: repeated(index, 16)?} }
+    MobileHistoryEntry {
+      attachment_kind: HistoryOrdinary,
+      direction: 1,
+      inner: %{inner | client_message_id: repeated(index, 16)?}
+    }
   end
   let values :: Plaintext<List<MobileHistoryEntry>> = fixture_values
   let encoded = encode_history(fixture_values)?

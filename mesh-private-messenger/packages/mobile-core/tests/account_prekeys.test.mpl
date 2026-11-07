@@ -159,7 +159,7 @@ fn stable_database_state(path :: String) -> Bytes!String do
     end
     Ok(rows) -> do
       Sqlite.close(database)
-      if List.length(rows) != 6 do
+      if List.length(rows) != 7 do
         Err("unexpected stable database records")
       else
         database_state_rows(rows, 0, Bytes.empty())
@@ -217,7 +217,8 @@ fn assert_legacy_fixture_layout(path :: String) -> Bool!String do
   # The fixture rewinds the one-time pool only. The account already published
   # once, so its last-resort prekey (secret and record) and the contact address
   # that publication named are present and must survive the migration untouched.
-  assert(database_record_count(path)? == 10)
+  assert(database_record_count(path)? == 11)
+  assert(database_has_record(path, "view-once/admission-epoch/v1")?)
   assert(database_has_record(path, "last-resort-prekey/v1")?)
   assert(database_has_record(path, "contact-address-pending/v1")?)
   assert(database_has_record(path, "one-time-prekey/v1")?)
@@ -232,7 +233,8 @@ fn assert_migrated_legacy_layout(path :: String) -> Bool!String do
   # The first publication also creates the reusable last-resort prekey (its
   # sealed secret and its record) and the contact address it names, which
   # waits there until the directory answers.
-  assert(database_record_count(path)? == 13)
+  assert(database_record_count(path)? == 14)
+  assert(database_has_record(path, "view-once/admission-epoch/v1")?)
   assert(database_has_record(path, "last-resort-prekey/v1")?)
   assert(database_has_record(path, "one-time-prekey/v1/4611686018427387905")?)
   assert(!(database_has_record(path, "one-time-prekey/v1")?))
@@ -411,7 +413,7 @@ fn legacy_consumed_proof() -> Bool!String do
   assert(same_publication_identity(replacement, migrated))
   let replacement_state = database_state(path)?
   assert(!(Bytes.secure_equals(replacement_state, consumed_state)))
-  assert(database_record_count(path)? == 14)
+  assert(database_record_count(path)? == 15)
   assert(database_has_record(path, "one-time-prekey/v1/2")?)
   assert(database_has_record(path, "one-time-prekey/v1/3")?)
   assert(reconcile(path, migrated.account_id, migrated.device_id, ids(3, 1)?)? == 1)
