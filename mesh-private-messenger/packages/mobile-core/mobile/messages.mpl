@@ -63,7 +63,8 @@ from Mobile.History import (
 )
 from Mobile.ViewOnceAdmission import (
   prepare_view_once_pending,
-  prepare_view_once_write,
+  prepare_view_once_write_parts,
+  ViewOnceAdmissionAction,
   view_once_row_label,
   view_once_identity_label,
   view_once_logical_label,
@@ -71,6 +72,7 @@ from Mobile.ViewOnceAdmission import (
   require_view_once_epoch,
   captured_view_once_exists
 )
+from Storage.ViewOnce import ViewOncePending
 from Attachments.ViewOnce import ViewOnceBinding, decode_view_once_reference
 from Mobile.GroupInvitesState import received_invitation_writes
 from Mobile.Outbox import load_outbox_ids, outbox_capacity, prepare_outbox_writes
@@ -304,7 +306,18 @@ fn prepare_received_history(path :: String,
   end
   let captured = capture_header_record(path, Some(basis), view_once_epoch_label())?
   let basis = required_receive_basis(captured)?
-  require_view_once_epoch(key, basis, local.account_id, local.device_id)?
+  let epoch = require_view_once_epoch(key, basis, local.account_id, local.device_id)
+  let epoch_status = declassify(case epoch do
+      Ok(_) -> 0
+      Err("invalid_receive_basis") -> 1
+      Err(_) -> 2
+    end,
+    "Authenticated receive releases only the captured account and device epoch outcome: valid, invalid capture, or refused; epoch contents and errors remain private.")
+  if epoch_status == 1 do
+    return Err("invalid_receive_basis")
+  else if epoch_status != 0 do
+    return Err("view_once_reference_refused")
+  end
   let expiry = if history.disappearing_seconds == 0 do
     None
   else if history.disappearing_seconds < 0 do
@@ -314,14 +327,20 @@ fn prepare_received_history(path :: String,
       U64.parse(Int.to_string(history.disappearing_seconds * 1000))?)?)
   end
   let now = current_time()?
-  let pending = prepare_view_once_pending(device, expected, attachment, expiry, now)?
+  let pending_result = prepare_view_once_pending(device, expected, attachment, expiry, now)
+  if !declassify(Result.is_ok(pending_result),
+    "Authenticated receive releases only whether the sender and recipient bound reference is admissible; reference, object, key, manifest and errors remain private.") do
+    return Err("view_once_reference_refused")
+  end
+  let pending = Result.unwrap_or(pending_result,
+    ViewOncePending { reference: Bytes.empty(), expires_at: now, message_expiry: None })
   if !declassify(view_once_body_safe(attachment, history.body),
     "Authenticated view-once receive exposes only whether its caption is valid and excludes the selected reference material; caption, reference, key, capability and errors remain private.") do
     return Err("view_once_reference_refused")
   end
   let history_match = captured_history_match(key, basis, history, direction)
   let content_digest = view_once_message_digest(history, direction)
-  let write = prepare_view_once_write(key,
+  let write = prepare_view_once_write_parts(key,
     basis,
     history.conversation_id,
     wire_conversation,
@@ -334,20 +353,22 @@ fn prepare_received_history(path :: String,
     history_match,
     content_digest,
     now)?
+  let action = declassify(write.decision,
+    "Authenticated receive releases only new, identical duplicate, refused, or local storage unavailable after checking the captured account and message identity; payloads and errors remain private.")
+  let (labels, blobs, duplicate) = case action do
+    RefuseAdmission -> return Err("view_once_reference_refused")
+    AdmissionStorageUnavailable -> return Err("view_once_storage_refused")
+    AdmitDuplicate -> ([], [], true)
+    AdmitNew -> ([write.label, write.identity_label, write.logical_label],
+      [write.sealed?, write.identity_blob?, write.logical_blob?],
+      false)
+  end
   Ok(PreparedReceivedHistory {
     basis: basis,
     kind: HistoryViewOnce,
-    pending_labels: if write.duplicate do
-      []
-    else
-      [write.label, write.identity_label, write.logical_label]
-    end,
-    pending_blobs: if write.duplicate do
-      []
-    else
-      [write.blob, write.identity_blob, write.logical_blob]
-    end,
-    duplicate: write.duplicate
+    pending_labels: labels,
+    pending_blobs: blobs,
+    duplicate: duplicate
   })
 end
 

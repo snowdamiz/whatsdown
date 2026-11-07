@@ -12,13 +12,15 @@ from Mobile.ViewOnceAdmission import (
   seal_view_once_epoch,
   require_view_once_epoch,
   prepare_view_once_pending,
-  prepare_view_once_write
+  prepare_view_once_write_parts,
+  ViewOnceAdmissionAction
 )
 from Protocol.V1 import InnerEnvelope
 from Storage.AccountGuard import load_account_basis, same_account_basis
 from Storage.Blobs import load_blob
 from Storage.Keys import platform_key, seal_local, local_context, one_time_prekey_label
 from Storage.Records import store_record_changes
+from Storage.ViewOnce import ViewOncePending
 from Tests.Support import repeated
 from Tests.ViewOnceFixture import view_once_receive_material
 from Tests.ViewOnceInitialSyncFixture import (
@@ -93,10 +95,18 @@ fn epoch_fence(fixture :: InitialSyncFixture) -> Unit!String do
     epoch
   ]
   let before = load_account_basis(fixture.bob_path, labels)?
-  require_view_once_epoch(key, before, bob.account_id, bob.device_id)?
+  let epoch_result = require_view_once_epoch(key, before, bob.account_id, bob.device_id)
+  if !declassify(Result.is_ok(epoch_result), "TEST ONLY synthetic fixture epoch validity") do
+    return Err("fixture_epoch_invalid")
+  end
   let now = current_time()?
-  let pending = prepare_view_once_pending(device, binding, reference, None, now)?
-  let write = prepare_view_once_write(key,
+  let pending_result = prepare_view_once_pending(device, binding, reference, None, now)
+  if !declassify(Result.is_ok(pending_result), "TEST ONLY synthetic fixture reference validity") do
+    return Err("fixture_reference_invalid")
+  end
+  let pending = Result.unwrap_or(pending_result,
+    ViewOncePending { reference: Bytes.empty(), expires_at: now, message_expiry: None })
+  let write = prepare_view_once_write_parts(key,
     before,
     conversation,
     conversation,
@@ -109,14 +119,15 @@ fn epoch_fence(fixture :: InitialSyncFixture) -> Unit!String do
     captured_history_match(key, before, inner, 1),
     Ok(Crypto.sha256(Bytes.from_utf8("synthetic content identity"))),
     now)?
-  fence_check(!write.duplicate, "fixture unexpectedly prepared a duplicate")?
+  let action = declassify(write.decision, "TEST ONLY synthetic fixture admission decision")
+  fence_check(action == AdmitNew, "fixture unexpectedly failed to prepare a new admission")?
   let (history_labels, history_blobs) = updated_history_with_kind(fixture.bob_path,
     key,
     %{inner | attachment_manifest: Bytes.empty()},
     1,
     HistoryViewOnce)?
   let write_labels = history_labels ++ [write.label, write.identity_label, write.logical_label]
-  let write_blobs = history_blobs ++ [write.blob, write.identity_blob, write.logical_blob]
+  let write_blobs = history_blobs ++ [write.sealed?, write.identity_blob?, write.logical_blob?]
   # The commit API accepts prepared opaque session data. This synthetic session
   # isolates the real transaction fence; it is not a ratchet receive race.
   let session_blob = seal_local(Bytes.from_utf8("synthetic session candidate"),
@@ -128,7 +139,14 @@ fn epoch_fence(fixture :: InitialSyncFixture) -> Unit!String do
   fence_check(!Bytes.secure_equals(old_epoch, newer_epoch), "epoch did not change")?
   store_record_changes(fixture.bob_path, [epoch], [newer_epoch], [])?
   let after_epoch_change = load_account_basis(fixture.bob_path, labels)?
-  require_view_once_epoch(key, after_epoch_change, bob.account_id, bob.device_id)?
+  let newer_epoch_result = require_view_once_epoch(key,
+    after_epoch_change,
+    bob.account_id,
+    bob.device_id)
+  if !declassify(Result.is_ok(newer_epoch_result),
+    "TEST ONLY replacement fixture epoch validity") do
+    return Err("fixture_epoch_invalid")
+  end
   let rejected = commit_initial_admission(fixture.bob_path,
     Some(before),
     session,

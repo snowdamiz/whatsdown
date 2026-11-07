@@ -29,6 +29,17 @@ pub struct ViewOnceAdmissionWrite do
   duplicate :: Bool
 end
 
+## Preparation carries a private decision; callers have no authority to expose it.
+pub struct ViewOncePreparedWrite do
+  decision :: Plaintext<ViewOnceAdmissionAction>
+  label :: String
+  sealed :: Result<Bytes, String>
+  identity_label :: String
+  identity_blob :: Result<Bytes, String>
+  logical_label :: String
+  logical_blob :: Result<Bytes, String>
+end
+
 pub fn view_once_epoch_label() -> String do
   "view-once/admission-epoch/v1"
 end
@@ -144,7 +155,7 @@ pub fn require_view_once_epoch(key :: borrow StorageKey,
     Err(_) -> return Err("invalid_receive_basis")
     Ok(value) -> value
   end
-  let valid = if Bytes.length(account) != 32
+  let valid :: Plaintext<Bool> = if Bytes.length(account) != 32
     || Bytes.length(device) != 16
     || Bytes.length(blob) == 0 do
     false
@@ -154,8 +165,7 @@ pub fn require_view_once_epoch(key :: borrow StorageKey,
       Ok(raw) -> Bytes.secure_equals(raw, expected)
     end
   end
-  if declassify(valid,
-    "Authenticated view-once receive releases only whether the captured clean account-and-device admission epoch is valid; epoch contents and storage errors remain private.") do
+  if valid do
     Ok(nil)
   else
     Err("view_once_reference_refused")
@@ -294,7 +304,7 @@ end
 
 ## Both versions are captured before this decision. A terminal legacy row
 ## cannot prove the full reference identity, so it always refuses re-admission.
-pub fn prepare_view_once_write(key :: borrow StorageKey,
+pub fn prepare_view_once_write_parts(key :: borrow StorageKey,
   basis :: AccountBasis,
   conversation :: Bytes,
   wire_conversation :: Bytes,
@@ -306,7 +316,7 @@ pub fn prepare_view_once_write(key :: borrow StorageKey,
   pending :: Plaintext<ViewOncePending>,
   history_match :: Result<Plaintext<MobileHistoryMatch>, String>,
   content_digest :: Result<Plaintext<Bytes>, String>,
-  now :: U64) -> ViewOnceAdmissionWrite!String do
+  now :: U64) -> ViewOncePreparedWrite!String do
   if Bytes.length(conversation) != 16
     || Bytes.length(wire_conversation) != 16
     || Bytes.length(message) != 16
@@ -411,27 +421,63 @@ pub fn prepare_view_once_write(key :: borrow StorageKey,
       AdmissionStorageUnavailable
     end
   end
-  let observed = declassify(decision,
-    "Authenticated view-once admission reveals only new, identical duplicate, refused, or local storage unavailable after matching retained message identity; bodies, reference contents, capability, manifest, keys, and detailed errors remain private.")
-  case observed do
+  Ok(ViewOncePreparedWrite {
+    decision: decision,
+    label: label,
+    sealed: sealed,
+    identity_label: identity_label,
+    identity_blob: identity_blob,
+    logical_label: logical_label,
+    logical_blob: logical_blob
+  })
+end
+
+## This public helper preserves its private result status for arbitrary callers.
+pub fn prepare_view_once_write(key :: borrow StorageKey,
+  basis :: AccountBasis,
+  conversation :: Bytes,
+  wire_conversation :: Bytes,
+  message :: Bytes,
+  account :: Bytes,
+  peer :: Bytes,
+  identity_label :: String,
+  logical_label :: String,
+  pending :: Plaintext<ViewOncePending>,
+  history_match :: Result<Plaintext<MobileHistoryMatch>, String>,
+  content_digest :: Result<Plaintext<Bytes>, String>,
+  now :: U64) -> ViewOnceAdmissionWrite!String do
+  let prepared = prepare_view_once_write_parts(key,
+    basis,
+    conversation,
+    wire_conversation,
+    message,
+    account,
+    peer,
+    identity_label,
+    logical_label,
+    pending,
+    history_match,
+    content_digest,
+    now)?
+  case prepared.decision do
     RefuseAdmission -> Err("view_once_reference_refused")
     AdmissionStorageUnavailable -> Err("view_once_storage_refused")
     AdmitDuplicate -> Ok(ViewOnceAdmissionWrite {
-      label: label,
+      label: prepared.label,
       blob: Bytes.empty(),
-      identity_label: identity_label,
+      identity_label: prepared.identity_label,
       identity_blob: Bytes.empty(),
-      logical_label: logical_label,
+      logical_label: prepared.logical_label,
       logical_blob: Bytes.empty(),
       duplicate: true
     })
     AdmitNew -> Ok(ViewOnceAdmissionWrite {
-      label: label,
-      blob: sealed?,
-      identity_label: identity_label,
-      identity_blob: identity_blob?,
-      logical_label: logical_label,
-      logical_blob: logical_blob?,
+      label: prepared.label,
+      blob: prepared.sealed?,
+      identity_label: prepared.identity_label,
+      identity_blob: prepared.identity_blob?,
+      logical_label: prepared.logical_label,
+      logical_blob: prepared.logical_blob?,
       duplicate: false
     })
   end
@@ -469,19 +515,15 @@ fn validated_pending(device :: borrow DeviceKeys,
   })
 end
 
-## The only observation is the closed admission decision.  The authenticated
-## reference and all manifest fields remain in protected state.
+## Keep the result status private until an authenticated receive reviews it.
 pub fn prepare_view_once_pending(device :: borrow DeviceKeys,
   expected :: ViewOnceBinding,
   wire :: Bytes,
   message_expiry :: Option<U64>,
   now :: U64) -> Result<Plaintext<ViewOncePending>, String> do
-  let prepared = validated_pending(device, expected, wire, message_expiry)
-  let allowed = declassify(Result.is_ok(prepared),
-    "Authenticated view-once receive exposes only whether the selected reference is locally admissible; object identity, capability, key, manifest, image metadata and errors remain private.")
-  if !allowed do
-    return Err("view_once_reference_refused")
-  end
-  Ok(Result.unwrap_or(prepared,
-    ViewOncePending { reference: Bytes.empty(), expires_at: now, message_expiry: None }))
+  let prepared :: Plaintext<Result<ViewOncePending, String>> = validated_pending(device,
+    expected,
+    wire,
+    message_expiry)
+  prepared
 end
