@@ -3,7 +3,7 @@ set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 readonly script_dir
-readonly messenger_root="$script_dir/mesh-private-messenger"
+readonly messenger_root="$script_dir"
 readonly state_dir="${MORSE_STATE_DIR:-$script_dir/.morse}"
 # The compiler: MESH_LANG_DIR names a Mesh checkout to build with; otherwise the
 # latest published Mesh release, fetched into the state directory on every run.

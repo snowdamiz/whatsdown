@@ -1,0 +1,16 @@
+**
+!packages/
+!packages/messenger-protocol/
+!packages/messenger-protocol/**
+!packages/service-jobs/
+!packages/service-jobs/**
+!packages/messenger-credits/
+!packages/messenger-credits/**
+!packages/messenger-ohttp/
+!packages/messenger-ohttp/**
+!services/
+!services/**
+**/output
+**/node_modules
+**/.env*
+**/*.db*

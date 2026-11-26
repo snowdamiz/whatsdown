@@ -5,7 +5,7 @@ published release with the fixes the messenger relies on (list patterns,
 `return` as an expression, tuple-aware exhaustiveness, the whitespace-preserving
 formatter) and with pass-through match arms and callbacks that discard their
 result. The messenger builds with the latest published Mesh release: `run.sh`
-and CI resolve it on every run (`mesh-private-messenger/scripts/mesh-release.mjs`),
+and CI resolve it on every run (`scripts/mesh-release.mjs`),
 and a release build uses the revision its verification recorded. A compiler
 feature can be used here once a release contains it.
 
@@ -215,7 +215,7 @@ when a higher-level API does not express locking, binary values, or atomicity.
 | Secure test fixtures | In-memory secure store and push token fixtures use the production host callback frames; cleaned between tests. |
 | Build/init/deps | `meshc build`, `init`, `deps`; native binaries, libraries, optional LLVM IR, JSON diagnostics, target/optimization selection. |
 | Formatting | `meshc fmt PATH`, `--check`, `--line-width`, `--indent-size`; shared formatter also serves the LSP. |
-| Linting | `meshc lint PATH`: control flow nested more than four levels, an `else` holding only an `if`, arms that repeat their pattern, comparisons with `true`/`false`. CI runs it over `mesh-private-messenger` and fails on any finding. |
+| Linting | `meshc lint PATH`: control flow nested more than four levels, an `else` holding only an `if`, arms that repeat their pattern, comparisons with `true`/`false`. CI runs it over `clients`, `ops`, `packages`, `services`, `tests`, and `tools` and fails on any finding. |
 | Test runner | `meshc test PATH`, project/directory/file selection, `--quiet`; coverage is explicitly unsupported. |
 | Interactive/editor | LLVM-backed `meshc repl`, `meshc lsp`, VS Code and Neovim support. |
 | Operations | `meshc migrate`, `cluster`, `proof`, `update`. |

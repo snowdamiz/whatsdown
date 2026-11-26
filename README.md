@@ -36,13 +36,20 @@ skip opening the app, or `MORSE_INSTALL_DIR` to choose where `Morse.app` goes
 
 ## Repository layout
 
-- `mesh-private-messenger/` — protocol, services, clients, mobile app, and infrastructure
+- `apps/` holds the mobile, desktop, and landing apps.
+- `clients/` holds the CLI and transparency monitor.
+- `packages/` holds the protocol, mobile core, wallet core, credits, OHTTP, and shared job packages.
+- `services/` holds the backend services (`directory-delivery`, `privacy-edge`, `object-store`, `push-broker`, `transparency-witness`, `credit-issuer`).
+- `programs/` holds the Solana programs (`morse-judge`, `morse-rewards`).
+- `protocol/` holds the protocol specifications and models.
+- `ops/` holds the Cloudflare, witness, relay, drills, acceptance, and runbook tooling.
+- `scripts/`, `tests/`, and `tools/` hold verification, build, and benchmark tooling.
 
 `mesh-lang` in this directory links to the Mesh compiler the launcher builds: by default the latest published Mesh release, which `./run.sh` fetches into `.morse/mesh-lang` on every run. It is ignored and never part of this repository.
 
 ## Run locally
 
-The [desktop app](mesh-private-messenger/apps/desktop/README.md) supports Windows
+The [desktop app](apps/desktop/README.md) supports Windows
 and macOS, shares the mobile UI and encrypted Mesh core, and includes GitHub
 Actions installer builds and tagged releases.
 
@@ -70,7 +77,7 @@ started by this launcher; PostgreSQL and existing services stay running. To stop
 the database too, without deleting its data:
 
 ```sh
-docker compose -p whatsdown-dev -f mesh-private-messenger/services/directory-delivery/docker-compose.yml stop
+docker compose -p whatsdown-dev -f services/directory-delivery/docker-compose.yml stop
 ```
 
 PostgreSQL applies `services/directory-delivery/migrations/` when it first
@@ -86,20 +93,20 @@ to build with a Mesh checkout you are working on instead; a real directory at
 For mobile, install Xcode or the Android NDK and set
 `MORSE_MOBILE_PLATFORM=ios|android` when platform detection is insufficient.
 
-The protocol contracts include the [threat model](mesh-private-messenger/protocol/threat-model.md),
-[privacy contract](mesh-private-messenger/protocol/privacy-contract.md),
-[cryptographic profile](mesh-private-messenger/protocol/crypto-profile-v1.md),
-[ratchet wire format](mesh-private-messenger/protocol/ratchet-message-v1.md),
-[delivery wire format](mesh-private-messenger/protocol/delivery-wire-v1.md),
-[sealed-delivery format](mesh-private-messenger/protocol/sealed-delivery-v1.md),
-[recipient-sealed transport](mesh-private-messenger/protocol/recipient-transport-v1.md),
-[secret-purpose inventory](mesh-private-messenger/protocol/secret-purpose-inventory.md),
-and [storage-wrapping format](mesh-private-messenger/protocol/storage-wrapping-v1.md).
+The protocol contracts include the [threat model](protocol/threat-model.md),
+[privacy contract](protocol/privacy-contract.md),
+[cryptographic profile](protocol/crypto-profile-v1.md),
+[ratchet wire format](protocol/ratchet-message-v1.md),
+[delivery wire format](protocol/delivery-wire-v1.md),
+[sealed-delivery format](protocol/sealed-delivery-v1.md),
+[recipient-sealed transport](protocol/recipient-transport-v1.md),
+[secret-purpose inventory](protocol/secret-purpose-inventory.md),
+and [storage-wrapping format](protocol/storage-wrapping-v1.md).
 
 ## Development rules
 
 Cloud deployment and CI setup are documented in the
-[Cloudflare backend guide](mesh-private-messenger/ops/cloudflare/README.md).
+[Cloudflare backend guide](ops/cloudflare/README.md).
 
 - Reusable capabilities are implemented and reviewed in the separate Mesh repository before the messenger consumes them.
 - Protocol state machines are Mesh source; application-level Rust protocol code is prohibited.

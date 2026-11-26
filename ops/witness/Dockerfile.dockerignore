@@ -1,0 +1,12 @@
+**
+!packages/
+!packages/messenger-protocol/
+!packages/messenger-protocol/**
+!services/
+!services/transparency-witness/
+!services/transparency-witness/**
+services/transparency-witness/output
+services/transparency-witness/transparency-witness
+services/transparency-witness/tests
+**/*.o
+**/.DS_Store

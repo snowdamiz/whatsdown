@@ -30,7 +30,7 @@ jobs:
       - id: changes
         env:
           GH_TOKEN: ${{ github.token }}
-        run: node mesh-private-messenger/scripts/release-changes.mjs
+        run: node scripts/release-changes.mjs
 
   verification:
     needs: changes
@@ -74,7 +74,7 @@ jobs:
         with:
           node-version: '24'
           cache: npm
-          cache-dependency-path: mesh-private-messenger/ops/cloudflare/package-lock.json
+          cache-dependency-path: ops/cloudflare/package-lock.json
       - name: Prepare Linux build runner
         run: |
           # This backend-only job does not need the runner's Android SDK or .NET.
@@ -84,12 +84,12 @@ jobs:
           sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
           sudo apt-get install --no-install-recommends -y postgresql-client-17 libxml2-dev libffi-dev libsqlite3-dev
           echo /usr/lib/postgresql/17/bin >> "$GITHUB_PATH"
-          npm ci --prefix mesh-private-messenger/ops/cloudflare
+          npm ci --prefix ops/cloudflare
       - name: Build the resolved compiler once for tests and deployment
         run: |
           docker build --target compiler-tools --output "type=local,dest=$RUNNER_TEMP/mesh-tools" \
             --build-arg "MESH_LANG_REVISION=$MESH_LANG_REVISION" \
-            --file mesh-private-messenger/ops/cloudflare/Dockerfile .
+            --file ops/cloudflare/Dockerfile .
           printf '%s\n' "MESHC=$RUNNER_TEMP/mesh-tools/meshc" \
             "MESH_RT_LIB_PATH=$RUNNER_TEMP/mesh-tools/libmesh_rt.a" \
             "MESH_TEST_RT_LIB_PATH=$RUNNER_TEMP/mesh-tools/libmesh_test_rt.a" >> "$GITHUB_ENV"
@@ -97,21 +97,21 @@ jobs:
         env:
           MESSENGER_STORAGE_TEST_DATABASE_URL: postgres://postgres:postgres@127.0.0.1:55439/morse_storage_test?sslmode=disable
         run: |
-          "$MESHC" test mesh-private-messenger/packages/messenger-protocol/tests
-          "$MESHC" test mesh-private-messenger/services/push-broker/tests
-          "$MESHC" test mesh-private-messenger/services/object-store/tests/object_store.test.mpl
-          "$MESHC" test mesh-private-messenger/services/object-store/tests/postgres.test.mpl
-          node --test mesh-private-messenger/services/credit-issuer/tests/linkability.test.mjs
-          npm test --prefix mesh-private-messenger/ops/cloudflare
+          "$MESHC" test packages/messenger-protocol/tests
+          "$MESHC" test services/push-broker/tests
+          "$MESHC" test services/object-store/tests/object_store.test.mpl
+          "$MESHC" test services/object-store/tests/postgres.test.mpl
+          node --test services/credit-issuer/tests/linkability.test.mjs
+          npm test --prefix ops/cloudflare
       - name: Require verified candidate
         working-directory: .
         env:
           VERIFICATION_RESULT: ${{ needs.verification.result }}
           VERIFIED_MORSE_REVISION: ${{ needs.verification.outputs.morse-revision }}
           VERIFIED_MESH_REVISION: ${{ needs.verification.outputs.mesh-revision }}
-        run: node mesh-private-messenger/scripts/release-verification.mjs
+        run: node scripts/release-verification.mjs
       - name: Migrate and deploy all backend services
-        working-directory: mesh-private-messenger/ops/cloudflare
+        working-directory: ops/cloudflare
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
@@ -169,7 +169,7 @@ jobs:
     defaults:
       run:
         shell: bash
-        working-directory: mesh-private-messenger/apps/landing
+        working-directory: apps/landing
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -177,8 +177,8 @@ jobs:
           node-version: '24'
           cache: npm
           cache-dependency-path: |
-            mesh-private-messenger/apps/mobile/package-lock.json
-            mesh-private-messenger/ops/cloudflare/package-lock.json
+            apps/mobile/package-lock.json
+            ops/cloudflare/package-lock.json
       - name: Check the page
         run: |
           # check.mjs takes Playwright from the mobile app.

@@ -35,7 +35,7 @@ jobs:
         run: |
           # The release CI resolves, through the page redirect rather than
           # the rate-limited API; the installer checks SHA256SUMS.
-          tag="$(node --input-type=module -e "import('./mesh-private-messenger/scripts/mesh-release.mjs').then((m) => m.latestReleaseTag()).then((tag) => console.log(tag))")"
+          tag="$(node --input-type=module -e "import('./scripts/mesh-release.mjs').then((m) => m.latestReleaseTag()).then((tag) => console.log(tag))")"
           curl -sSfL "https://raw.githubusercontent.com/snowdamiz/mesh-lang/${tag}/tools/install/install.sh" \
             | sh -s -- --version "${tag#v}" --yes
           echo "$HOME/.mesh/bin" >> "$GITHUB_PATH"
@@ -43,7 +43,9 @@ jobs:
 
       - name: Format and commit
         run: |
-          meshc fmt mesh-private-messenger
+          for dir in clients ops packages services tests tools; do
+            meshc fmt "$dir"
+          done
           if git diff --quiet -- '*.mpl'; then
             echo "Already formatted as Mesh ${MESH_TAG} formats it."
             exit 0
