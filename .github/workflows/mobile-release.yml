@@ -21,7 +21,7 @@ concurrency:
 defaults:
   run:
     shell: bash
-    working-directory: mesh-private-messenger/apps/mobile
+    working-directory: apps/mobile
 
 env:
   EXPO_PROJECT_ID: ${{ vars.EXPO_PROJECT_ID }}
@@ -44,7 +44,7 @@ jobs:
         working-directory: .
         env:
           GH_TOKEN: ${{ github.token }}
-        run: node mesh-private-messenger/scripts/release-changes.mjs
+        run: node scripts/release-changes.mjs
 
   verification:
     needs: changes
@@ -62,7 +62,7 @@ jobs:
         with:
           node-version: '24'
           cache: npm
-          cache-dependency-path: mesh-private-messenger/apps/mobile/package-lock.json
+          cache-dependency-path: apps/mobile/package-lock.json
       - run: npm ci
       - run: npm test
       - run: npm run typecheck
@@ -95,7 +95,7 @@ jobs:
         with:
           node-version: '24'
           cache: npm
-          cache-dependency-path: mesh-private-messenger/apps/mobile/package-lock.json
+          cache-dependency-path: apps/mobile/package-lock.json
       - uses: expo/expo-github-action@eab7a230208c952974db8c3245cfd78402c7b385 # v9
         with:
           eas-version: '24.7.0'
@@ -115,7 +115,7 @@ jobs:
           VERIFICATION_RESULT: ${{ needs.verification.result }}
           VERIFIED_MORSE_REVISION: ${{ needs.verification.outputs.morse-revision }}
           VERIFIED_MESH_REVISION: ${{ needs.verification.outputs.mesh-revision }}
-        run: node mesh-private-messenger/scripts/release-verification.mjs
+        run: node scripts/release-verification.mjs
       - name: Check production configuration
         # Pull the same production values used by the remote build and OTA export.
         run: eas env:exec production 'node scripts/check-release-config.mjs' --non-interactive
@@ -163,7 +163,7 @@ jobs:
         with:
           node-version: '24'
           cache: npm
-          cache-dependency-path: mesh-private-messenger/apps/mobile/package-lock.json
+          cache-dependency-path: apps/mobile/package-lock.json
       - uses: expo/expo-github-action@eab7a230208c952974db8c3245cfd78402c7b385 # v9
         with:
           eas-version: '24.7.0'
@@ -176,7 +176,7 @@ jobs:
           VERIFICATION_RESULT: ${{ needs.verification.result }}
           VERIFIED_MORSE_REVISION: ${{ needs.verification.outputs.morse-revision }}
           VERIFIED_MESH_REVISION: ${{ needs.verification.outputs.mesh-revision }}
-        run: node mesh-private-messenger/scripts/release-verification.mjs
+        run: node scripts/release-verification.mjs
       - name: Check production configuration
         run: eas env:exec production 'node scripts/check-release-config.mjs' --non-interactive
       - name: Publish signed production OTA update

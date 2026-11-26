@@ -15,29 +15,29 @@ target/
 
 # Mesh is a separate repository. A local checkout may live here for reference.
 /mesh-lang
-/mesh-private-messenger/services/*/output
-/mesh-private-messenger/clients/mesh-cli/output
-/mesh-private-messenger/clients/monitor/output
+/services/*/output
+/clients/mesh-cli/output
+/clients/monitor/output
 # `meshc build <dir>` without --output leaves <dir>/<dir-name> and an object file.
-/mesh-private-messenger/services/*/directory-delivery
-/mesh-private-messenger/services/*/object-store
-/mesh-private-messenger/services/*/privacy-edge
-/mesh-private-messenger/services/*/push-broker
-/mesh-private-messenger/services/*/transparency-witness
-/mesh-private-messenger/clients/mesh-cli/mesh-cli
-/mesh-private-messenger/clients/monitor/morse-monitor
+/services/*/directory-delivery
+/services/*/object-store
+/services/*/privacy-edge
+/services/*/push-broker
+/services/*/transparency-witness
+/clients/mesh-cli/mesh-cli
+/clients/monitor/morse-monitor
 *.o
-/mesh-private-messenger/apps/mobile/modules/mesh-messenger/native/
-/mesh-private-messenger/apps/mobile/ios/
-/mesh-private-messenger/apps/mobile/android/
+/apps/mobile/modules/mesh-messenger/native/
+/apps/mobile/ios/
+/apps/mobile/android/
 .morse/
-/mesh-private-messenger/apps/desktop/src-tauri/native/
-/mesh-private-messenger/apps/desktop/src-tauri/gen/
+/apps/desktop/src-tauri/native/
+/apps/desktop/src-tauri/gen/
 
 *.db
 *.db-shm
 *.db-wal
 
 .wrangler/
-/mesh-private-messenger/ops/cloudflare/wrangler.build.json
+/ops/cloudflare/wrangler.build.json
 .security-evidence/

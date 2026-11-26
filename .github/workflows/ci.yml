@@ -16,11 +16,11 @@ name: CI
 on:
   pull_request:
     # Nothing here tests documentation or the landing page; release checks the page.
-    paths-ignore: ['**.md', '.github/ISSUE_TEMPLATE/**', 'mesh-private-messenger/apps/landing/**']
+    paths-ignore: ['**.md', '.github/ISSUE_TEMPLATE/**', 'apps/landing/**']
   push:
     branches:
       - main
-    paths-ignore: ['**.md', '.github/ISSUE_TEMPLATE/**', 'mesh-private-messenger/apps/landing/**']
+    paths-ignore: ['**.md', '.github/ISSUE_TEMPLATE/**', 'apps/landing/**']
   workflow_dispatch:
   workflow_call:
     outputs:
@@ -78,7 +78,7 @@ jobs:
         run: |
           # Every run builds with the newest published Mesh release; release
           # jobs reuse the exact commit this run verified.
-          revision="$(node mesh-private-messenger/scripts/mesh-release.mjs)"
+          revision="$(node scripts/mesh-release.mjs)"
           [[ "$revision" =~ ^[0-9a-f]{40}$ ]]
           echo "MESH_LANG_REVISION=$revision" >> "$GITHUB_ENV"
 
@@ -97,11 +97,11 @@ jobs:
       - name: Verify root runner and installers
         working-directory: .
         run: |
-          bash -n run.sh mesh-private-messenger/scripts/run-root.test.sh
-          bash mesh-private-messenger/scripts/run-root.test.sh
+          bash -n run.sh scripts/run-root.test.sh
+          bash scripts/run-root.test.sh
           sh -n install.sh
-          bash mesh-private-messenger/scripts/install.test.sh
-          node --test mesh-private-messenger/scripts/release-changes.test.mjs
+          bash scripts/install.test.sh
+          node --test scripts/release-changes.test.mjs
 
       - name: Cache LLVM
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
@@ -162,39 +162,42 @@ jobs:
 
       - name: Lint Mesh sources
         timeout-minutes: 5
-        run: ./target/debug/meshc lint ../mesh-private-messenger
+        run: |
+          for dir in clients ops packages services tests tools; do
+            ./target/debug/meshc lint "../$dir"
+          done
 
       - name: Verify Mesh messenger packages
         timeout-minutes: 75
         # Formatting is the Mesh formatting workflow's: it reformats what a
         # new Mesh release lays out differently instead of failing here.
         run: |
-          ../mesh-private-messenger/scripts/prove-m14.sh
-          ../mesh-private-messenger/scripts/prove-m15.sh
+          ../scripts/prove-m14.sh
+          ../scripts/prove-m15.sh
 
       - name: Verify M13 transparency witness
         timeout-minutes: 40
         run: |
-          bash -n ../mesh-private-messenger/scripts/prove-m13.sh
-          ../mesh-private-messenger/scripts/prove-m13.sh
+          bash -n ../scripts/prove-m13.sh
+          ../scripts/prove-m13.sh
 
       - name: Verify transparency monitor
         timeout-minutes: 15
-        run: ./target/debug/meshc test ../mesh-private-messenger/clients/monitor/tests
+        run: ./target/debug/meshc test ../clients/monitor/tests
 
       - name: Verify privacy edge and CLI security config
         timeout-minutes: 15
         # prove-m13.sh runs only the edge's api.test.mpl, prove-m10.sh only the CLI's transport test.
         run: |
-          ./target/debug/meshc test ../mesh-private-messenger/services/privacy-edge/tests
-          ./target/debug/meshc test ../mesh-private-messenger/clients/mesh-cli/tests/pins.test.mpl
+          ./target/debug/meshc test ../services/privacy-edge/tests
+          ./target/debug/meshc test ../clients/mesh-cli/tests/pins.test.mpl
 
       - name: Verify service startup failures
         timeout-minutes: 10
         run: |
-          ./target/debug/meshc test ../mesh-private-messenger/services/object-store/tests/object_store.test.mpl
-          bash -n ../mesh-private-messenger/scripts/prove-service-startup.sh
-          ../mesh-private-messenger/scripts/prove-service-startup.sh
+          ./target/debug/meshc test ../services/object-store/tests/object_store.test.mpl
+          bash -n ../scripts/prove-service-startup.sh
+          ../scripts/prove-service-startup.sh
 
       - name: Set up Node for Cloudflare tests
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -206,15 +209,15 @@ jobs:
         env:
           CREDIT_ISSUER_TEST_DATABASE_URL: postgres://postgres:postgres@127.0.0.1:55439/credit_issuer_test?sslmode=disable
         run: |
-          ./target/debug/meshc test ../mesh-private-messenger/packages/messenger-credits/tests
-          ./target/debug/meshc test ../mesh-private-messenger/packages/messenger-ohttp/tests
+          ./target/debug/meshc test ../packages/messenger-credits/tests
+          ./target/debug/meshc test ../packages/messenger-ohttp/tests
           psql postgres://postgres:postgres@127.0.0.1:55439/postgres -v ON_ERROR_STOP=1 -qc 'CREATE DATABASE credit_issuer_test'
-          for migration in ../mesh-private-messenger/services/credit-issuer/migrations/*.sql; do
+          for migration in ../services/credit-issuer/migrations/*.sql; do
             psql "$CREDIT_ISSUER_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -q -1 -f "$migration"
           done
-          (set -a; source ../mesh-private-messenger/services/credit-issuer/tests/test-keys.env; set +a
-            ./target/debug/meshc test ../mesh-private-messenger/services/credit-issuer/tests)
-          node --test ../mesh-private-messenger/services/credit-issuer/tests/linkability.test.mjs
+          (set -a; source ../services/credit-issuer/tests/test-keys.env; set +a
+            ./target/debug/meshc test ../services/credit-issuer/tests)
+          node --test ../services/credit-issuer/tests/linkability.test.mjs
 
       - name: Set up Go for the C2SP interop check
         uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
@@ -226,19 +229,19 @@ jobs:
       - name: Verify C2SP interop with litewitness
         timeout-minutes: 15
         # The script skips without Go; setup-go above makes that impossible here.
-        run: ../mesh-private-messenger/scripts/c2sp-interop.sh
+        run: ../scripts/c2sp-interop.sh
 
       - name: Verify Cloudflare storage and routing
         timeout-minutes: 10
         run: |
-          ./target/debug/meshc test ../mesh-private-messenger/services/push-broker/tests
-          ./target/debug/meshc test ../mesh-private-messenger/services/object-store/tests/postgres.test.mpl
-          ./target/debug/meshc test ../mesh-private-messenger/services/object-store/tests/attachment_buckets.test.mpl
-          node --test ../mesh-private-messenger/scripts/*.test.mjs
-          npm ci --prefix ../mesh-private-messenger/ops/cloudflare
-          MESHC="$PWD/target/debug/meshc" npm test --prefix ../mesh-private-messenger/ops/cloudflare
-          node --test ../mesh-private-messenger/ops/acceptance/*.test.mjs
-          node --test ../mesh-private-messenger/ops/witness/*.test.mjs
+          ./target/debug/meshc test ../services/push-broker/tests
+          ./target/debug/meshc test ../services/object-store/tests/postgres.test.mpl
+          ./target/debug/meshc test ../services/object-store/tests/attachment_buckets.test.mpl
+          node --test ../scripts/*.test.mjs
+          npm ci --prefix ../ops/cloudflare
+          MESHC="$PWD/target/debug/meshc" npm test --prefix ../ops/cloudflare
+          node --test ../ops/acceptance/*.test.mjs
+          node --test ../ops/witness/*.test.mjs
 
       - name: Build Android mobile archives
         timeout-minutes: 35
@@ -269,12 +272,12 @@ jobs:
               x86_64-linux-android) abi=x86_64 ;;
               *) exit 1 ;;
             esac
-            output="../mesh-private-messenger/apps/mobile/modules/mesh-messenger/native/android/$abi/libmessenger_mobile.a"
+            output="../apps/mobile/modules/mesh-messenger/native/android/$abi/libmessenger_mobile.a"
             mkdir -p "$(dirname "$output")"
             # As phones ship it (build-mobile-native.sh --release): the release runtime, at -O2.
             cargo build --locked --release -p mesh-rt --lib --target "$target"
             MESH_RT_LIB_PATH="$CARGO_TARGET_DIR/$target/release/libmesh_rt.a" \
-              "$preserved_meshc" build ../mesh-private-messenger/packages/mobile-core \
+              "$preserved_meshc" build ../packages/mobile-core \
               --artifact staticlib --opt-level 2 --target "$target" --output "$output"
             test -s "$output"
             cargo clean --target "$target"
@@ -282,7 +285,7 @@ jobs:
 
       - name: Verify mobile application
         timeout-minutes: 15
-        working-directory: mesh-private-messenger/apps/mobile
+        working-directory: apps/mobile
         run: |
           npm ci --ignore-scripts=false
           # Expo 57's xcode build tool still pins uuid 7; block high and critical advisories until upstream updates it.
@@ -306,7 +309,7 @@ jobs:
     timeout-minutes: 60
     defaults:
       run:
-        working-directory: mesh-private-messenger
+        working-directory: .
     env:
       # programs/README.md: Solana CLI 4.1 (cargo-build-sbf, platform-tools v1.54).
       SOLANA_VERSION: 4.1.1
@@ -326,12 +329,12 @@ jobs:
         with:
           key: ci-chain
           workspaces: |
-            mesh-private-messenger/packages/wallet-core -> target
-            mesh-private-messenger/programs -> target
+            packages/wallet-core -> target
+            programs -> target
 
       - name: Verify wallet core
         timeout-minutes: 15
-        working-directory: mesh-private-messenger/packages/wallet-core
+        working-directory: packages/wallet-core
         run: |
           cargo fmt --check
           cargo clippy --locked --all-targets -- -D warnings
@@ -358,7 +361,7 @@ jobs:
 
       - name: Build and test the Solana programs
         timeout-minutes: 30
-        working-directory: mesh-private-messenger/programs
+        working-directory: programs
         run: |
           cargo fmt --all --check
           cargo-build-sbf --manifest-path morse-judge/Cargo.toml

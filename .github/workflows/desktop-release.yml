@@ -4,9 +4,9 @@ on:
   pull_request:
     paths:
       - '.github/workflows/desktop-release.yml'
-      - 'mesh-private-messenger/apps/desktop/**'
-      - 'mesh-private-messenger/apps/mobile/**'
-      - 'mesh-private-messenger/packages/**'
+      - 'apps/desktop/**'
+      - 'apps/mobile/**'
+      - 'packages/**'
   push:
     branches: [release]
     tags: ['desktop-v*']
@@ -43,7 +43,7 @@ jobs:
       - id: changes
         env:
           GH_TOKEN: ${{ github.token }}
-        run: node mesh-private-messenger/scripts/release-changes.mjs
+        run: node scripts/release-changes.mjs
 
   verification:
     needs: changes
@@ -72,7 +72,7 @@ jobs:
     defaults:
       run:
         shell: bash
-        working-directory: mesh-private-messenger/apps/desktop
+        working-directory: apps/desktop
     env:
       MESH_LANG_REVISION: ${{ needs.verification.outputs.mesh-revision }}
       EXPO_PUBLIC_MESSENGER_BASE_URL: ${{ vars.EXPO_PUBLIC_MESSENGER_BASE_URL }}
@@ -106,8 +106,8 @@ jobs:
           node-version: '24'
           cache: npm
           cache-dependency-path: |
-            mesh-private-messenger/apps/mobile/package-lock.json
-            mesh-private-messenger/apps/desktop/package-lock.json
+            apps/mobile/package-lock.json
+            apps/desktop/package-lock.json
       - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
         with:
           toolchain: 1.97.0
@@ -116,7 +116,7 @@ jobs:
         with:
           workspaces: |
             mesh-lang -> target
-            mesh-private-messenger/apps/desktop/src-tauri -> target
+            apps/desktop/src-tauri -> target
           key: desktop-${{ matrix.platform }}
       - name: Install application dependencies
         run: |
@@ -315,7 +315,7 @@ jobs:
       # Both Mac builds make Morse.app.tar.gz; the release needs one per architecture.
       - name: Name the Mac update archive
         if: runner.os == 'macOS' && env.RELEASE_BUILD == 'true'
-        working-directory: mesh-private-messenger/apps/desktop/src-tauri/target/release/bundle/macos
+        working-directory: apps/desktop/src-tauri/target/release/bundle/macos
         run: |
           arch=$([[ "$(uname -m)" == arm64 ]] && echo aarch64 || echo x64)
           mv Morse.app.tar.gz "Morse_${MORSE_VERSION}_${arch}.app.tar.gz"
@@ -325,10 +325,10 @@ jobs:
           name: morse-${{ matrix.platform }}
           if-no-files-found: error
           path: |
-            mesh-private-messenger/apps/desktop/src-tauri/target/*/bundle/dmg/*.dmg
-            mesh-private-messenger/apps/desktop/src-tauri/target/*/bundle/macos/*.app.tar.gz*
-            mesh-private-messenger/apps/desktop/src-tauri/target/*/bundle/nsis/*.exe
-            mesh-private-messenger/apps/desktop/src-tauri/target/*/bundle/nsis/*.exe.sig
+            apps/desktop/src-tauri/target/*/bundle/dmg/*.dmg
+            apps/desktop/src-tauri/target/*/bundle/macos/*.app.tar.gz*
+            apps/desktop/src-tauri/target/*/bundle/nsis/*.exe
+            apps/desktop/src-tauri/target/*/bundle/nsis/*.exe.sig
       - name: Remove temporary signing keychain
         if: always() && runner.os == 'macOS' && env.RELEASE_BUILD == 'true'
         run: |
@@ -359,7 +359,7 @@ jobs:
           VERIFIED_MESH_REVISION: ${{ needs.verification.outputs.mesh-revision }}
           # The build jobs compiled the installers with this commit.
           MESH_LANG_REVISION: ${{ needs.verification.outputs.mesh-revision }}
-        run: node mesh-private-messenger/scripts/release-verification.mjs
+        run: node scripts/release-verification.mjs
       # install.sh and install.ps1 request exactly these names and refuse a download
       # without a matching SHA256SUMS entry, so a renamed installer fails here instead
       # of publishing a release the install commands cannot use.
@@ -374,7 +374,7 @@ jobs:
           if [[ "$GITHUB_REF" == refs/tags/* ]]; then test "desktop-v$version" = "$GITHUB_REF_NAME"; fi
           sha256sum "Morse_${version}_aarch64.dmg" "Morse_${version}_x64.dmg" "Morse_${version}_x64-setup.exe" > SHA256SUMS
           # Installed apps read latest.json from the newest release to find an update.
-          node ../mesh-private-messenger/apps/desktop/scripts/updater-manifest.mjs . "$version"
+          node ../apps/desktop/scripts/updater-manifest.mjs . "$version"
           echo "MORSE_VERSION=$version" >> "$GITHUB_ENV"
       - uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3
         with:
