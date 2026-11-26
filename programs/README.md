@@ -14,7 +14,7 @@ Needs Solana CLI 4.1 (`cargo-build-sbf`, platform-tools v1.54) and rustup's
 cargo first in `PATH` (Homebrew's cargo cannot run `cargo +toolchain`).
 
 ```sh
-cd mesh-private-messenger/programs
+cd programs
 export PATH="$HOME/.cargo/bin:$PATH" CARGO_BUILD_JOBS=4
 
 # build the programs (target/deploy/morse_judge.so, morse_rewards.so)

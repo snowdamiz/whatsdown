@@ -1,8 +1,8 @@
 # Acceptance, alerting and the status page
 
-The witness network's production checks ([plan](../../../WITNESS_NETWORK_PLAN.md)
+The witness network's production checks ([plan](../../WITNESS_NETWORK_PLAN.md)
 §4.3, §11.3), its alerting (§12) and the public status page. Everything runs
-from [`.github/workflows/acceptance.yml`](../../../.github/workflows/acceptance.yml)
+from [`.github/workflows/acceptance.yml`](../../.github/workflows/acceptance.yml)
 against production with only Morse's witnesses, and by hand from a workstation.
 
 | File | Does |
@@ -64,7 +64,6 @@ fail to compile. Roles:
 Create them once, from a workstation, against production:
 
 ```sh
-cd mesh-private-messenger
 npm ci --omit=dev --prefix ops/cloudflare
 MORSE_DIRECTORY_URL=https://<backend> MESHC=<meshc of the newest release> \
   MESSENGER_TRANSPARENCY_PUBLIC_KEY_HEX=… MESSENGER_DELIVERY_PUBLIC_KEY_HEX=… MESSENGER_ABUSE_DIFFICULTY=16 \
@@ -82,7 +81,6 @@ already registered.
 ## Running by hand
 
 ```sh
-cd mesh-private-messenger
 npm ci --omit=dev --prefix ops/cloudflare      # the chain client (@solana/kit)
 npm ci --prefix ops/relay                      # only for check 6
 export MORSE_DIRECTORY_URL=https://<backend> MESHC=<meshc>
@@ -307,7 +305,6 @@ The landing page's `witnesses.html` can link to it once it is published.
 ## Tests
 
 ```sh
-cd mesh-private-messenger
 npm ci --omit=dev --prefix ops/cloudflare
 node --test ops/acceptance/*.test.mjs
 ```

@@ -86,7 +86,7 @@ checkpoints that both reach the threshold always share at least one witness
 that signed both.
 
 The implementation order, parameters and tests are in
-[WITNESS_NETWORK_PLAN.md](../../WITNESS_NETWORK_PLAN.md).
+[WITNESS_NETWORK_PLAN.md](../WITNESS_NETWORK_PLAN.md).
 
 A witness that keeps the last checkpoint it signed (the witness service does;
 see "Witness software" below) cannot produce a fork proof against itself unless

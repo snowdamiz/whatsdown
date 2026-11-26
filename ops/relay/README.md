@@ -1,6 +1,6 @@
 # morse-relay
 
-A relay lands fork evidence on-chain ([plan §6.9](../../../WITNESS_NETWORK_PLAN.md),
+A relay lands fork evidence on-chain ([plan §6.9](../../WITNESS_NETWORK_PLAN.md),
 [morse-judge-v1.md §9](../../protocol/morse-judge-v1.md)). Phones post an `FRK`
 ([witness-network-v1.md](../../protocol/witness-network-v1.md), "Fork evidence") to
 every pinned relay; monitors and operators may too. A relay is a chain writer, so it
@@ -47,7 +47,7 @@ lands.
 ## Run
 
 ```sh
-cd mesh-private-messenger/ops/relay
+cd ops/relay
 npm ci
 node cli.mjs serve --port 8787 --wallet relay-wallet.json \
   --rpc https://rpc.example --judge <morse-judge program id> \

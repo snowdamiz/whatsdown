@@ -18,12 +18,12 @@ Example, with two separate test accounts already created:
 ```sh
 maestro --udid "$ALICE_SIMULATOR" test --no-reinstall-driver \
   -e QA_RECIPIENT=qa_bob -e 'QA_MESSAGE=Hello from Alice' \
-  mesh-private-messenger/apps/mobile/tests/e2e/send-request.yaml
+  apps/mobile/tests/e2e/send-request.yaml
 
 maestro --udid "$BOB_SIMULATOR" test --no-reinstall-driver \
   -e QA_SENDER=qa_alice -e 'QA_MESSAGE=Hello from Alice' \
   -e 'QA_REPLY=Hello from Bob' \
-  mesh-private-messenger/apps/mobile/tests/e2e/accept-reply.yaml
+  apps/mobile/tests/e2e/accept-reply.yaml
 ```
 
 Run device flows sequentially. Native simulator tests do not verify physical-camera scanning or real push delivery; multipart encoding/assembly has a separate unit regression in `src/qr.test.ts`.

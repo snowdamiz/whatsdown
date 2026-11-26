@@ -5,7 +5,7 @@ Status: plan, revised 2026-09-25; §22 (security and privacy gaps found by the
 checkpoint gossip and plaintext types (§6.16–6.18, Phases 0.6 and 6) added
 2026-09-27. Nothing in it is built unless §2 says so. The
 protocol design it implements is
-[protocol/witness-network-v1.md](mesh-private-messenger/protocol/witness-network-v1.md)
+[protocol/witness-network-v1.md](protocol/witness-network-v1.md)
 (status: proposed). This file is the build plan: what exists, what gets built,
 in what order, with which formats and numbers, how each piece is tested, and how
 production keeps running at every step, including with **no outside witnesses at

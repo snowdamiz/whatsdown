@@ -36,8 +36,8 @@ The [Cloudflare deployment](../../ops/cloudflare/README.md) routes the private H
 
 ```sh
 export MESSENGER_STORAGE_TEST_DATABASE_URL='postgres://localhost/morse_storage_test?sslmode=disable'
-../mesh-lang/target/debug/meshc test services/object-store/tests/object_store.test.mpl
-../mesh-lang/target/debug/meshc build services/object-store
+mesh-lang/target/debug/meshc test services/object-store/tests/object_store.test.mpl
+mesh-lang/target/debug/meshc build services/object-store
 ```
 
 Use an isolated test database. The focused tests cover anonymous grant denial, exact and changed replay, concurrent first upload, part and aggregate limits, repeated initialization, incomplete or corrupted completion, trailing-file corruption, download authorization, metadata opacity, delete authorization, expiry equality, and bounded purge. The Cloudflare tests exercise R2 through both JavaScript and the native Mesh HTTP storage boundary.

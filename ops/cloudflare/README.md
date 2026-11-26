@@ -544,12 +544,12 @@ delivery keys must be baked into the native security configuration; an OTA updat
 alone cannot change them. The privacy edge uses proof-of-work difficulty `16`.
 
 `client-env.mjs` pins a witness set in that file (security config v2,
-[plan §6.1](../../../WITNESS_NETWORK_PLAN.md)). From the repository root, give it the
+[plan §6.1](../../WITNESS_NETWORK_PLAN.md)). From the repository root, give it the
 JSON files holding the public keys and one `<id>:<label>` per witness; the label
 `Morse` marks a Morse-run witness:
 
 ```sh
-node mesh-private-messenger/ops/cloudflare/client-env.mjs \
+node ops/cloudflare/client-env.mjs \
   --env .morse/cloudflare/client.env --keys .morse/cloudflare/secrets.json \
   witness-a:Morse witness-b:Morse
 ```
@@ -569,7 +569,7 @@ script validates them on its next run.
 ## Witness network jobs
 
 The backend Worker also runs the chain writers and scheduled jobs of the witness
-network ([plan](../../../WITNESS_NETWORK_PLAN.md) §3 "Jobs Worker", Phases 0.3,
+network ([plan](../../WITNESS_NETWORK_PLAN.md) §3 "Jobs Worker", Phases 0.3,
 0.5, 1, 3 and 5). They live in their own Durable Object, `NetworkJobs`
 (`network.mjs`, binding `NETWORK`), so a chain or outside-witness outage never
 fails the witness job or public `/health`'s scheduler check. Chain access uses

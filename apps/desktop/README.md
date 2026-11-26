@@ -71,7 +71,7 @@ compiler and host runtime with LLVM 21:
 ```sh
 cd mesh-lang
 cargo build --locked -p meshc -p mesh-rt
-cd ../mesh-private-messenger/apps/desktop
+cd ../apps/desktop
 npm ci --prefix ../mobile
 npm ci
 npm run native -- --development
@@ -130,7 +130,7 @@ temporary database. Build the native library before running them.
 
 ## GitHub builds and releases
 
-[Desktop build and release](../../../.github/workflows/desktop-release.yml)
+[Desktop build and release](../../.github/workflows/desktop-release.yml)
 builds and tests Windows x64, macOS Intel, and macOS Apple silicon on native
 runners. Every push to `release` that changes the desktop app, the mobile app
 it wraps, or their Mesh core ([`release-changes.mjs`](../../scripts/release-changes.mjs))
@@ -172,8 +172,8 @@ instead, update the lockfiles and push `desktop-v<VERSION>`. Release builds
 reject missing pins and non-TLS endpoints.
 After all three builds pass, the workflow publishes `.dmg` installers for both
 Mac architectures, a Windows `.exe` installer, and their `SHA256SUMS` to that
-GitHub Release. The root [install.sh](../../../install.sh) and
-[install.ps1](../../../install.ps1) commands request those exact file names and
+GitHub Release. The root [install.sh](../../install.sh) and
+[install.ps1](../../install.ps1) commands request those exact file names and
 require a matching `SHA256SUMS` entry, so the release job fails rather than
 publish an installer under another name.
 Mobile EAS/TestFlight/OTA releases continue through the existing mobile workflow.

@@ -40,7 +40,7 @@ port 18990. Build `clients/mesh-cli` first: the test registers real devices and
 obtains signed frames through its `stream-fixture` role instead of
 reimplementing protocol codecs. Run
 `node --test services/directory-delivery/tests/stream-live.test.mjs` from
-`mesh-private-messenger`. Override `MESSENGER_STREAM_TEST_HTTP`,
+the repository root. Override `MESSENGER_STREAM_TEST_HTTP`,
 `MESSENGER_STREAM_TEST_WS`, and `MESSENGER_CLI` for different proof ports or
 binaries. Never run this fixture against a production service.
 

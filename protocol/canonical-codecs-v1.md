@@ -294,7 +294,7 @@ SHA-256(ASCII("mesh-msg/v1/handshake") || canonical_handshake_transcript)
 
 The selected suite and both prekey IDs are therefore authenticated. Golden
 vectors for every new value and the transcript digest live under
-`mesh-private-messenger/tests/fixtures/m5`.
+`tests/fixtures/m5`.
 
 ## Initial message (`INI`)
 

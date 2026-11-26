@@ -11,7 +11,7 @@ this page must match it.
 **Bootstrap.** Both pinned witnesses are run by Morse, and phones need both
 signatures (2 of 2). Nothing here is independent of Morse yet. Outside
 witnesses join through a shadow week and then a release that pins them
-([WITNESS_NETWORK_PLAN.md](../../WITNESS_NETWORK_PLAN.md) §4, §9).
+([WITNESS_NETWORK_PLAN.md](../WITNESS_NETWORK_PLAN.md) §4, §9).
 
 ## Pinned
 

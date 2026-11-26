@@ -210,5 +210,5 @@ The security config's minimum session suite (config version 2) sets a floor for
 new sessions: at `2`, no new session starts at suite `0x0001`, in either
 direction, while existing classical sessions keep working until renewal moves
 their devices to suite `0x0002`.
-Release readiness uses the internal criteria in [SECURITY.md](../../SECURITY.md). Independent
+Release readiness uses the internal criteria in [SECURITY.md](../SECURITY.md). Independent
 cryptographic review has not been recorded and is not a release prerequisite.

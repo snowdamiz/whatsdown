@@ -1,6 +1,6 @@
 # Mobile releases
 
-The [Mobile release workflow](../../../.github/workflows/mobile-release.yml)
+The [Mobile release workflow](../../.github/workflows/mobile-release.yml)
 runs on every push to `release` that changes the app or its native core
 ([`release-changes.mjs`](../../scripts/release-changes.mjs)). It verifies the candidate, then builds the
 `staging` profile in EAS: an internal-distribution Android APK that uses the
@@ -47,7 +47,7 @@ workflow and the desktop installer workflow.
 
 ## Account recovery and remaining setup
 
-Run the commands below from `mesh-private-messenger/apps/mobile`.
+Run the commands below from `apps/mobile`.
 
 1. If restoring the project on another machine, use the existing personal project:
 
@@ -146,7 +146,7 @@ core links the runtime of the compiler's own profile (debug) at `-O0`, which
 runs crypto and proof of work more than ten times slower. CI's Android archive
 check builds the release way. Compiler source and generated archives
 remain ignored by Git. CI builds with the latest published Mesh release, resolved
-on every run by `mesh-private-messenger/scripts/mesh-release.mjs`. The release
+on every run by `scripts/mesh-release.mjs`. The release
 workflow passes the commit it verified to the build hook through `eas.json`; a
 build started any other way resolves the latest release itself.
 

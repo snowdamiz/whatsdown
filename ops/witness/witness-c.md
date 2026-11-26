@@ -28,8 +28,8 @@ On the build machine, from the release commit that contains the pull-mode
 witness and with the Mesh revision that release names:
 
 ```sh
-MESH_LANG_REVISION=<mesh-lang commit> mesh-private-messenger/ops/witness/build.sh --platform linux/amd64 --verify
-cat mesh-private-messenger/ops/witness/dist/SHA256SUMS-amd64 mesh-private-messenger/ops/witness/dist/BUILDINFO-amd64
+MESH_LANG_REVISION=<mesh-lang commit> ops/witness/build.sh --platform linux/amd64 --verify
+cat ops/witness/dist/SHA256SUMS-amd64 ops/witness/dist/BUILDINFO-amd64
 ```
 
 Record `SHA256SUMS-amd64` in the release notes. Anyone can rebuild and compare.

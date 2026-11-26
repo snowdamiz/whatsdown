@@ -1,6 +1,6 @@
 //! `morse-judge`: anchors Morse transparency-log checkpoints on Solana, holds
 //! witness and directory bonds, and slashes them on proof of a fork.
-//! Specification: `mesh-private-messenger/protocol/morse-judge-v1.md`.
+//! Specification: `protocol/morse-judge-v1.md`.
 //!
 //! The program has no instruction that moves a vault except `withdraw`
 //! (the bond owner, 30 days after `request_unbond`, never after a slash) and

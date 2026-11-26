@@ -8,7 +8,7 @@ TestFlight submissions, and production OTA updates through GitHub Actions.
 The [Windows and macOS app](../desktop/README.md) reuses these screens through
 React Native Web and provides its own native Mesh bridge and installer workflow.
 
-**You → Wallet** is a Solana wallet on the device ([plan §6.13](../../../WITNESS_NETWORK_PLAN.md)):
+**You → Wallet** is a Solana wallet on the device ([plan §6.13](../../WITNESS_NETWORK_PLAN.md)):
 create one (the 12-word recovery phrase is shown once, then confirmed by typing two
 of its words back) or restore one, see the address and its SOL and USDC balance,
 pay a Solana Pay link, list the one-time bounty addresses with their balances and
@@ -164,7 +164,7 @@ New development accounts advertise experimental hybrid suite `0x0002`; linked
 classical devices remain on suite `0x0001` until credential rotation. Suite
 `0x0002` is not production-approved until the independent cryptographic review
 [gate](../../protocol/hybrid-handshake-v1.md) is complete.
-Transparency and delivery keys, abuse difficulty, the pinned witness set, and the anchor, RPC, relay, credit-issuer, C2SP log-origin and minimum-suite pins are provisioned together as one canonical signed native security config v2 frame ([plan §6.1](../../../WITNESS_NETWORK_PLAN.md)), read through the `messenger/config/v1` host selector; they are never OTA TypeScript configuration. `plugins/security-config.cjs` builds the frame from the variables listed in [RELEASING.md](RELEASING.md) and refuses any value the core would reject; without `MESSENGER_WITNESSES` it pins `witness-a` and `witness-b` from `MESSENGER_WITNESS_A/B_PUBLIC_KEY_HEX` with threshold 2. Mesh validates the exact frame, unique witness IDs and keys, the majority threshold, contributory delivery key, and difficulty 1 through 24 before verifying directory evidence or sealing a send.
+Transparency and delivery keys, abuse difficulty, the pinned witness set, and the anchor, RPC, relay, credit-issuer, C2SP log-origin and minimum-suite pins are provisioned together as one canonical signed native security config v2 frame ([plan §6.1](../../WITNESS_NETWORK_PLAN.md)), read through the `messenger/config/v1` host selector; they are never OTA TypeScript configuration. `plugins/security-config.cjs` builds the frame from the variables listed in [RELEASING.md](RELEASING.md) and refuses any value the core would reject; without `MESSENGER_WITNESSES` it pins `witness-a` and `witness-b` from `MESSENGER_WITNESS_A/B_PUBLIC_KEY_HEX` with threshold 2. Mesh validates the exact frame, unique witness IDs and keys, the majority threshold, contributory delivery key, and difficulty 1 through 24 before verifying directory evidence or sealing a send.
 Notification enablement requires the Expo project UUID and push-broker X25519 public key together. The broker key is a 32-byte lowercase-hex public build pin. Both non-public environment variables are provisioned into signed native resources during prebuild; they are not OTA JavaScript configuration. Missing, partial, or malformed build configuration fails before notification permission is requested. No-push startup recovery remains available when both pins are absent.
 
 Group messages support exact `@username` tags, member suggestions at the cursor,
@@ -242,7 +242,7 @@ server-claimed ID/public key pair without changing other fields.
 Run the software acceptance proof from the repository root:
 
 ```sh
-mesh-private-messenger/scripts/prove-m11.sh
+scripts/prove-m11.sh
 ```
 
 Push payloads are accepted only when the visible body is `New encrypted activity` and the data object is exactly `{ "kind": "encrypted-wakeup" }`.

@@ -1,6 +1,6 @@
 # Drills
 
-Scheduled drills of the witness network ([plan](../../../WITNESS_NETWORK_PLAN.md)
+Scheduled drills of the witness network ([plan](../../WITNESS_NETWORK_PLAN.md)
 §4.3, §11.3), run against the canary log in production, devnet in staging, or a
 local validator. They use the relay's client (`../relay/judge.mjs`), so run
 `npm ci` in `ops/relay` first.
@@ -91,7 +91,7 @@ prints the budget, allocations and carry-over.
 ## By hand, locally
 
 ```sh
-cd mesh-private-messenger/ops/relay && npm ci && cd ../..
+cd ops/relay && npm ci && cd ../..
 node ops/drills/local.mjs --port 18990 --dir /tmp/morse-drill
 ```
 

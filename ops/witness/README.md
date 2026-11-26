@@ -47,7 +47,7 @@ the Mesh compiler are built in the image); expect 30–60 minutes:
 git clone https://github.com/snowdamiz/whatsdown && cd whatsdown
 git checkout <release commit>
 MESH_LANG_REVISION=<mesh-lang commit named in the release> \
-  mesh-private-messenger/ops/witness/build.sh --platform linux/amd64 --verify
+  ops/witness/build.sh --platform linux/amd64 --verify
 ```
 
 `ops/witness/dist/` then holds:

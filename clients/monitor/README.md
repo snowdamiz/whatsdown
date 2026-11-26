@@ -157,8 +157,8 @@ page Morse and every operator immediately").
 With the Mesh compiler the messenger uses (`meshc` 0.1.8 or later):
 
 ```sh
-meshc build mesh-private-messenger/clients/monitor --opt-level 2 \
-  --output mesh-private-messenger/clients/monitor/morse-monitor
+meshc build clients/monitor --opt-level 2 \
+  --output clients/monitor/morse-monitor
 ```
 
 The binary needs only glibc (Mesh's HTTP client carries its own TLS roots).
@@ -344,7 +344,7 @@ unproven inconsistency.
 ## Tests
 
 ```sh
-mesh-lang/target/debug/meshc test mesh-private-messenger/clients/monitor/tests
+mesh-lang/target/debug/meshc test clients/monitor/tests
 ```
 
 The tests run a stub directory, stub RPC providers and a stub relay inside the

@@ -991,7 +991,7 @@ which returns the ring's rent (about 2.2 SOL) to the destination.
 ## 13. Local-validator quickstart
 
 ```
-cd mesh-private-messenger/programs
+cd programs
 ./scripts/smoke.sh
 ```
 
